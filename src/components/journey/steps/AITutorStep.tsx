@@ -51,7 +51,32 @@ export const AITutorStep: React.FC<AITutorStepProps> = ({
     setIsLoading(true);
 
     try {
-      const replyText = await sendAiTutorMessage(userMsgText, topicTitle, subjectName);
+      let replyText = '';
+      try {
+        const res = await fetch('/.netlify/functions/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: userMsgText,
+            topic: topicTitle,
+            subject: subjectName,
+            tutorName: 'PRIMA AI',
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.reply) {
+            replyText = data.reply;
+          }
+        }
+      } catch (fnErr) {
+        console.warn('Netlify function fetch error, trying fallback:', fnErr);
+      }
+
+      if (!replyText) {
+        replyText = await sendAiTutorMessage(userMsgText, topicTitle, subjectName);
+      }
+
       const aiReply: Message = {
         id: `ai-${Date.now()}`,
         sender: 'ai',

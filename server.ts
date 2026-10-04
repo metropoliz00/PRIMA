@@ -62,8 +62,8 @@ app.get('/api/ai/status', (req, res) => {
   });
 });
 
-// PRIMA AI Tutor Endpoint
-app.post('/api/ai/tutor', async (req, res) => {
+// PRIMA AI Tutor Endpoint & Netlify Function route in local dev
+app.post(['/api/ai/tutor', '/.netlify/functions/gemini', '/api/gemini'], async (req, res) => {
   try {
     const {
       message,

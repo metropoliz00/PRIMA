@@ -18,19 +18,25 @@ function getSmartFallbackReply(message: string, topic: string, subject: string):
 }
 
 export async function sendAiTutorMessage(message: string, topic: string, subject: string, context?: string): Promise<string> {
-  try {
-    const res = await fetch('/api/ai/tutor', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, topic, subject, context }),
-    });
-    
-    const resData = await res.json();
-    if (resData && resData.success && resData.reply) {
-      return resData.reply;
+  const endpoints = ['/.netlify/functions/gemini', '/api/ai/tutor'];
+  
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, topic, subject, context }),
+      });
+      
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData && resData.reply) {
+          return resData.reply;
+        }
+      }
+    } catch (e) {
+      // Try next endpoint
     }
-  } catch (e) {
-    // Ignore server route error on static hosting
   }
 
   return getSmartFallbackReply(message, topic, subject);
