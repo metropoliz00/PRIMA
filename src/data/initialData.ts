@@ -44,7 +44,7 @@ export const DEMO_USERS: User[] = [
     passwordHash: 'murid123',
     role: 'MURID',
     status: 'ACTIVE',
-    avatar: '/src/assets/images/prima_avatar_1791033365222.jpg',
+    avatar: '/prima_avatar_1791033365222.jpg',
     email: 'bintang.murid@prima.sch.id',
     grade: 5,
     studentNumber: '08',

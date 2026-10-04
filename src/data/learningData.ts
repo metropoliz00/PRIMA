@@ -56,7 +56,7 @@ export const INITIAL_BADGES: Badge[] = [
 
 export const DEFAULT_STUDENT_PROGRESS: StudentProgress = {
   studentName: 'Petualang Cilik',
-  avatarUrl: '/src/assets/images/prima_avatar_1791033365222.jpg',
+  avatarUrl: '/prima_avatar_1791033365222.jpg',
   xp: 0,
   level: 1,
   streakDays: 1,

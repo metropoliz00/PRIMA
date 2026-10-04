@@ -116,7 +116,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         avatar: formData.role === 'GURU'
           ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80'
           : formData.role === 'MURID'
-          ? '/src/assets/images/prima_avatar_1791033365222.jpg'
+          ? '/prima_avatar_1791033365222.jpg'
           : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         grade: formData.role === 'MURID' ? Number(formData.grade) : undefined,
         studentNumber: formData.role === 'MURID' ? formData.studentNumber : undefined,

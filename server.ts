@@ -79,7 +79,7 @@ ${customRules}
     const userPrompt = `Siswa bertanya / menjawab: "${message || studentQuestion}"`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-2.5-flash',
       contents: userPrompt,
       config: {
         systemInstruction,
@@ -113,7 +113,7 @@ Gunakan bahasa Indonesia ramah anak SD.
 `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-2.5-flash',
       contents: `Siswa menulis refleksi: "${reflectionText}"`,
       config: {
         systemInstruction,
@@ -154,7 +154,7 @@ Gunakan bahasa Indonesia yang profesional, ramah, dan mendukung pengajar.
     const prompt = `${chatHistory}\nGuru: ${message}`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         systemInstruction,

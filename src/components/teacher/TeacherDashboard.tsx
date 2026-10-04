@@ -350,7 +350,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         passwordHash: studentForm.password || 'murid123',
         role: 'MURID',
         status: 'ACTIVE',
-        avatar: '/src/assets/images/prima_avatar_1791033365222.jpg',
+        avatar: '/prima_avatar_1791033365222.jpg',
         email: `${studentForm.username}@prima.sch.id`,
         grade: Number(studentForm.grade),
         studentNumber: studentForm.studentNumber || '01',
