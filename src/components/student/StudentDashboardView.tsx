@@ -30,18 +30,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   const progressPercent = totalTopics > 0 ? Math.min(100, Math.round((progress.completedTopicsCount / totalTopics) * 100)) : 0;
   const publishedMaterials = materials.filter(m => m.status === 'TERBIT');
 
-  const studentMenus = [
-    { id: 'beranda', label: '🏠 Beranda', icon: LayoutDashboard },
-    { id: 'subject-selector', label: '📚 Belajar', icon: BookOpen },
-    { id: 'video-menu', label: '🎬 Video', icon: Video },
-    { id: 'simulation-menu', label: '🎮 Aktivitas', icon: Gamepad2 },
-    { id: 'ai-tutor-menu', label: '🤖 PRIMA AI', icon: Bot },
-    { id: 'coding-menu', label: '💻 Coding', icon: Code },
-    { id: 'assessment-menu', label: '🧠 Asesmen', icon: Brain },
-    { id: 'badges-menu', label: '🏆 Badge', icon: Trophy },
-    { id: 'progress-view', label: '📊 Progress', icon: BarChart3 },
-    { id: 'refleksi', label: '🪞 Refleksi', icon: MessageSquare },
-  ];
+  const studentMenus: { id: string; label: string; icon: any }[] = [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

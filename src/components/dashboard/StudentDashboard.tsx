@@ -18,16 +18,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const totalTopics = subjects.reduce((acc, sub) => acc + sub.topics.length, 0);
   const progressPercent = totalTopics > 0 ? Math.min(100, Math.round((progress.completedTopicsCount / totalTopics) * 100)) : 0;
 
-  const menuItems = [
-    { id: 'subject-selector', label: 'Belajar', icon: BookOpen, color: 'from-blue-500 to-indigo-600', badge: 'Utama' },
-    { id: 'video-menu', label: 'Video Interaktif', icon: Video, color: 'from-purple-500 to-pink-600', badge: 'Interaktif' },
-    { id: 'simulation-menu', label: 'Tantangan & Simulasi', icon: Gamepad2, color: 'from-emerald-500 to-teal-600', badge: 'Eksplor' },
-    { id: 'ai-tutor-menu', label: 'PRIMA AI', icon: Bot, color: 'from-sky-500 to-cyan-600', badge: 'Asisten' },
-    { id: 'coding-menu', label: 'Coding Challenge', icon: Code, color: 'from-amber-500 to-orange-600', badge: 'Logika' },
-    { id: 'assessment-menu', label: 'Asesmen', icon: Brain, color: 'from-red-500 to-rose-600', badge: 'Kuis' },
-    { id: 'badges-menu', label: 'Badge & Medali', icon: Trophy, color: 'from-yellow-500 to-amber-600', badge: `${progress.badges.filter(b => b.unlocked).length} Unlocked` },
-    { id: 'progress-view', label: 'Progress Saya', icon: BarChart3, color: 'from-teal-500 to-emerald-600', badge: `${progressPercent}%` },
-  ];
+  const menuItems: { id: string; label: string; icon: any; color: string; badge: string }[] = [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

@@ -255,6 +255,65 @@ Format keluaran HARUS berupa JSON array murni tanpa pembuka/penutup markdown \`\
   }
 });
 
+// AI Material / Eksplorasi Konsep Generator Endpoint for Teachers
+app.post('/api/ai/generate-material', async (req, res) => {
+  try {
+    const { subjectId, topicTitle, learningObjectives, grade } = req.body;
+
+    const systemPrompt = `
+Kamu adalah pakar kurikulum dan penulis buku teks pendidikan interaktif yang berspesialisasi dalam merancang materi pembelajaran sains dan matematika yang seru, mudah dipahami, dan menyenangkan untuk siswa Sekolah Dasar Kelas 4-6 SD (Kurikulum Merdeka).
+
+Tugasmu adalah menyusun draf materi pembelajaran / eksplorasi konsep yang lengkap untuk topik: "${topicTitle || 'Umum'}" (Mata Pelajaran: "${subjectId || 'IPAS'}", Kelas: ${grade || 5} SD).
+Tujuan Pembelajaran yang ingin dicapai: "${learningObjectives || 'Mempelajari konsep baru'}".
+
+Materi harus ditulis dengan bahasa yang santun, interaktif, penuh kiasan ramah anak, dan memotivasi siswa untuk berfikir kritis. Materi harus terstruktur menjadi:
+1. "description": Deskripsi pengantar singkat (1-2 kalimat menarik yang menggugah rasa ingin tahu siswa).
+2. "contentBody": Isi materi eksplorasi konsep yang terperinci. Gunakan pemformatan Markdown yang kaya (judul h2, poin-poin bold, subtopik menarik, fakta unik/sains, analogi kehidupan sehari-hari, dan emotikon ceria 🌾, 🌟, 💡, 🧬, 🚀). Buatlah materi ini panjang, berbobot, dan sarat wawasan edukatif, bukan sekadar draf pendek!
+
+PENTING - SEMATKAN GAMBAR RELEVAN:
+Sematkan minimal satu gambar ilustrasi pemandangan/ilmiah yang indah dan sangat relevan dari Unsplash langsung di dalam \`contentBody\` menggunakan sintaks Markdown gambar:
+\`![Deskripsi Gambar](https://images.unsplash.com/photo-[id]?auto=format&fit=crop&w=800&q=80)\`.
+Pilih ID foto Unsplash yang valid dan relevan, contoh rujukan ID foto:
+- Hutan / Ekosistem Alam: photo-1441974231531-c6227db76b6e
+- Air / Laut / Sungai / Danau: photo-1470071459604-3b5ec3a7fe05
+- Angkasa / Teknologi / Sains: photo-1451187580459-43490279c0fa
+- Komputer / AI: photo-1518770660439-4636190af475
+- Tumbuhan / Daun / Fotosintesis: photo-1530595467537-0b5996c41f2d
+- Sawah / Pertanian / Padi: photo-1500382017468-9049fed747ef
+- Hewan / Katak / Serangga: photo-1550828521-4cb4440559b1
+- Buku / Belajar / Perpustakaan: photo-1506880018603-83d5b814b5a6
+- Matematika / Kalkulator: photo-1509228468518-180dd4864904
+Gunakan ID di atas atau ID foto Unsplash nyata lainnya yang sangat cocok dengan topik yang diminta.
+
+Format keluaran HARUS berupa JSON murni tanpa pembuka/penutup markdown \`\`\`json atau teks pengantar lainnya. Struktur objek harus persis seperti berikut:
+{
+  "topicTitle": "${topicTitle || 'Materi Pokok'}",
+  "learningObjectives": "${learningObjectives || 'Memahami materi'}",
+  "description": "Pengantar seru...",
+  "contentBody": "## Pengantar\\n\\nIsi materi lengkap dalam format markdown..."
+}
+`;
+
+    const replyText = await callGeminiAPI(systemPrompt, apiKey);
+    let cleaned = replyText.trim();
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.substring(7);
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.substring(3);
+    }
+    if (cleaned.endsWith('```')) {
+      cleaned = cleaned.substring(0, cleaned.length - 3);
+    }
+    cleaned = cleaned.trim();
+
+    const materialData = JSON.parse(cleaned);
+    res.json({ success: true, material: materialData });
+  } catch (error: any) {
+    console.error('Error generating AI material:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Setup Vite Dev Server middlewares in dev mode
 if (process.env.NODE_ENV !== 'production') {
   const { createServer: createViteServer } = await import('vite');

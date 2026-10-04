@@ -113,5 +113,10 @@ export const createRemoteAIChatLog = (logData: any) => pushAppData('AIChatLogs',
 export const getRemoteLeaderboard = () => fetchAppData('Leaderboard');
 export const createRemoteLeaderboard = (leaderboardData: any) => pushAppData('Leaderboard', 'create', leaderboardData);
 
+// App Settings (including global Text-To-Speech)
+export const getRemoteSettings = () => fetchAppData('Settings');
+export const createRemoteSetting = (settingData: any) => pushAppData('Settings', 'create', settingData);
+export const updateRemoteSetting = (settingData: any) => pushAppData('Settings', 'update', settingData);
+
 // Assessments (Asesmen Kuis)
 export const updateRemoteAssessment = (assessmentData: any) => pushAppData('Assessments', 'update', assessmentData);

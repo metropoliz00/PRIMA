@@ -89,6 +89,56 @@ interface Message {
   text: string;
 }
 
+const speakSingleWord = (word: string) => {
+  // Clean punctuation from word
+  const cleanedWord = word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, "").trim();
+  if (!cleanedWord) return;
+
+  const utterance = new SpeechSynthesisUtterance(cleanedWord);
+  utterance.lang = 'id-ID';
+  utterance.rate = 1.0;
+
+  const voices = window.speechSynthesis.getVoices();
+  const indonesianVoice = voices.find(v => v.lang.startsWith('id') || v.lang.startsWith('in'));
+  if (indonesianVoice) {
+    utterance.voice = indonesianVoice;
+  }
+
+  window.speechSynthesis.cancel(); // Cancel any ongoing speech instantly
+  window.speechSynthesis.speak(utterance);
+};
+
+interface InteractiveTextProps {
+  text: string;
+  enabled: boolean;
+}
+
+const InteractiveText: React.FC<InteractiveTextProps> = ({ text, enabled }) => {
+  if (!enabled) return <span>{text}</span>;
+
+  const parts = text.split(/(\s+)/); // keep spaces
+
+  return (
+    <span>
+      {parts.map((part, idx) => {
+        if (part.trim() === '') {
+          return <span key={idx}>{part}</span>;
+        }
+        return (
+          <span
+            key={idx}
+            onMouseEnter={() => speakSingleWord(part)}
+            className="hover:text-indigo-600 hover:scale-[1.12] hover:bg-amber-100/90 px-0.5 rounded transition-all inline-block cursor-pointer select-none font-bold"
+            title="Arahkan kursor ke kata ini untuk mendengar suaranya 🔊"
+          >
+            {part}
+          </span>
+        );
+      })}
+    </span>
+  );
+};
+
 export const EksplorasiStep: React.FC<EksplorasiStepProps> = ({ 
   content, 
   topicTitle = 'Misi Belajar', 
@@ -99,6 +149,22 @@ export const EksplorasiStep: React.FC<EksplorasiStepProps> = ({
   const [userInput, setUserInput] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [activeDetailCard, setActiveDetailCard] = useState<number | null>(null);
+
+  const [isTtsAllowed, setIsTtsAllowed] = useState(true);
+
+  useEffect(() => {
+    // Check global teacher setting from localStorage (synced with remote DB)
+    const val = localStorage.getItem('prima_tts_enabled');
+    if (val !== null) {
+      setIsTtsAllowed(val === 'true');
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
@@ -187,7 +253,7 @@ export const EksplorasiStep: React.FC<EksplorasiStepProps> = ({
 
             {/* Narrative text */}
             <p className="text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed">
-              {extra.realSituationText}
+              <InteractiveText text={extra.realSituationText} enabled={isTtsAllowed} />
             </p>
 
             {/* Educational Illustration */}
@@ -232,7 +298,7 @@ export const EksplorasiStep: React.FC<EksplorasiStepProps> = ({
                     <CheckCircle className="w-4 h-4 stroke-[3]" />
                   </div>
                   <p className="text-xs sm:text-sm font-semibold text-slate-700 leading-relaxed">
-                    {point}
+                    <InteractiveText text={point} enabled={isTtsAllowed} />
                   </p>
                 </div>
               ))}

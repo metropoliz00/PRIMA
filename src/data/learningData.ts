@@ -1279,3 +1279,33 @@ export function syncMaterialsWithSubjects(subjects: Subject[], materials: Materi
     };
   });
 }
+
+export function getStoredTtsSetting(): boolean {
+  try {
+    const val = localStorage.getItem('prima_tts_enabled');
+    if (val !== null) {
+      return val === 'true';
+    }
+  } catch (e) {
+    console.error('Error reading TTS setting', e);
+  }
+  return true; // Default ON for accessibility
+}
+
+export function saveTtsSetting(enabled: boolean): void {
+  try {
+    localStorage.setItem('prima_tts_enabled', String(enabled));
+    // Push settings to remote Google Sheet
+    const payload = {
+      id: 'tts_setting',
+      key: 'tts_enabled',
+      value: String(enabled),
+      lastUpdated: new Date().toISOString()
+    };
+    pushAppData('Settings', 'create', payload).catch(e =>
+      console.warn('[GAS Sync] Settings sync failed:', e)
+    );
+  } catch (e) {
+    console.error('Error saving TTS setting', e);
+  }
+}

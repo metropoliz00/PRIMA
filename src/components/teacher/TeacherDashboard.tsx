@@ -6,7 +6,7 @@ import {
 import { User as UserType } from '../../types/auth';
 import { Subject, ClassRoom, Material, QuestionBankItem, Assessment, Announcement, ReflectionEntry, AITutorConfig, InteractiveVideo, VideoCheckpoint } from '../../types/learning';
 import { createUser, updateUser, deleteUser } from '../../services/authService';
-import { saveSubjects, getStoredCodingChallenges, saveCodingChallenges, CodingChallengeItem, getStoredVideos, saveVideos, syncVideosWithGAS, getStoredActivities, saveActivities, InteractiveActivity, getAllStudentsProgress, getStudentProgressForId, saveAllStudentsProgress, getStoredMaterials, saveMaterials, saveQuestionBank, saveAssessments } from '../../data/learningData';
+import { saveSubjects, getStoredCodingChallenges, saveCodingChallenges, CodingChallengeItem, getStoredVideos, saveVideos, syncVideosWithGAS, getStoredActivities, saveActivities, InteractiveActivity, getAllStudentsProgress, getStudentProgressForId, saveAllStudentsProgress, getStoredMaterials, saveMaterials, saveQuestionBank, saveAssessments, getStoredTtsSetting, saveTtsSetting } from '../../data/learningData';
 import { parseEmbedUrl } from '../journey/steps/VideoPlayerStep';
 import { pushAppData } from '../../services/appscript';
 import { DatabaseSchemaDocs } from './DatabaseSchemaDocs';
@@ -207,6 +207,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [aiGenResult, setAiGenResult] = useState<QuestionBankItem[]>([]);
   const [aiGenError, setAiGenError] = useState<string | null>(null);
   const [aiGenStepText, setAiGenStepText] = useState('');
+  const [isGeneratingMaterialAi, setIsGeneratingMaterialAi] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState<boolean>(() => getStoredTtsSetting());
 
   // Sandbox AI Chat messages
   const [sandboxMessages, setSandboxMessages] = useState<{ role: 'user' | 'model'; text: string }[]>([
@@ -1323,6 +1325,54 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     toast.success(`Berhasil menyimpan ${aiGenResult.length} butir soal AI ke Bank Soal & Spreadsheet! 💾`);
     setShowAiGenerateModal(false);
     setAiGenResult([]);
+  };
+
+  const handleAutoGenerateMaterialWithAi = async () => {
+    if (!materialForm.topicTitle.trim()) {
+      toast.error('Mohon ketik judul topik/materi terlebih dahulu!');
+      return;
+    }
+    if (!materialForm.learningObjectives.trim()) {
+      toast.error('Mohon ketik tujuan pembelajaran (learning objectives) terlebih dahulu!');
+      return;
+    }
+
+    setIsGeneratingMaterialAi(true);
+    const toastId = toast.loading('🤖 AI sedang merancang draf materi eksplorasi konsep...');
+
+    try {
+      const response = await fetch('/api/ai/generate-material', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subjectId: materialForm.subjectId,
+          topicTitle: materialForm.topicTitle,
+          learningObjectives: materialForm.learningObjectives,
+          grade: 5
+        })
+      });
+
+      if (!response.ok) throw new Error('Koneksi AI gagal.');
+      const data = await response.json();
+
+      if (data.success && data.material) {
+        setMaterialForm((prev) => ({
+          ...prev,
+          description: data.material.description || prev.description,
+          contentBody: data.material.contentBody || prev.contentBody
+        }));
+        toast.dismiss(toastId);
+        toast.success('✨ Materi berhasil diformulasikan oleh AI! Silakan tinjau isi modul di bawah.');
+      } else {
+        throw new Error(data.error || 'Gagal memproses data material dari AI.');
+      }
+    } catch (err: any) {
+      toast.dismiss(toastId);
+      console.error(err);
+      toast.error('Gagal generate materi dengan AI. Koneksi sedang padat.');
+    } finally {
+      setIsGeneratingMaterialAi(false);
+    }
   };
 
   const handleSendTeacherFeedback = (reflectionId: string) => {
@@ -3300,6 +3350,28 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             </div>
 
             <div className="space-y-4 text-xs font-bold text-slate-700">
+              {/* Text-To-Speech Global Switch */}
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs hover:border-indigo-200 transition-all">
+                <div className="space-y-1">
+                  <span className="block text-slate-800 text-xs">🔊 Suara Narator Otomatis (Text-to-Speech)</span>
+                  <span className="block text-[10px] text-slate-500 font-semibold leading-relaxed">Mengaktifkan tombol asisten suara agar siswa dapat mendengarkan pembacaan materi konsep secara langsung.</span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={ttsEnabled}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setTtsEnabled(enabled);
+                      saveTtsSetting(enabled);
+                      toast.success(`Narator Suara (TTS) berhasil di-${enabled ? 'AKTIFKAN' : 'NONAKTIFKAN'}! 🔊`);
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+
               <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border"><span>Notifikasi Email Refleksi Siswa</span><input type="checkbox" defaultChecked className="w-4 h-4 text-indigo-600 cursor-pointer" /></div>
               <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border"><span>Mode Pendampingan AI Scaffolding Otomatis</span><input type="checkbox" defaultChecked className="w-4 h-4 text-indigo-600 cursor-pointer" /></div>
               <div className="pt-4 border-t flex items-center justify-between">
@@ -4614,6 +4686,18 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   placeholder="Contoh: Siswa mampu mengidentifikasi cara perkembangbiakan generatif dan vegetatif..."
                   className="w-full p-2.5 rounded-xl border mt-1 font-medium"
                 />
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  disabled={isGeneratingMaterialAi}
+                  onClick={handleAutoGenerateMaterialWithAi}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold text-xs shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>🪄 Isi Ringkasan & Detail Otomatis dengan AI</span>
+                </button>
               </div>
 
               <div>
