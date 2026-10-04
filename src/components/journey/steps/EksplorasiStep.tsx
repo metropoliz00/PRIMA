@@ -34,7 +34,7 @@ const TOPIC_EXTRAS: Record<string, TopicExtra> = {
   'Harmoni dalam Ekosistem': {
     realSituationTitle: 'Kisah Rantai Makanan Sawah Desa Sukamakmur 🌾',
     realSituationText: 'Di sebuah desa di Jawa Tengah, para petani bingung karena panen padi mereka habis dimakan kawanan belalang kembung. Setelah diselidiki, ternyata populasi ular sawah dan burung pemangsa belalang berkurang drastis karena sering diburu manusia. Hal ini membuktikan bahwa jika satu mata rantai makanan terganggu, seluruh ekosistem sawah akan ikut kacau dan merugikan manusia!',
-    imagePath: '/src/assets/images/ekosistem_sawah_1791082640304.jpg',
+    imagePath: '/ekosistem_sawah_1791082640304.jpg',
     summaryTitle: 'Prinsip Keseimbangan Alam ⚖️',
     summaryPoints: [
       'Aliran Energi: Energi berpindah dari matahari -> produsen -> konsumen I -> konsumen II -> pengurai.',
@@ -46,7 +46,7 @@ const TOPIC_EXTRAS: Record<string, TopicExtra> = {
   'KPK dan FPB (Kelipatan & Faktor)': {
     realSituationTitle: 'Lampu Kelap-Kelip Taman Kota 💡',
     realSituationText: 'Budi memperhatikan dua lampu hias di gerbang taman bermain. Lampu merah berkedip setiap 4 detik sekali, sedangkan lampu biru berkedip setiap 6 detik sekali. Budi penasaran, pada detik keberapa kedua lampu tersebut akan berkedip bersamaan kembali? Ternyata dengan menggunakan Kelipatan Persekutuan Terkecil (KPK), kita tahu mereka akan menyala bersamaan setiap 12 detik sekali!',
-    imagePath: '/src/assets/images/kpk_lampu_1791082656052.jpg',
+    imagePath: '/kpk_lampu_1791082656052.jpg',
     summaryTitle: 'Poin Kunci Kelipatan & Faktor 🧮',
     summaryPoints: [
       'KPK (Kelipatan Persekutuan Terkecil): Nilai terkecil yang habis dibagi oleh kedua bilangan tersebut. Sangat berguna untuk menghitung jadwal berkala.',
@@ -57,7 +57,7 @@ const TOPIC_EXTRAS: Record<string, TopicExtra> = {
   'Iklan dan Informasi Media': {
     realSituationTitle: 'Baliho Buah Segar Dekat Sekolah Budi 🍏',
     realSituationText: 'Saat pulang sekolah, Budi melihat sebuah baliho besar bergambar buah-buahan segar dengan tulisan mencolok: "Tubuh Sehat, Otak Cerdas dengan Makan Buah Setiap Hari!". Baliho ini menarik perhatian Budi karena gambarnya yang penuh warna dan kalimatnya yang membujuknya untuk langsung membeli buah di pasar!',
-    imagePath: '/src/assets/images/iklan_sehat_1791082675372.jpg',
+    imagePath: '/iklan_sehat_1791082675372.jpg',
     summaryTitle: 'Kekuatan Iklan Media Efektif 📢',
     summaryPoints: [
       'Tujuan Utama: Membujuk, mengedukasi, atau memperkenalkan barang/jasa kepada pembaca.',
@@ -72,7 +72,7 @@ const getGenericExtra = (topicTitle: string, subjectName?: string): TopicExtra =
   return {
     realSituationTitle: `Aplikasi Nyata: ${topicTitle} 🌍`,
     realSituationText: `Dalam kehidupan sehari-hari, konsep mengenai "${topicTitle}" sangatlah penting! Pemahaman materi ini membantu kita bernalar lebih kritis, memecahkan masalah praktis di lingkungan sekitar kita, dan melihat keterkaitan ilmu pengetahuan dengan dunia luar.`,
-    imagePath: '/src/assets/images/ekosistem_sawah_1791082640304.jpg',
+    imagePath: '/ekosistem_sawah_1791082640304.jpg',
     summaryTitle: 'Prinsip Dasar Konsep 📝',
     summaryPoints: [
       'Logika Teori: Memahami dasar-dasar konseptual, istilah, dan fungsi materi ini.',

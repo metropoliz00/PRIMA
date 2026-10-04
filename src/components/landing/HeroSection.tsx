@@ -36,7 +36,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <span className="text-cyan-300 font-extrabold">R</span>esponsif{' '}
               <span className="text-amber-300 font-extrabold">I</span>nteraktif berbasis{' '}
               <span className="text-rose-400 font-extrabold">M</span>ultimedia dan{' '}
-              <span className="text-indigo-300 font-extrabold">A</span>I
+              <span className="text-indigo-600 font-extrabold">A</span>I
             </p>
           </div>
         </div>
@@ -64,7 +64,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 <span className="text-cyan-300 font-black">R</span>esponsif{' '}
                 <span className="text-amber-300 font-black">I</span>nteraktif berbasis{' '}
                 <span className="text-rose-400 font-black">M</span>ultimedia dan{' '}
-                <span className="text-indigo-300 font-black">A</span>I
+                <span className="text-indigo-600 font-black">A</span>I
               </p>
               <p className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-sky-300 via-emerald-200 to-amber-300 bg-clip-text text-transparent italic pt-1">
                 “Belajar. Bereksplorasi. Bernalar. Berkarya.”
@@ -117,7 +117,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
               <div className="relative bg-white/20 p-3 rounded-3xl shadow-2xl border border-white/20 overflow-hidden backdrop-blur-md">
                 <img
-                  src="/src/assets/images/prima_app_bg_1791034012905.jpg"
+                  src="/prima_app_bg_1791034012905.jpg"
                   alt="PRIMA Interactive Space"
                   className="w-full h-auto object-cover rounded-2xl shadow-inner border border-white/10"
                   referrerPolicy="no-referrer"
