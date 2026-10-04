@@ -1,0 +1,942 @@
+import { Subject, StudentProgress, Badge, TeacherAnalytics, CodingBlock, InteractiveVideo, QuestionBankItem, Assessment } from '../types/learning';
+import { INITIAL_QUESTION_BANK, INITIAL_ASSESSMENTS } from './initialData';
+import { getRemoteSubjects, createRemoteSubject, updateRemoteSubject, getRemoteVideos, createRemoteVideo, updateRemoteVideo, pushAppData } from '../services/appscript';
+
+export const INITIAL_BADGES: Badge[] = [
+  {
+    id: 'explorer',
+    title: 'Explorer',
+    description: 'Menjelajahi babak awal petualangan belajar.',
+    icon: '🌟',
+    unlocked: true,
+    unlockedAt: 'Hari ini',
+    category: 'Universal',
+  },
+  {
+    id: 'critical_thinker',
+    title: 'Critical Thinker',
+    description: 'Menjawab pertanyaan tantangan HOTS dengan bernalar kritis.',
+    icon: '🧠',
+    unlocked: false,
+    category: 'Universal',
+  },
+  {
+    id: 'problem_solver',
+    title: 'Problem Solver',
+    description: 'Memecahkan simulasi dan asesmen dengan nilai tinggi.',
+    icon: '💡',
+    unlocked: false,
+    category: 'Universal',
+  },
+  {
+    id: 'ai_learner',
+    title: 'AI Learner',
+    description: 'Berdiskusi aktif dan berrefleksi bersama PRIMA AI.',
+    icon: '🤖',
+    unlocked: false,
+    category: 'Universal',
+  },
+  {
+    id: 'code_creator',
+    title: 'Code Creator',
+    description: 'Menyusun logika blok coding untuk menyelesaikan simulasi.',
+    icon: '💻',
+    unlocked: false,
+    category: 'Universal',
+  },
+  {
+    id: 'prima_master',
+    title: 'PRIMA Master',
+    description: 'Menyelesaikan seluruh 10 langkah Misi Belajar dengan baik.',
+    icon: '🏆',
+    unlocked: false,
+    category: 'Universal',
+  },
+];
+
+export const DEFAULT_STUDENT_PROGRESS: StudentProgress = {
+  studentName: 'Petualang Cilik',
+  avatarUrl: '/src/assets/images/prima_avatar_1791033365222.jpg',
+  xp: 0,
+  level: 1,
+  streakDays: 1,
+  completedTopicsCount: 0,
+  badges: INITIAL_BADGES,
+  topicScores: {},
+};
+
+export const INITIAL_SUBJECTS: Subject[] = [
+  {
+    id: 'ipas',
+    name: 'IPAS (Ilmu Pengetahuan Alam & Sosial)',
+    icon: '🌱',
+    color: 'emerald',
+    bgGradient: 'from-emerald-500 to-teal-600',
+    description: 'Eksplorasi rahasia alam, makhluk hidup, dan dinamika lingkungan di sekitarmu.',
+    grade: 5,
+    topics: [
+      {
+        id: 'ipas-ekosistem',
+        subjectId: 'ipas',
+        title: 'Harmoni dalam Ekosistem',
+        description: 'Memahami hubungan saling ketergantungan antara komponen abiotik, produsen, konsumen, dan pengurai.',
+        grade: 5,
+        estimatedMinutes: 30,
+        steps: [
+          {
+            id: 'step-1',
+            stepNumber: 1,
+            type: 'pemantik',
+            title: 'PEMANTIK',
+            subtitle: 'Mengapa Belalang Butuh Rumput?',
+            isCompleted: false,
+            isUnlocked: true,
+            content: {
+              question: 'Bayangkan jika semua rumput di taman mendadak hilang! Apa yang akan terjadi pada populasi belalang dan burung pemakan belalang?',
+              options: [
+                'Belalang akan bertambah banyak',
+                'Belalang kehilangan makanan lalu berkurang, burung pemakan belalang ikut kesulitan',
+                'Semua hewan akan berubah makan batu',
+                'Tidak terjadi pengaruh apa-apa'
+              ],
+              correctAnswer: 1,
+              explanation: 'Hebat! Rumput adalah produsen utama. Tanpa produsen, konsumen tingkat pertama (belalang) tidak dapat bertahan hidup, mempengaruhi rantai makanan!'
+            }
+          },
+          {
+            id: 'step-2',
+            stepNumber: 2,
+            type: 'eksplorasi',
+            title: 'EKSPLORASI',
+            subtitle: 'Komponen & Peran dalam Ekosistem',
+            isCompleted: false,
+            isUnlocked: false,
+            content: {
+              cards: [
+                {
+                  title: 'Produsen (Tumbuhan)',
+                  description: 'Makhluk hidup yang membuat makanan sendiri melalui fotosintesis dengan bantuan matahari.',
+                  tag: 'Tumbuhan Hijau',
+                  icon: '🌿'
+                },
+                {
+                  title: 'Konsumen I (Herbivora)',
+                  description: 'Hewan pemakan tumbuhan seperti belalang, kelinci, ulat, dan sapi.',
+                  tag: 'Pemakan Tumbuhan',
+                  icon: '🐇'
+                },
+                {
+                  title: 'Konsumen II & III (Karnivora/Omnivora)',
+                  description: 'Hewan pemakan hewan lain seperti katak, ular, elang, dan serigala.',
+                  tag: 'Pemakan Daging',
+                  icon: '🦅'
+                },
+                {
+                  title: 'Pengurai (Dekomposer)',
+                  description: 'Bakteri dan jamur yang menguraikan sisa makhluk mati menjadi hara tanah bagi tumbuhan.',
+                  tag: 'Dekomposer',
+                  icon: '🍄'
+                }
+              ]
+            }
+          },
+          {
+            id: 'step-3',
+            stepNumber: 3,
+            type: 'interaksi',
+            title: 'INTERAKSI',
+            subtitle: 'Pencocokan Rantai Makanan',
+            isCompleted: false,
+            isUnlocked: false,
+            content: {
+              instruction: 'Pasangkan komponen ekosistem dengan perannya secara tepat!',
+              pairs: [
+                { id: '1', item: 'Padi', correctCategory: 'Produsen' },
+                { id: '2', item: 'Tikus', correctCategory: 'Konsumen I' },
+                { id: '3', item: 'Ular', correctCategory: 'Konsumen II' },
+                { id: '4', item: 'Jamur', correctCategory: 'Pengurai' }
+              ]
+            }
+          },
+          {
+            id: 'step-4',
+            stepNumber: 4,
+            type: 'video',
+            title: 'VIDEO INTERAKTIF',
+            subtitle: 'Petualangan Harmoni Ekosistem',
+            isCompleted: false,
+            isUnlocked: false,
+            content: {
+              videoUrl: '',
+              title: 'Harmoni Rantai Makanan & Jaring Ekosistem',
+              durationInSeconds: 120,
+              checkpoints: [
+                {
+                  id: 'cp1',
+                  timeInSeconds: 15,
+                  question: 'Apa peran cahaya matahari bagi produsen dalam rantai makanan?',
+                  type: 'mc',
+                  options: [
+                    'Memberikan penerangan malam hari',
+                    'Membantu fotosintesis untuk menghasilkan energi bagi tumbuhan',
+                    'Menghangatkan tubuh herbivora',
+                    'Mengeringkan air di sungai'
+                  ],
+                  correctAnswer: 1,
+                  explanation: 'Tepat sekali! Energi matahari diserap oleh klorofil tumbuhan untuk memasak makanan melalui fotosintesis.'
+                },
+                {
+                  id: 'cp2',
+                  timeInSeconds: 45,
+                  question: 'Benar atau Salah: Jika populasi ular punah, populasi tikus di sawah akan melonjak tinggi?',
+                  type: 'true_false',
+                  options: ['Benar', 'Salah'],
+                  correctAnswer: 0,
+                  explanation: 'Benar! Ular adalah predator tikus. Tanpa pemangsa alami, populasi tikus akan tidak terkontrol dan merusak tanaman padi.'
+                }
+              ]
+            }
+          },
+          {
+            id: 'step-5',
+            stepNumber: 5,
+            type: 'ai_tutor',
+            title: 'PRIMA AI',
+            subtitle: 'Diskusi Saling Ketergantungan Bersama AI',
+            isCompleted: false,
+            isUnlocked: false,
+            content: {
+              initialPrompt: 'Halo Petualang! Coba bayangkan jika di sebuah kolam, eceng gondok tumbuh terlalu banyak menutupi permukaan air. Apa perkiraanmu tentang nasib ikan-ikan di dasar kolam?'
+            }
+          },
+          {
+            id: 'step-6',
+            stepNumber: 6,
+            type: 'simulasi',
+            title: 'SIMULASI',
+            subtitle: 'Laboratorium Keseimbangan Ekosistem',
+            isCompleted: false,
+            isUnlocked: false,
+            content: {
+              type: 'ecosystem',
+              title: 'Simulasi Keseimbangan Populasi Sawah',
+              description: 'Geser slider populasi rumput, belalang, katak, dan ular untuk melihat simulasi dampak interaktif terhadap ekosistem!',
+              initialData: {
+                grass: 100,
+                grasshopper: 50,
+                frog: 20,
+                snake: 5
+              }
+            }
+          },
+          {
+            id: 'step-7',
+            stepNumber: 7,
+            type: 'coding',
+            title: 'CODING CHALLENGE',
+            subtitle: 'Logika Algoritma Rantai Makanan',
+            isCompleted: false,
+            isUnlocked: false,
+            content: {
+              goal: 'Susun urutan blok logika IF/THEN untuk mensimulasikan dampak jika terjadi kemarau panjang pada tumbuhan!',
+              availableBlocks: [
+                { id: 'b1', text: 'JIKA (Terjadi Kemarau Panjang)', category: 'condition', snippet: 'if(kemarau)', color: 'bg-amber-500' },
+                { id: 'b2', text: 'MAKA (Tumbuhan Layu & Produksi Makanan Turun)', category: 'action', snippet: 'tumbuhan.turun()', color: 'bg-emerald-500' },
+                { id: 'b3', text: 'MAKA (Populasi Herbivora Berkurang)', category: 'action', snippet: 'herbivora.turun()', color: 'bg-sky-500' },
+                { id: 'b4', text: 'LAINNYA (Ekosistem Tetap Seimbang)', category: 'control', snippet: 'else()', color: 'bg-purple-500' }
+              ],
+              expectedSequence: ['b1', 'b2', 'b3'],
+              hint: 'Mulai dengan kondisi kemarau, ikuti dampaknya pada produsen, lalu pada konsumen!'
+            }
+          },
+          {
+            id: 'step-8',
+            stepNumber: 8,
+            type: 'hots',
+            title: 'HOTS CHALLENGE',
+            subtitle: 'Analisis Masalah Lingkungan Nyata',
+            isCompleted: false,
+            isUnlocked: false,
+            content: {
+              scenario: 'Sebuah desa mengalami penyemprotan pestisida berlebihan untuk membasmi ulat. Bulan berikutnya, hasil panen justru gagal total karena ledakan hama tikus. Mengapa hal ini bisa terjadi?',
+              options: [
+                'Pestisida membunuh katak dan burung pemangsa, sehingga tikus kehilangan pemangsa alaminya',
+                'Pestisida justru membuat tikus menjadi semakin kuat dan tidak bisa mati',
+                'Tikus menyukai bau pestisida di ladang',
+                'Tidak ada hubungannya sama sekali'
+              ],
+              correctAnswer: 0,
+              explanation: 'Analisis kritis yang luar biasa! Penyemprotan obat kimia berlebih merusak rantai makanan dan membunuh musuh alami hama (predator).'
+            }
+          },
+          {
+            id: 'step-9',
+            stepNumber: 9,
+            type: 'asesmen',
+            title: 'ASESMEN',
+            subtitle: 'Uji Pemahaman Kompetensi Ekosistem',
+            isCompleted: false,
+            isUnlocked: false,
+            content: {
+              questions: [
+                {
+                  id: 'q1',
+                  type: 'mc',
+                  question: 'Manakah di bawah ini yang merupakan rantai makanan yang tepat di ekosistem hutan?',
+                  options: [
+                    'Matahari -> Harimau -> Rusa -> Tumbuhan',
+                    'Rumput -> Rusa -> Serigala -> Bakteri Pengurai',
+                    'Elang -> Tikus -> Padi -> Jamur',
+                    'Ular -> Katak -> Belalang -> Padi'
+                  ],
+                  correctAnswer: 1,
+                  hint: 'Selalu mulai dengan produsen (tumbuhan hijau) disusul hewan pemakan tumbuhan!',
+                  explanation: 'Rumput (produsen) dimakan Rusa (konsumen I), dimakan Serigala (konsumen II), lalu diuraikan Bakteri saat mati.'
+                },
+                {
+                  id: 'q2',
+                  type: 'true_false',
+                  question: 'Pengurai seperti jamur dan bakteri mengembalikan unsur hara ke tanah sehingga tumbuhan dapat tumbuh subur kembali.',
+                  options: ['Benar', 'Salah'],
+                  correctAnswer: 0,
+                  hint: 'Pikirkan peran jamur saat menguraikan daun ganti/hewan mati.',
+                  explanation: 'Benar! Dekomposer menutup siklus materi dalam ekosistem.'
+                },
+                {
+                  id: 'q3',
+                  type: 'short_answer',
+                  question: 'Sebutkan sebutan untuk organisme yang mampu membuat makanannya sendiri melalui fotosintesis!',
+                  correctAnswer: 'produsen',
+                  hint: 'Diawali huruf P...',
+                  explanation: 'Produsen (seperti tumbuhan) menghasilkan energi primer dalam ekosistem.'
+                }
+              ]
+            }
+          },
+          {
+            id: 'step-10',
+            stepNumber: 10,
+            type: 'refleksi',
+            title: 'REFLEKSI',
+            subtitle: 'Jurnal Jejak Pembelajaran',
+            isCompleted: false,
+            isUnlocked: false,
+            content: {
+              prompts: [
+                'Apa hal paling penting yang kamu pelajari tentang menjaga harmoni ekosistem?',
+                'Tindakan sederhana apa di rumah/sekolah yang bisa kamu lakukan untuk menjaga lingkungan?'
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'matematika',
+    name: 'Matematika',
+    icon: '🔢',
+    color: 'blue',
+    bgGradient: 'from-blue-500 to-indigo-600',
+    description: 'Petualangan angka, kelipatan, faktor, pola, dan pemecahan masalah logis.',
+    grade: 5,
+    topics: [
+      {
+        id: 'math-kpk-fpb',
+        subjectId: 'matematika',
+        title: 'KPK dan FPB (Kelipatan & Faktor)',
+        description: 'Menentukan Kelipatan Persekutuan Terkecil dan Faktor Persekutuan Terbesar melalui metode pohon faktor dan tabel.',
+        grade: 5,
+        estimatedMinutes: 25,
+        steps: [
+          {
+            id: 'mstep-1',
+            stepNumber: 1,
+            type: 'pemantik',
+            title: 'PEMANTIK',
+            subtitle: 'Jadwal Ronda Bersama',
+            isCompleted: false,
+            isUnlocked: true,
+            content: {
+              question: 'Pak Andi bertugas ronda setiap 4 hari sekali, sedangkan Pak Budi ronda setiap 6 hari sekali. Jika hari ini mereka ronda bersama, berapa hari lagi mereka akan ronda bersama lagi?',
+              options: ['8 hari lagi', '10 hari lagi', '12 hari lagi', '24 hari lagi'],
+              correctAnswer: 2,
+              explanation: 'Hebat! Ini adalah konsep KPK (Kelipatan Persekutuan Terkecil). Kelipatan 4 = 4, 8, 12, 16... Kelipatan 6 = 6, 12, 18... KPK terkeilnya adalah 12!'
+            }
+          },
+          {
+            id: 'mstep-2',
+            stepNumber: 2,
+            type: 'eksplorasi',
+            title: 'EKSPLORASI',
+            subtitle: 'Pohon Faktor & Perbedaan KPK vs FPB',
+            isCompleted: false,
+            isUnlocked: false,
+            content: {
+              cards: [
+                {
+                  title: 'KPK (Kelipatan Persekutuan Terkecil)',
+                  description: 'Digunakan untuk mencari waktu/peristiwa yang terjadi bersamaan di masa depan.',
+                  tag: 'Kelipatan Bersama',
+                  icon: '🔄'
+                },
+                {
+                  title: 'FPB (Faktor Persekutuan Terbesar)',
+                  description: 'Digunakan untuk membagi barang/benda menjadi kelompok sama banyak tanpa tersisa.',
+                  tag: 'Pembagian Sama Rata',
+                  icon: '📐'
+                }
+              ]
+            }
+          },
+          {
+            id: 'mstep-6',
+            stepNumber: 3,
+            type: 'simulasi',
+            title: 'SIMULASI',
+            subtitle: 'Pohon Faktor Interaktif',
+            isCompleted: false,
+            isUnlocked: false,
+            content: {
+              type: 'math_factors',
+              title: 'Kalkulator Simulasi Pohon Faktor Interaktif',
+              description: 'Masukkan dua angka untuk melihat pemfaktoran prima, KPK, dan FPB secara visual!',
+              initialData: { numA: 12, numB: 18 }
+            }
+          },
+          {
+            id: 'mstep-9',
+            stepNumber: 4,
+            type: 'asesmen',
+            title: 'ASESMEN',
+            subtitle: 'Kuis Keterampilan KPK & FPB',
+            isCompleted: false,
+            isUnlocked: false,
+            content: {
+              questions: [
+                {
+                  id: 'mq1',
+                  type: 'mc',
+                  question: 'Ibu memiliki 24 kue cokelat dan 36 kue keju. Ibu ingin membagikannya ke dalam piring dengan jumlah sama banyak tanpa sisa. Berapa piring paling banyak yang dibutuhkan?',
+                  options: ['6 piring', '12 piring', '18 piring', '24 piring'],
+                  correctAnswer: 1,
+                  hint: 'Gunakan FPB dari 24 dan 36!',
+                  explanation: 'FPB dari 24 dan 36 adalah 12. Jadi paling banyak dibutuhkan 12 piring.'
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'bahasa_indonesia',
+    name: 'Bahasa Indonesia',
+    icon: '📘',
+    color: 'amber',
+    bgGradient: 'from-amber-500 to-orange-600',
+    description: 'Mengasah literasi, analisis iklan, struktur teks, dan kemampuan berkomunikasi efektif.',
+    grade: 5,
+    topics: [
+      {
+        id: 'bi-iklan',
+        subjectId: 'bahasa_indonesia',
+        title: 'Iklan dan Informasi Media',
+        description: 'Menganalisis unsur-unsur iklan cetak dan elektronik: kata kunci, gambar naratif, pesan persuasi, dan sasaran iklan.',
+        grade: 5,
+        estimatedMinutes: 20,
+        steps: [
+          {
+            id: 'bstep-1',
+            stepNumber: 1,
+            type: 'pemantik',
+            title: 'PEMANTIK',
+            subtitle: 'Apa Kata Kunci Iklan Ini?',
+            isCompleted: false,
+            isUnlocked: true,
+            content: {
+              question: 'Sebuah poster menampilkan slogan "Minum Susu Segar, Tubuh Sehat dan Kuat Setiap Hari!". Manakah yang merupakan kata kunci utama iklan tersebut?',
+              options: ['Minum dan Hari', 'Susu Segar & Tubuh Sehat', 'Setiap Hari', 'Iklan Bagus'],
+              correctAnswer: 1,
+              explanation: 'Tepat sekali! Kata kunci menggambarkan pesan inti dari produk yang ditawarkan dalam iklan.'
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'pendidikan_pancasila',
+    name: 'Pendidikan Pancasila',
+    icon: '🇮🇩',
+    color: 'red',
+    bgGradient: 'from-red-500 to-rose-600',
+    description: 'Memahami norma, hak dan kewajiban, kebinekaan, serta musyawarah mufakat.',
+    grade: 5,
+    topics: []
+  },
+  {
+    id: 'seni',
+    name: 'Seni Budaya & Prakarya',
+    icon: '🎨',
+    color: 'purple',
+    bgGradient: 'from-purple-500 to-pink-600',
+    description: 'Mengembangkan kreativitas visual, ritme musik, dan apresiasi karya seni nusantara.',
+    grade: 5,
+    topics: []
+  },
+  {
+    id: 'bahasa_inggris',
+    name: 'Bahasa Inggris',
+    icon: '🌏',
+    color: 'sky',
+    bgGradient: 'from-sky-500 to-blue-600',
+    description: 'Interactive English vocabulary, daily conversations, and fun storybooks.',
+    grade: 5,
+    topics: []
+  }
+];
+
+export const TEACHER_ANALYTICS: TeacherAnalytics = {
+  totalStudents: 28,
+  activeToday: 24,
+  avgProgressPercent: 45,
+  avgAssessmentScore: 78,
+  strugglingTopicName: 'Jaring-jaring Makanan',
+  aiHelpCount: 42,
+  avgLearningTimeMinutes: 20
+};
+
+export function getStoredSubjects(): Subject[] {
+  try {
+    const data = localStorage.getItem('prima_subjects');
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Error reading subjects from localStorage', e);
+  }
+  return INITIAL_SUBJECTS;
+}
+
+export function saveSubjects(subjects: Subject[]): void {
+  try {
+    localStorage.setItem('prima_subjects', JSON.stringify(subjects));
+    // Asynchronously update remote subjects in Google Sheets
+    subjects.forEach((sub) => {
+      updateRemoteSubject({
+        id: sub.id,
+        name: sub.name,
+        icon: sub.icon,
+        color: sub.color,
+        bgGradient: sub.bgGradient,
+        description: sub.description,
+        grade: sub.grade,
+        status: sub.status || 'PUBLISHED',
+      }).catch(() => {});
+    });
+  } catch (e) {
+    console.error('Error saving subjects to localStorage', e);
+  }
+}
+
+export async function syncSubjectsWithGAS(): Promise<Subject[]> {
+  try {
+    const remote = await getRemoteSubjects();
+    if (remote && Array.isArray(remote) && remote.length > 0) {
+      const validRemote = remote.filter((s: any) => s.id && s.name);
+      if (validRemote.length > 0) {
+        const local = getStoredSubjects();
+        const merged = local.map((l) => {
+          const matched = validRemote.find((r: any) => r.id === l.id);
+          if (matched) {
+            return {
+              ...l,
+              status: (matched.status as any) || l.status || 'PUBLISHED',
+              name: matched.name || l.name,
+              description: matched.description || l.description,
+            };
+          }
+          return l;
+        });
+        localStorage.setItem('prima_subjects', JSON.stringify(merged));
+        return merged;
+      }
+    } else {
+      // If remote is empty, seed initial subjects into Google Sheets
+      const local = getStoredSubjects();
+      for (const s of local) {
+        createRemoteSubject({
+          id: s.id,
+          name: s.name,
+          icon: s.icon,
+          color: s.color,
+          bgGradient: s.bgGradient,
+          description: s.description,
+          grade: s.grade,
+          status: s.status || 'PUBLISHED',
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn('[Sync] Failed to sync subjects with Google Apps Script', err);
+  }
+  return getStoredSubjects();
+}
+
+export function getStoredVideos(): InteractiveVideo[] {
+  try {
+    const data = localStorage.getItem('prima_interactive_videos');
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.error('Error reading videos from localStorage', e);
+  }
+  return [];
+}
+
+export function saveVideos(videos: InteractiveVideo[]): void {
+  try {
+    localStorage.setItem('prima_interactive_videos', JSON.stringify(videos));
+    // Asynchronously update remote Videos in Google Sheets via GAS
+    videos.forEach((vid) => {
+      createRemoteVideo({
+        id: vid.id,
+        title: vid.title,
+        subjectId: vid.subjectId,
+        videoUrl: vid.videoUrl,
+        grade: vid.grade || 5,
+        checkpointsCount: vid.checkpointsCount || (vid.checkpoints?.length || 1),
+        createdAt: vid.createdAt || new Date().toISOString(),
+      }).catch(() => {});
+    });
+  } catch (e) {
+    console.error('Error saving videos to localStorage', e);
+  }
+}
+
+export async function syncVideosWithGAS(): Promise<InteractiveVideo[]> {
+  try {
+    const remote = await getRemoteVideos();
+    if (remote && Array.isArray(remote) && remote.length > 0) {
+      const validRemote = remote.filter((v: any) => v.id && v.title && v.videoUrl);
+      if (validRemote.length > 0) {
+        localStorage.setItem('prima_interactive_videos', JSON.stringify(validRemote));
+        return validRemote;
+      }
+    }
+  } catch (err) {
+    console.warn('[Sync] Failed to sync videos with Google Apps Script', err);
+  }
+  return getStoredVideos();
+}
+
+export function getStoredStudentProgress(): StudentProgress {
+  try {
+    const data = localStorage.getItem('prima_student_progress');
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Error reading progress', e);
+  }
+  return DEFAULT_STUDENT_PROGRESS;
+}
+
+export function saveStudentProgress(progress: StudentProgress): void {
+  try {
+    localStorage.setItem('prima_student_progress', JSON.stringify(progress));
+  } catch (e) {
+    console.error('Error saving progress', e);
+  }
+}
+
+export function getAllStudentsProgress(): Record<string, StudentProgress> {
+  try {
+    const data = localStorage.getItem('prima_all_students_progress');
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Error reading all students progress', e);
+  }
+  return {};
+}
+
+export function getStudentProgressForId(studentId: string, studentName: string, avatarUrl?: string): StudentProgress {
+  const all = getAllStudentsProgress();
+  if (all[studentId]) {
+    return all[studentId];
+  }
+  // Initialize default for this student with some realistic starting XP for leaderboard realism if demo
+  const def: StudentProgress = {
+    ...DEFAULT_STUDENT_PROGRESS,
+    studentName: studentName || 'Petualang',
+    avatarUrl: avatarUrl || DEFAULT_STUDENT_PROGRESS.avatarUrl,
+    xp: Math.floor(Math.random() * 500) + 200,
+    level: Math.floor(Math.random() * 3) + 1,
+    streakDays: Math.floor(Math.random() * 7) + 1,
+    completedTopicsCount: Math.floor(Math.random() * 4) + 1,
+  };
+  all[studentId] = def;
+  saveAllStudentsProgress(all);
+  return def;
+}
+
+export function saveStudentProgressForId(studentId: string, progress: StudentProgress): void {
+  try {
+    const all = getAllStudentsProgress();
+    all[studentId] = progress;
+    saveAllStudentsProgress(all);
+    localStorage.setItem('prima_student_progress', JSON.stringify(progress));
+
+    // Sync student learning outcomes to Google Sheets "Progress" sheet automatically
+    const payload = {
+      id: studentId,
+      studentName: progress.studentName,
+      xp: progress.xp,
+      level: progress.level,
+      streakDays: progress.streakDays,
+      completedTopicsCount: progress.completedTopicsCount,
+      lastUpdated: new Date().toISOString()
+    };
+    pushAppData('Progress', 'create', payload).catch(e => console.warn('[GAS Sync] Progress push failed:', e));
+  } catch (e) {
+    console.error('Error saving student progress for id', e);
+  }
+}
+
+export function saveAllStudentsProgress(all: Record<string, StudentProgress>): void {
+  try {
+    localStorage.setItem('prima_all_students_progress', JSON.stringify(all));
+  } catch (e) {
+    console.error('Error saving all students progress', e);
+  }
+}
+
+export interface CodingChallengeItem {
+  id: string;
+  title: string;
+  subjectId: string;
+  allowedBlocksCount: number;
+  targetGoal: string;
+  characterIcon?: string;
+  gridSize?: number;
+  startPos?: { x: number; y: number };
+  targetPos?: { x: number; y: number };
+  obstacles?: { x: number; y: number }[];
+  availableBlocks?: CodingBlock[];
+  expectedSequence?: string[];
+}
+
+export const INITIAL_CODING_CHALLENGES: CodingChallengeItem[] = [
+  {
+    id: 'cod-1',
+    title: '🤖 Algoritma Robot Penyiram Padi Sawah',
+    subjectId: 'ipas',
+    allowedBlocksCount: 5,
+    characterIcon: '🤖',
+    gridSize: 4,
+    startPos: { x: 0, y: 0 },
+    targetPos: { x: 3, y: 3 },
+    obstacles: [{ x: 1, y: 1 }, { x: 2, y: 0 }],
+    targetGoal: 'Gerakkan Robot Penyiram 🤖 dari posisi awal (0,0) melewati rintangan 🪨 untuk menyiram 3 petak Padi 🌾 saat kelembapan < 40%!',
+    availableBlocks: [
+      { id: 'b-maju', text: '🤖 Maju 1 Langkah', category: 'action', snippet: 'robot.maju()', color: 'bg-emerald-600' },
+      { id: 'b-kanan', text: '↪️ Belok Kanan', category: 'action', snippet: 'robot.belokKanan()', color: 'bg-blue-600' },
+      { id: 'b-kiri', text: '↩️ Belok Kiri', category: 'action', snippet: 'robot.belokKiri()', color: 'bg-indigo-600' },
+      { id: 'b-siram', text: '💧 Siram Air Padi', category: 'action', snippet: 'robot.siram()', color: 'bg-sky-500' },
+      { id: 'b-cek', text: '🔍 Cek Kelembapan < 40%', category: 'condition', snippet: 'if(kelembapan < 40)', color: 'bg-amber-500' },
+      { id: 'b-loop', text: '🔄 Ulangi 3 Kali', category: 'control', snippet: 'repeat(3)', color: 'bg-purple-600' },
+    ],
+    expectedSequence: ['b-maju', 'b-maju', 'b-kanan', 'b-maju', 'b-siram'],
+  },
+  {
+    id: 'cod-2',
+    title: '🌾 Rantai Makanan & Harmoni Ekosistem',
+    subjectId: 'ipas',
+    allowedBlocksCount: 5,
+    characterIcon: '🦗',
+    gridSize: 4,
+    startPos: { x: 0, y: 3 },
+    targetPos: { x: 3, y: 0 },
+    obstacles: [{ x: 1, y: 2 }],
+    targetGoal: 'Susun urutan rantai makanan ekosistem sawah yang seimbang: Produsen (Padi 🌾) -> Hama Belalang 🦗 -> Katak 🐸 -> Dekomposer Jamur 🍄!',
+    availableBlocks: [
+      { id: 'b-padi', text: '🌾 Produsen (Tanaman Padi)', category: 'action', snippet: 'ekosistem.padi()', color: 'bg-emerald-600' },
+      { id: 'b-belalang', text: '🦗 Konsumen I (Belalang Hama)', category: 'action', snippet: 'ekosistem.belalang()', color: 'bg-green-600' },
+      { id: 'b-katak', text: '🐸 Konsumen II (Katak Pengendali)', category: 'action', snippet: 'ekosistem.katak()', color: 'bg-sky-600' },
+      { id: 'b-jamur', text: '🍄 Dekomposer (Jamur Pengurai)', category: 'action', snippet: 'ekosistem.jamur()', color: 'bg-amber-600' },
+      { id: 'b-loop', text: '🔄 Siklus Aliran Energi', category: 'control', snippet: 'siklus.berulang()', color: 'bg-purple-600' },
+    ],
+    expectedSequence: ['b-padi', 'b-belalang', 'b-katak', 'b-jamur', 'b-loop'],
+  },
+  {
+    id: 'cod-3',
+    title: '🧮 Robot Pencari Pohon Faktor KPK & FPB',
+    subjectId: 'matematika',
+    allowedBlocksCount: 5,
+    characterIcon: '🧮',
+    gridSize: 4,
+    startPos: { x: 0, y: 0 },
+    targetPos: { x: 2, y: 2 },
+    obstacles: [{ x: 1, y: 0 }],
+    targetGoal: 'Gerakkan Robot Matematika 🧮 untuk mengambil Pohon Faktor Prima 🌳 pada angka 12 dan 18!',
+    availableBlocks: [
+      { id: 'b-maju', text: '🧮 Maju 1 Langkah', category: 'action', snippet: 'step()', color: 'bg-blue-600' },
+      { id: 'b-kanan', text: '↪️ Belok Kanan', category: 'action', snippet: 'turnRight()', color: 'bg-indigo-600' },
+      { id: 'b-faktor', text: '🌳 Ambil Faktor Prima (2, 3)', category: 'action', snippet: 'getFactor()', color: 'bg-emerald-600' },
+      { id: 'b-kpk', text: '✨ Hitung Kelipatan KPK', category: 'action', snippet: 'calcKPK()', color: 'bg-purple-600' },
+    ],
+    expectedSequence: ['b-maju', 'b-kanan', 'b-maju', 'b-faktor'],
+  },
+];
+
+export function getStoredCodingChallenges(): CodingChallengeItem[] {
+  try {
+    const data = localStorage.getItem('prima_coding_challenges');
+    if (data) {
+      const parsed = JSON.parse(data);
+      const hasOldChallenge = parsed.some((ch: any) => ch.title && (ch.title.includes('Daur Air') || ch.title.includes('Evaporasi')));
+      if (!hasOldChallenge) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Error reading coding challenges from localStorage', e);
+  }
+  try {
+    localStorage.setItem('prima_coding_challenges', JSON.stringify(INITIAL_CODING_CHALLENGES));
+  } catch (err) {}
+  return INITIAL_CODING_CHALLENGES;
+}
+
+export function saveCodingChallenges(challenges: CodingChallengeItem[]): void {
+  try {
+    localStorage.setItem('prima_coding_challenges', JSON.stringify(challenges));
+    challenges.forEach((ch) => {
+      const payload = {
+        id: ch.id,
+        title: ch.title,
+        subjectId: ch.subjectId,
+        allowedBlocksCount: ch.allowedBlocksCount,
+        characterIcon: ch.characterIcon,
+        gridSize: ch.gridSize,
+        startPos: JSON.stringify(ch.startPos),
+        targetPos: JSON.stringify(ch.targetPos),
+        obstacles: JSON.stringify(ch.obstacles),
+        availableBlocks: JSON.stringify(ch.availableBlocks),
+        expectedSequence: JSON.stringify(ch.expectedSequence),
+        targetGoal: ch.targetGoal,
+      };
+      pushAppData('CodingChallenges', 'create', payload).catch(e => console.warn('[GAS Sync] CodingChallenges sync failed:', e));
+    });
+  } catch (e) {
+    console.error('Error saving coding challenges to localStorage', e);
+  }
+}
+
+export interface InteractiveActivity {
+  id: string;
+  title: string;
+  subjectId: string;
+  type: 'MATCHING' | 'SIMULATION' | 'PUZZLE' | 'LAB';
+  difficulty: 'LOTS' | 'MOTS' | 'HOTS';
+  points: number;
+  description: string;
+  createdAt?: string;
+}
+
+export const INITIAL_ACTIVITIES: InteractiveActivity[] = [
+  {
+    id: 'act-1',
+    title: 'Simulasi Populasi Sawah (Pemangsa vs Hama)',
+    subjectId: 'ipas',
+    type: 'SIMULATION',
+    difficulty: 'HOTS',
+    points: 150,
+    description: 'Eksperimen variabel kontrol tikus, ular, dan tanaman padi dalam ekosistem sawah.',
+  },
+  {
+    id: 'act-2',
+    title: 'Matching Game: Pengelompokan Biotik & Abiotik',
+    subjectId: 'ipas',
+    type: 'MATCHING',
+    difficulty: 'MOTS',
+    points: 100,
+    description: 'Pasangkan komponen lingkungan dengan kelompok yang tepat secara cepat dan cermat.',
+  },
+  {
+    id: 'act-3',
+    title: 'Laboratorium Maya: Penjernih Air Sederhana',
+    subjectId: 'ipas',
+    type: 'LAB',
+    difficulty: 'MOTS',
+    points: 120,
+    description: 'Susun lapisan kerikil, ijuk, arang, dan pasir untuk menyaring air keruh.',
+  },
+];
+
+export function getStoredActivities(): InteractiveActivity[] {
+  try {
+    const data = localStorage.getItem('prima_interactive_activities');
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.error('Error reading activities', e);
+  }
+  return INITIAL_ACTIVITIES;
+}
+
+export function saveActivities(activities: InteractiveActivity[]): void {
+  try {
+    localStorage.setItem('prima_interactive_activities', JSON.stringify(activities));
+  } catch (e) {
+    console.error('Error saving activities', e);
+  }
+}
+
+export function getStoredQuestionBank(): QuestionBankItem[] {
+  try {
+    const data = localStorage.getItem('prima_question_bank');
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Error reading question bank', e);
+  }
+  return INITIAL_QUESTION_BANK;
+}
+
+export function saveQuestionBank(questions: QuestionBankItem[]): void {
+  try {
+    localStorage.setItem('prima_question_bank', JSON.stringify(questions));
+  } catch (e) {
+    console.error('Error saving question bank', e);
+  }
+}
+
+export function getStoredAssessments(): Assessment[] {
+  try {
+    const data = localStorage.getItem('prima_assessments');
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Error reading assessments', e);
+  }
+  return INITIAL_ASSESSMENTS;
+}
+
+export function saveAssessments(assessments: Assessment[]): void {
+  try {
+    localStorage.setItem('prima_assessments', JSON.stringify(assessments));
+  } catch (e) {
+    console.error('Error saving assessments', e);
+  }
+}

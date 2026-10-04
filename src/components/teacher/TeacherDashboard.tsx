@@ -1,0 +1,3124 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
+import {
+  LayoutDashboard, Users, User, School, BookOpen, FileText, Video, Gamepad2, Bot, Code, Brain, Database, BarChart2, Award, MessageSquare, Megaphone, Settings, LogOut, Plus, Search, Edit3, Trash2, KeyRound, CheckCircle2, ChevronRight, Sparkles, AlertCircle, Play, Sliders, ShieldCheck, Download, RefreshCw, Layers, Check, HelpCircle, X, ExternalLink, Send, Star, Zap, Eye, Save, ToggleLeft, ToggleRight, MessageCircle, FileSpreadsheet, Cpu, GraduationCap
+} from 'lucide-react';
+import { User as UserType } from '../../types/auth';
+import { Subject, ClassRoom, Material, QuestionBankItem, Assessment, Announcement, ReflectionEntry, AITutorConfig, InteractiveVideo } from '../../types/learning';
+import { createUser, updateUser, deleteUser } from '../../services/authService';
+import { saveSubjects, getStoredCodingChallenges, saveCodingChallenges, CodingChallengeItem, getStoredVideos, saveVideos, syncVideosWithGAS, getStoredActivities, saveActivities, InteractiveActivity, getAllStudentsProgress, getStudentProgressForId } from '../../data/learningData';
+import { parseEmbedUrl } from '../journey/steps/VideoPlayerStep';
+import { pushAppData } from '../../services/appscript';
+
+interface TeacherDashboardProps {
+  currentUser: UserType;
+  usersList: UserType[];
+  subjectsList: Subject[];
+  classesList: ClassRoom[];
+  materialsList: Material[];
+  questionBankList: QuestionBankItem[];
+  assessmentsList: Assessment[];
+  announcementsList: Announcement[];
+  reflectionsList: ReflectionEntry[];
+  aiConfigsList: AITutorConfig[];
+  onAddSubject: (newSubject: Subject) => void;
+  onRefreshData: () => void;
+  onRequestLogout: () => void;
+  onUpdateQuestionBank?: (updated: QuestionBankItem[]) => void;
+  onUpdateAssessments?: (updated: Assessment[]) => void;
+}
+
+export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
+  currentUser,
+  usersList,
+  subjectsList,
+  classesList,
+  materialsList,
+  questionBankList,
+  assessmentsList,
+  announcementsList,
+  reflectionsList,
+  aiConfigsList,
+  onAddSubject,
+  onRefreshData,
+  onRequestLogout,
+  onUpdateQuestionBank,
+  onUpdateAssessments,
+}) => {
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Dynamic States for 17 Menus
+  const [localMaterials, setLocalMaterials] = useState<Material[]>(materialsList);
+  const [localQuestionBank, setLocalQuestionBank] = useState<QuestionBankItem[]>(questionBankList);
+  const [localAssessments, setLocalAssessments] = useState<Assessment[]>(assessmentsList);
+  const [localAnnouncements, setLocalAnnouncements] = useState<Announcement[]>(announcementsList);
+  const [localAiConfigs, setLocalAiConfigs] = useState<AITutorConfig[]>(aiConfigsList);
+  const [localReflections, setLocalReflections] = useState<ReflectionEntry[]>(reflectionsList);
+  const [localClasses, setLocalClasses] = useState<ClassRoom[]>(classesList);
+  const [localSubjects, setLocalSubjects] = useState<Subject[]>(subjectsList);
+
+  // Synchronize local states with global localStorage and call parent update callbacks automatically
+  useEffect(() => {
+    localStorage.setItem('prima_question_bank', JSON.stringify(localQuestionBank));
+    if (onUpdateQuestionBank) {
+      onUpdateQuestionBank(localQuestionBank);
+    }
+  }, [localQuestionBank, onUpdateQuestionBank]);
+
+  useEffect(() => {
+    localStorage.setItem('prima_assessments', JSON.stringify(localAssessments));
+    if (onUpdateAssessments) {
+      onUpdateAssessments(localAssessments);
+    }
+  }, [localAssessments, onUpdateAssessments]);
+
+  // Ambil grade pengampuan murni sesuai database (currentUser.grade) tanpa hardcode
+  const teacherGrade = useMemo(() => {
+    if (currentUser.grade !== undefined && currentUser.grade !== null && !isNaN(Number(currentUser.grade)) && Number(currentUser.grade) > 0) {
+      return Number(currentUser.grade);
+    }
+    return null;
+  }, [currentUser.grade]);
+
+  // Profile Form State - Diambil murni dari database akun tanpa duplikasi
+  const [profileForm, setProfileForm] = useState<{
+    name: string;
+    nip: string;
+    grade: number | '';
+    email: string;
+    schoolName: string;
+    phone: string;
+  }>({
+    name: currentUser.name || '',
+    nip: currentUser.nip || '',
+    grade: (currentUser.grade !== undefined && currentUser.grade !== null && !isNaN(Number(currentUser.grade)) && Number(currentUser.grade) > 0)
+      ? Number(currentUser.grade)
+      : '',
+    email: currentUser.email || '',
+    schoolName: currentUser.schoolName || '',
+    phone: '',
+  });
+
+  // Interactive Video state (Tersimpan di Database & Google Sheets "Videos")
+  const [localInteractiveVideos, setLocalInteractiveVideos] = useState<InteractiveVideo[]>(getStoredVideos());
+  const [isVideoSyncing, setIsVideoSyncing] = useState<boolean>(false);
+  const [showSheetGuide, setShowSheetGuide] = useState<boolean>(false);
+
+  // Sync videos from Google Apps Script Spreadsheet Database on mount
+  useEffect(() => {
+    setIsVideoSyncing(true);
+    syncVideosWithGAS()
+      .then((synced) => {
+        setLocalInteractiveVideos(synced);
+      })
+      .finally(() => {
+        setIsVideoSyncing(false);
+      });
+  }, []);
+
+  const handleManualSyncVideo = async () => {
+    setIsVideoSyncing(true);
+    try {
+      const synced = await syncVideosWithGAS();
+      setLocalInteractiveVideos(synced);
+      toast.success(`Sinkronisasi Database selesai. ${synced.length} video aktif.`);
+    } catch (err) {
+      toast.error('Gagal menyinkronkan data video dengan Google Spreadsheet.');
+    } finally {
+      setIsVideoSyncing(false);
+    }
+  };
+
+  // Interactive Activities State
+  const [localActivities, setLocalActivities] = useState<InteractiveActivity[]>(getStoredActivities());
+
+  // Coding Challenges State (Persisted for Student Dashboard)
+  const [localCodingChallenges, setLocalCodingChallenges] = useState<CodingChallengeItem[]>(getStoredCodingChallenges());
+
+  // Modals state
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [showAddMaterialModal, setShowAddMaterialModal] = useState(false);
+  const [showAddAnnouncementModal, setShowAddAnnouncementModal] = useState(false);
+  const [showAddQuestionModal, setShowAddQuestionModal] = useState(false);
+  const [showAddVideoModal, setShowAddVideoModal] = useState(false);
+  const [showAddActivityModal, setShowAddActivityModal] = useState(false);
+  const [showAddAiConfigModal, setShowAddAiConfigModal] = useState(false);
+  const [showAddCodingModal, setShowAddCodingModal] = useState(false);
+  const [showAddAssessmentModal, setShowAddAssessmentModal] = useState(false);
+  const [showAddSubjectModal, setShowAddSubjectModal] = useState(false);
+  const [showAiSandboxModal, setShowAiSandboxModal] = useState<AITutorConfig | null>(null);
+
+  // Edit states
+  const [editingStudent, setEditingStudent] = useState<UserType | null>(null);
+  const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+  const [editingVideo, setEditingVideo] = useState<any | null>(null);
+  const [editingActivity, setEditingActivity] = useState<any | null>(null);
+  const [editingAiConfig, setEditingAiConfig] = useState<AITutorConfig | null>(null);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  const [editingCoding, setEditingCoding] = useState<any | null>(null);
+  const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+
+  // Assessment & Bank Soal Connection States
+  const [expandedAssessmentId, setExpandedAssessmentId] = useState<string | null>(null);
+  const [showSelectQuestionModalForAssessment, setShowSelectQuestionModalForAssessment] = useState<Assessment | null>(null);
+  const [showLinkQuestionToAssessmentModal, setShowLinkQuestionToAssessmentModal] = useState<QuestionBankItem | null>(null);
+  const [targetAssessmentIdForNewQuestion, setTargetAssessmentIdForNewQuestion] = useState<string | null>(null);
+
+  // Form States
+  const [studentForm, setStudentForm] = useState({ name: '', username: '', password: '', grade: 5, studentNumber: '' });
+  const [subjectForm, setSubjectForm] = useState({ id: '', name: '', description: '', grade: 5, icon: '📚', color: 'from-blue-500 to-indigo-600', status: 'PUBLISHED' as 'PUBLISHED' | 'DRAFT' });
+  const [materialForm, setMaterialForm] = useState({ subjectId: 'ipas', topicTitle: '', learningObjectives: '', description: '', contentBody: '', status: 'TERBIT' as any });
+  const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '', targetClass: 'SEMUA' });
+  const [activityForm, setActivityForm] = useState({
+    title: '',
+    subjectId: 'ipas',
+    type: 'MATCHING' as 'MATCHING' | 'SIMULATION' | 'PUZZLE' | 'LAB',
+    difficulty: 'MOTS' as 'LOTS' | 'MOTS' | 'HOTS',
+    points: 100,
+    description: '',
+  });
+  const [aiConfigForm, setAiConfigForm] = useState({
+    tutorName: 'PRIMA AI Sains 5',
+    subjectId: 'ipas',
+    topicTitle: 'Harmoni dalam Ekosistem',
+    learningGoal: 'Membimbing siswa memahami peran produsen, konsumen, dan dekomposer.',
+    communicationStyle: 'Ramah, sabar, ceria, santun, dan memotivasi untuk siswa SD Kelas 5',
+    rulesAndScaffolding: 'Jangan berikan jawaban langsung. Berikan analogi ramah anak, petunjuk singkat, dan pertanyaan pemandu.',
+  });
+  const [codingForm, setCodingForm] = useState({ title: '', subjectId: 'ipas', allowedBlocksCount: 5, targetGoal: '' });
+  const [assessmentForm, setAssessmentForm] = useState({ title: '', subjectId: 'ipas', durationMinutes: 30, kktpTarget: 75, selectedQuestionIds: [] as string[] });
+
+  // Sandbox AI Chat messages
+  const [sandboxMessages, setSandboxMessages] = useState<{ role: 'user' | 'model'; text: string }[]>([
+    { role: 'model', text: 'Halo! Saya PRIMA AI Tutor. Silakan ajukan pertanyaan untuk menguji respon dan aturan bimbingan saya! 🌟' }
+  ]);
+  const [sandboxInput, setSandboxInput] = useState('');
+  const [isSandboxLoading, setIsSandboxLoading] = useState(false);
+
+  // Teacher AI Consultant Chat state
+  const [consultantMessages, setConsultantMessages] = useState<Array<{ role: 'user' | 'model'; text: string }>>([
+    {
+      role: 'model',
+      text: 'Halo Guru! 👋 Saya **PRIMA Teacher AI Assistant**. Saya siap membantu Anda merancang tujuan pembelajaran Kurikulum Merdeka, merumuskan KKTP, membuat ide aktivitas interaktif, atau menjawab pertanyaan teknis platform PRIMA. Silakan ketik pertanyaan Anda di bawah ini! 👩‍🏫✨',
+    },
+  ]);
+  const [consultantInput, setConsultantInput] = useState('');
+  const [isConsultantLoading, setIsConsultantLoading] = useState(false);
+
+  const handleSendConsultantMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!consultantInput.trim() || isConsultantLoading) return;
+    const userText = consultantInput;
+    setConsultantInput('');
+    const newHistory = [...consultantMessages, { role: 'user' as const, text: userText }];
+    setConsultantMessages(newHistory);
+    setIsConsultantLoading(true);
+
+    try {
+      const res = await fetch('/api/ai/teacher-consultant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText, history: newHistory }),
+      });
+      const data = await res.json();
+      setConsultantMessages((prev) => [
+        ...prev,
+        { role: 'model', text: data.reply || 'Maaf, terjadi kendala saat memproses jawaban.' },
+      ]);
+    } catch (err) {
+      setConsultantMessages((prev) => [
+        ...prev,
+        { role: 'model', text: 'Maaf, koneksi AI sedang bermasalah. Silakan coba kembali beberapa saat lagi.' },
+      ]);
+    } finally {
+      setIsConsultantLoading(false);
+    }
+  };
+
+  // Interactive Video Form
+  const [videoForm, setVideoForm] = useState({
+    title: '',
+    subjectId: 'ipas',
+    videoUrl: '',
+    cpTimeSeconds: 30,
+    cpQuestion: '',
+    cpOptionA: '',
+    cpOptionB: '',
+    cpOptionC: '',
+    cpOptionD: '',
+    cpCorrectIdx: 0,
+  });
+
+  // Rich Question Form State
+  const [questionForm, setQuestionForm] = useState({
+    subjectId: 'ipas',
+    type: 'PG' as 'PG' | 'PGK' | 'BS',
+    level: 'HOTS' as 'LOTS' | 'MOTS' | 'HOTS',
+    stimulus: '',
+    questionText: '',
+    optionA: '',
+    optionB: '',
+    optionC: '',
+    optionD: '',
+    correctIdx: 0,
+    pgkCorrectIndices: [0, 2],
+    bsStatements: [
+      { text: 'Pernyataan 1: ...', isTrue: true },
+      { text: 'Pernyataan 2: ...', isTrue: false },
+      { text: 'Pernyataan 3: ...', isTrue: true },
+    ],
+    explanation: '',
+  });
+
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+
+  // Teacher feedback for student reflections
+  const [teacherFeedbackMap, setTeacherFeedbackMap] = useState<Record<string, string>>({});
+
+  // Murid di database yang memiliki grade sama persis dengan guru (teacherGrade)
+  const gradeStudents = useMemo(() => {
+    if (teacherGrade === null) return [];
+    return usersList.filter(
+      (u) => u.role === 'MURID' && u.grade !== undefined && u.grade !== null && Number(u.grade) === Number(teacherGrade)
+    );
+  }, [usersList, teacherGrade]);
+
+  // Filtered Students untuk kelola murid (hanya siswa yang sesuai grade guru di database)
+  const students = useMemo(() => {
+    if (teacherGrade === null) {
+      return usersList.filter((u) => u.role === 'MURID');
+    }
+    return gradeStudents;
+  }, [teacherGrade, usersList, gradeStudents]);
+
+  const filteredStudents = useMemo(() => {
+    return students.filter(
+      (s) =>
+        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.username.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [students, searchTerm]);
+
+  const leaderboardStudents = useMemo(() => {
+    const allProgs = getAllStudentsProgress();
+    return students
+      .map((s) => {
+        const prog = allProgs[s.id] || getStudentProgressForId(s.id, s.name, s.avatar);
+        return {
+          ...s,
+          xp: prog.xp,
+          level: prog.level,
+          streakDays: prog.streakDays,
+        };
+      })
+      .sort((a, b) => b.xp - a.xp);
+  }, [students]);
+
+  // Student Handlers
+  const handleStartEditStudent = (s: UserType) => {
+    setEditingStudent(s);
+    setStudentForm({
+      name: s.name,
+      username: s.username,
+      password: '',
+      grade: s.grade || (teacherGrade || 5),
+      studentNumber: s.studentNumber || '',
+    });
+    setShowAddStudentModal(true);
+  };
+
+  const handleSaveStudent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingStudent) {
+      updateUser(editingStudent.id, {
+        name: studentForm.name,
+        username: studentForm.username,
+        passwordHash: studentForm.password ? studentForm.password : editingStudent.passwordHash,
+        grade: Number(studentForm.grade),
+        studentNumber: studentForm.studentNumber || '01',
+      });
+      setEditingStudent(null);
+      setShowAddStudentModal(false);
+      onRefreshData();
+      toast.success('Data akun murid berhasil diperbarui!');
+    } else {
+      createUser({
+        name: studentForm.name,
+        username: studentForm.username,
+        passwordHash: studentForm.password || 'murid123',
+        role: 'MURID',
+        status: 'ACTIVE',
+        avatar: '/src/assets/images/prima_avatar_1791033365222.jpg',
+        email: `${studentForm.username}@prima.sch.id`,
+        grade: Number(studentForm.grade),
+        studentNumber: studentForm.studentNumber || '01',
+      });
+      setShowAddStudentModal(false);
+      onRefreshData();
+      toast.success('Berhasil membuat akun murid.');
+    }
+  };
+
+  const handleDeleteStudent = (id: string) => {
+    deleteUser(id);
+    onRefreshData();
+    toast.success('Akun murid berhasil dihapus.');
+  };
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetGrade = profileForm.grade !== '' ? Number(profileForm.grade) : undefined;
+    const updated = updateUser(currentUser.id, {
+      name: profileForm.name,
+      nip: profileForm.nip,
+      grade: targetGrade,
+      email: profileForm.email,
+      schoolName: profileForm.schoolName,
+      teachingClass: targetGrade ? `Kelas ${targetGrade} SD` : undefined,
+    });
+    if (updated) {
+      onRefreshData();
+      toast.success('Profil tersimpan ke database.');
+    }
+  };
+
+  // Material Handlers
+  const handleStartEditMaterial = (mat: Material) => {
+    setEditingMaterial(mat);
+    setMaterialForm({
+      subjectId: mat.subjectId,
+      topicTitle: mat.topicTitle,
+      learningObjectives: mat.learningObjectives,
+      description: mat.description,
+      contentBody: mat.contentBody || '',
+      status: mat.status || 'TERBIT',
+    });
+    setShowAddMaterialModal(true);
+  };
+
+  const handleSaveMaterial = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingMaterial) {
+      const updated = localMaterials.map((m) =>
+        m.id === editingMaterial.id
+          ? {
+              ...m,
+              topicTitle: materialForm.topicTitle,
+              learningObjectives: materialForm.learningObjectives,
+              description: materialForm.description,
+              contentBody: materialForm.contentBody,
+              subjectId: materialForm.subjectId,
+            }
+          : m
+      );
+      setLocalMaterials(updated);
+      setEditingMaterial(null);
+      setShowAddMaterialModal(false);
+      toast.success('Materi pembelajaran berhasil diperbarui!');
+    } else {
+      const newMat: Material = {
+        id: `mat-${Date.now()}`,
+        subjectId: materialForm.subjectId,
+        grade: teacherGrade || 5,
+        topicTitle: materialForm.topicTitle,
+        learningObjectives: materialForm.learningObjectives,
+        description: materialForm.description,
+        contentBody: materialForm.contentBody,
+        mediaType: 'DOCUMENT',
+        mediaUrl: '',
+        status: 'TERBIT',
+        createdAt: 'Hari ini',
+      };
+      setLocalMaterials([newMat, ...localMaterials]);
+      setShowAddMaterialModal(false);
+      toast.success('Materi pembelajaran baru berhasil disimpan!');
+    }
+  };
+
+  const handleDeleteMaterial = (id: string) => {
+    setLocalMaterials(localMaterials.filter((m) => m.id !== id));
+    toast.success('Materi pembelajaran berhasil dihapus.');
+  };
+
+  // Video Handlers
+  const handleStartEditVideo = (vid: InteractiveVideo) => {
+    setEditingVideo(vid);
+    setVideoForm({
+      title: vid.title,
+      subjectId: vid.subjectId || localSubjects[0]?.id || 'ipas',
+      videoUrl: vid.videoUrl,
+      cpTimeSeconds: 30,
+      cpQuestion: '',
+      cpOptionA: '',
+      cpOptionB: '',
+      cpOptionC: '',
+      cpOptionD: '',
+      cpCorrectIdx: 0,
+    });
+    setShowAddVideoModal(true);
+  };
+
+  const handleSaveVideo = (e: React.FormEvent) => {
+    e.preventDefault();
+    let updated: InteractiveVideo[];
+    if (editingVideo) {
+      updated = localInteractiveVideos.map((v) =>
+        v.id === editingVideo.id
+          ? {
+              ...v,
+              title: videoForm.title,
+              subjectId: videoForm.subjectId,
+              videoUrl: videoForm.videoUrl,
+            }
+          : v
+      );
+      setEditingVideo(null);
+      toast.success('Video interaktif berhasil diperbarui & disimpan ke Database!');
+    } else {
+      const newVid: InteractiveVideo = {
+        id: `vid-${Date.now()}`,
+        title: videoForm.title,
+        subjectId: videoForm.subjectId,
+        videoUrl: videoForm.videoUrl,
+        grade: teacherGrade || 5,
+        checkpointsCount: 1,
+        createdAt: new Date().toISOString(),
+      };
+      updated = [newVid, ...localInteractiveVideos];
+      toast.success('Berhasil menambahkan Video Interaktif ke Database!');
+    }
+    setLocalInteractiveVideos(updated);
+    saveVideos(updated);
+    setShowAddVideoModal(false);
+  };
+
+  const handleDeleteVideo = (id: string) => {
+    const updated = localInteractiveVideos.filter((v) => v.id !== id);
+    setLocalInteractiveVideos(updated);
+    saveVideos(updated);
+    toast.success('Video interaktif berhasil dihapus dari Database.');
+  };
+
+  // Activity Handlers
+  const handleStartEditActivity = (act: any) => {
+    setEditingActivity(act);
+    setActivityForm({
+      title: act.title,
+      subjectId: act.subjectId,
+      type: act.type,
+      difficulty: act.difficulty || 'MOTS',
+      points: act.points || 100,
+      description: act.description || '',
+    });
+    setShowAddActivityModal(true);
+  };
+
+  const handleSaveActivity = (e: React.FormEvent) => {
+    e.preventDefault();
+    let updated: InteractiveActivity[];
+    if (editingActivity) {
+      updated = localActivities.map((a) =>
+        a.id === editingActivity.id
+          ? {
+              ...a,
+              title: activityForm.title,
+              subjectId: activityForm.subjectId,
+              type: activityForm.type,
+              difficulty: activityForm.difficulty,
+              points: Number(activityForm.points),
+              description: activityForm.description,
+            }
+          : a
+      );
+      setEditingActivity(null);
+      toast.success('Aktivitas interaktif berhasil diperbarui & disimpan ke Database!');
+    } else {
+      const newAct: InteractiveActivity = {
+        id: `act-${Date.now()}`,
+        title: activityForm.title,
+        subjectId: activityForm.subjectId,
+        type: activityForm.type,
+        difficulty: activityForm.difficulty,
+        points: Number(activityForm.points),
+        description: activityForm.description,
+        createdAt: new Date().toISOString(),
+      };
+      updated = [newAct, ...localActivities];
+      toast.success('Aktivitas Interaktif baru berhasil dibuat & disimpan ke Database!');
+    }
+    setLocalActivities(updated);
+    saveActivities(updated);
+    setShowAddActivityModal(false);
+  };
+
+  const handleDeleteActivity = (id: string) => {
+    const updated = localActivities.filter((a) => a.id !== id);
+    setLocalActivities(updated);
+    saveActivities(updated);
+    toast.success('Aktivitas interaktif berhasil dihapus dari Database.');
+  };
+
+  // AI Config Handlers
+  const handleStartEditAiConfig = (cfg: AITutorConfig) => {
+    setEditingAiConfig(cfg);
+    setAiConfigForm({
+      tutorName: cfg.tutorName,
+      subjectId: cfg.subjectId,
+      topicTitle: cfg.topicTitle,
+      learningGoal: cfg.learningGoal,
+      communicationStyle: cfg.communicationStyle,
+      rulesAndScaffolding: cfg.rulesAndScaffolding,
+    });
+    setShowAddAiConfigModal(true);
+  };
+
+  const handleSaveAiConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingAiConfig) {
+      const updated = localAiConfigs.map((c) =>
+        c.id === editingAiConfig.id
+          ? {
+              ...c,
+              subjectId: aiConfigForm.subjectId,
+              topicTitle: aiConfigForm.topicTitle,
+              tutorName: aiConfigForm.tutorName,
+              learningGoal: aiConfigForm.learningGoal,
+              communicationStyle: aiConfigForm.communicationStyle,
+              rulesAndScaffolding: aiConfigForm.rulesAndScaffolding,
+            }
+          : c
+      );
+      setLocalAiConfigs(updated);
+      setEditingAiConfig(null);
+      setShowAddAiConfigModal(false);
+      toast.success('Konfigurasi AI Tutor berhasil diperbarui!');
+    } else {
+      const newCfg: AITutorConfig = {
+        id: `aic-${Date.now()}`,
+        subjectId: aiConfigForm.subjectId,
+        topicTitle: aiConfigForm.topicTitle,
+        tutorName: aiConfigForm.tutorName,
+        learningGoal: aiConfigForm.learningGoal,
+        communicationStyle: aiConfigForm.communicationStyle,
+        rulesAndScaffolding: aiConfigForm.rulesAndScaffolding,
+        starterPrompts: ['Apa itu produsen?', 'Bagaimana cara kerja fotosintesis?'],
+        maxTokensLimit: 1000,
+      };
+      setLocalAiConfigs([newCfg, ...localAiConfigs]);
+      setShowAddAiConfigModal(false);
+      toast.success('Konfigurasi AI Tutor baru berhasil disimpan!');
+    }
+  };
+
+  const handleDeleteAiConfig = (id: string) => {
+    setLocalAiConfigs(localAiConfigs.filter((c) => c.id !== id));
+    toast.success('Konfigurasi AI Tutor berhasil dihapus.');
+  };
+
+  // Announcement Handlers
+  const handleStartEditAnnouncement = (anc: Announcement) => {
+    setEditingAnnouncement(anc);
+    setAnnouncementForm({
+      title: anc.title,
+      content: anc.content,
+      targetClass: anc.targetClass || 'SEMUA',
+    });
+    setShowAddAnnouncementModal(true);
+  };
+
+  const handleSaveAnnouncement = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingAnnouncement) {
+      const updated = localAnnouncements.map((a) =>
+        a.id === editingAnnouncement.id
+          ? {
+              ...a,
+              title: announcementForm.title,
+              content: announcementForm.content,
+              targetClass: announcementForm.targetClass,
+            }
+          : a
+      );
+      setLocalAnnouncements(updated);
+      setEditingAnnouncement(null);
+      setShowAddAnnouncementModal(false);
+      toast.success('Pengumuman berhasil diperbarui!');
+    } else {
+      const newAnc: Announcement = {
+        id: `anc-${Date.now()}`,
+        title: announcementForm.title,
+        content: announcementForm.content,
+        targetClass: announcementForm.targetClass,
+        createdAt: 'Baru saja',
+        authorName: currentUser.name,
+        status: 'TERBIT',
+      };
+      setLocalAnnouncements([newAnc, ...localAnnouncements]);
+      setShowAddAnnouncementModal(false);
+      toast.success('Pengumuman baru berhasil diterbitkan!');
+    }
+  };
+
+  const handleDeleteAnnouncement = (id: string) => {
+    setLocalAnnouncements(localAnnouncements.filter((a) => a.id !== id));
+    toast.success('Pengumuman berhasil dihapus.');
+  };
+
+  // Coding Handlers
+  const handleStartEditCoding = (cod: any) => {
+    setEditingCoding(cod);
+    setCodingForm({
+      title: cod.title,
+      subjectId: cod.subjectId || 'ipas',
+      allowedBlocksCount: cod.allowedBlocksCount || 5,
+      targetGoal: cod.targetGoal || '',
+    });
+    setShowAddCodingModal(true);
+  };
+
+  const handleSaveCoding = (e: React.FormEvent) => {
+    e.preventDefault();
+    let updated: CodingChallengeItem[];
+    if (editingCoding) {
+      updated = localCodingChallenges.map((c) =>
+        c.id === editingCoding.id
+          ? {
+              ...c,
+              title: codingForm.title,
+              subjectId: codingForm.subjectId,
+              allowedBlocksCount: Number(codingForm.allowedBlocksCount),
+              targetGoal: codingForm.targetGoal,
+            }
+          : c
+      );
+      setEditingCoding(null);
+      toast.success('Tantangan Coding berhasil diperbarui!');
+    } else {
+      const newCod: CodingChallengeItem = {
+        id: `cod-${Date.now()}`,
+        title: codingForm.title,
+        subjectId: codingForm.subjectId,
+        allowedBlocksCount: Number(codingForm.allowedBlocksCount),
+        characterIcon: codingForm.subjectId === 'matematika' ? '🧮' : '🤖',
+        gridSize: 4,
+        startPos: { x: 0, y: 0 },
+        targetPos: { x: 3, y: 3 },
+        obstacles: [{ x: 1, y: 1 }],
+        targetGoal: codingForm.targetGoal,
+        availableBlocks: [
+          { id: 'b-maju', text: '🤖 Maju 1 Langkah', category: 'action', snippet: 'step()', color: 'bg-emerald-600' },
+          { id: 'b-kanan', text: '↪️ Belok Kanan', category: 'action', snippet: 'turnRight()', color: 'bg-blue-600' },
+          { id: 'b-kiri', text: '↩️ Belok Kiri', category: 'action', snippet: 'turnLeft()', color: 'bg-indigo-600' },
+          { id: 'b-act', text: '💧 Siram / Ambil Target', category: 'action', snippet: 'action()', color: 'bg-sky-500' },
+          { id: 'b-loop', text: '🔄 Ulangi 3 Kali', category: 'control', snippet: 'repeat(3)', color: 'bg-purple-600' },
+        ],
+        expectedSequence: ['b-maju', 'b-kanan', 'b-maju', 'b-act'],
+      };
+      updated = [newCod, ...localCodingChallenges];
+      toast.success('Tantangan Coding baru berhasil disimpan dan muncul di Murid!');
+    }
+    setLocalCodingChallenges(updated);
+    saveCodingChallenges(updated);
+    setShowAddCodingModal(false);
+  };
+
+  const handleDeleteCoding = (id: string) => {
+    const updated = localCodingChallenges.filter((c) => c.id !== id);
+    setLocalCodingChallenges(updated);
+    saveCodingChallenges(updated);
+    toast.success('Tantangan Coding berhasil dihapus.');
+  };
+
+  // Subject Handlers
+  const handleStartEditSubject = (sub: Subject) => {
+    setEditingSubject(sub);
+    setSubjectForm({
+      id: sub.id,
+      name: sub.name,
+      description: sub.description || '',
+      grade: sub.grade || 5,
+      icon: sub.icon || '📚',
+      color: sub.color || 'from-blue-500 to-indigo-600',
+      status: sub.status || 'PUBLISHED',
+    });
+    setShowAddSubjectModal(true);
+  };
+
+  const handleSaveSubject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingSubject) {
+      const updated = localSubjects.map((s) =>
+        s.id === editingSubject.id
+          ? {
+              ...s,
+              name: subjectForm.name,
+              description: subjectForm.description,
+              grade: Number(subjectForm.grade),
+              icon: subjectForm.icon,
+              status: subjectForm.status,
+            }
+          : s
+      );
+      setLocalSubjects(updated);
+      saveSubjects(updated);
+      toast.success(`Mata pelajaran "${subjectForm.name}" berhasil diperbarui!`);
+    } else {
+      const subId = subjectForm.id.trim()
+        ? subjectForm.id.trim().toLowerCase().replace(/\s+/g, '-')
+        : `sub-${Date.now()}`;
+      const newSub: Subject = {
+        id: subId,
+        name: subjectForm.name,
+        description: subjectForm.description,
+        grade: Number(subjectForm.grade),
+        icon: subjectForm.icon || '📚',
+        color: subjectForm.color || 'from-blue-500 to-indigo-600',
+        bgGradient: subjectForm.color || 'from-blue-500 to-indigo-600',
+        status: subjectForm.status,
+        topics: [],
+      };
+      const updated = [newSub, ...localSubjects];
+      setLocalSubjects(updated);
+      saveSubjects(updated);
+      toast.success(`Mata pelajaran "${subjectForm.name}" berhasil ditambahkan!`);
+    }
+    setShowAddSubjectModal(false);
+    setEditingSubject(null);
+  };
+
+  const handleDeleteSubject = (id: string) => {
+    const updated = localSubjects.filter((s) => s.id !== id);
+    setLocalSubjects(updated);
+    saveSubjects(updated);
+    toast.success('Mata pelajaran berhasil dihapus.');
+  };
+
+  // Assessment Handlers
+  const handleStartEditAssessment = (ass: Assessment) => {
+    setEditingAssessment(ass);
+    setAssessmentForm({
+      title: ass.title,
+      subjectId: ass.subjectId,
+      durationMinutes: ass.durationMinutes,
+      kktpTarget: ass.kktpTarget,
+      selectedQuestionIds: ass.questions ? ass.questions.map((q) => q.id) : [],
+    });
+    setShowAddAssessmentModal(true);
+  };
+
+  const handleSaveAssessment = (e: React.FormEvent) => {
+    e.preventDefault();
+    const pickedQuestions = localQuestionBank.filter((q) =>
+      assessmentForm.selectedQuestionIds.includes(q.id)
+    );
+
+    if (editingAssessment) {
+      const updatedAss = {
+        ...editingAssessment,
+        title: assessmentForm.title,
+        subjectId: assessmentForm.subjectId,
+        durationMinutes: Number(assessmentForm.durationMinutes),
+        kktpTarget: Number(assessmentForm.kktpTarget),
+        totalQuestions: pickedQuestions.length,
+        questions: pickedQuestions,
+      };
+
+      setLocalAssessments(
+        localAssessments.map((a) =>
+          a.id === editingAssessment.id ? updatedAss : a
+        )
+      );
+
+      // Sync edited assessment to Google Sheets Assessments sheet
+      const payload = {
+        id: editingAssessment.id,
+        title: assessmentForm.title,
+        subjectId: assessmentForm.subjectId,
+        grade: teacherGrade || 5,
+        durationMinutes: Number(assessmentForm.durationMinutes),
+        kktpTarget: Number(assessmentForm.kktpTarget),
+        totalQuestions: pickedQuestions.length,
+        questions: JSON.stringify(pickedQuestions.map(q => q.id)),
+        lastUpdated: new Date().toISOString()
+      };
+      pushAppData('Assessments', 'create', payload).catch(e => console.warn('[GAS Sync] Assessments edit sync failed:', e));
+
+      setEditingAssessment(null);
+      setShowAddAssessmentModal(false);
+      toast.success('Asesmen berhasil diperbarui!');
+    } else {
+      const newAss: Assessment = {
+        id: `ass-${Date.now()}`,
+        title: assessmentForm.title,
+        subjectId: assessmentForm.subjectId,
+        grade: teacherGrade || 5,
+        durationMinutes: Number(assessmentForm.durationMinutes),
+        totalQuestions: pickedQuestions.length,
+        kktpTarget: Number(assessmentForm.kktpTarget),
+        randomizeQuestions: true,
+        randomizeOptions: true,
+        maxAttempts: 2,
+        showScore: true,
+        showExplanation: true,
+        status: 'AKTIF',
+        questions: pickedQuestions,
+      };
+      setLocalAssessments([newAss, ...localAssessments]);
+
+      // Sync new assessment to Google Sheets Assessments sheet
+      const payload = {
+        id: newAss.id,
+        title: newAss.title,
+        subjectId: newAss.subjectId,
+        grade: newAss.grade,
+        durationMinutes: newAss.durationMinutes,
+        kktpTarget: newAss.kktpTarget,
+        totalQuestions: newAss.totalQuestions,
+        questions: JSON.stringify(newAss.questions ? newAss.questions.map(q => q.id) : []),
+        lastUpdated: new Date().toISOString()
+      };
+      pushAppData('Assessments', 'create', payload).catch(e => console.warn('[GAS Sync] Assessments create sync failed:', e));
+
+      setShowAddAssessmentModal(false);
+      toast.success('Asesmen baru berhasil diterbitkan!');
+    }
+  };
+
+  const handleDeleteAssessment = (id: string) => {
+    setLocalAssessments(localAssessments.filter((a) => a.id !== id));
+    toast.success('Asesmen berhasil dihapus.');
+  };
+
+  // Toggle question attachment to assessment
+  const handleToggleQuestionInAssessment = (assessmentId: string, question: QuestionBankItem) => {
+    setLocalAssessments(
+      localAssessments.map((ass) => {
+        if (ass.id !== assessmentId) return ass;
+        const currentQuestions = ass.questions || [];
+        const exists = currentQuestions.some((q) => q.id === question.id);
+        const updatedQuestions = exists
+          ? currentQuestions.filter((q) => q.id !== question.id)
+          : [...currentQuestions, question];
+        return {
+          ...ass,
+          totalQuestions: updatedQuestions.length,
+          questions: updatedQuestions,
+        };
+      })
+    );
+    toast.success('Daftar soal dalam asesmen berhasil diperbarui!');
+  };
+
+  const handleCreateQuestion = (e: React.FormEvent) => {
+    e.preventDefault();
+    let newQ: QuestionBankItem;
+
+    if (questionForm.type === 'PG') {
+      newQ = {
+        id: `qb-${Date.now()}`,
+        subjectId: questionForm.subjectId,
+        grade: 5,
+        type: 'PG',
+        level: questionForm.level,
+        stimulus: questionForm.stimulus,
+        questionText: questionForm.questionText,
+        options: [questionForm.optionA, questionForm.optionB, questionForm.optionC, questionForm.optionD],
+        correctAnswer: Number(questionForm.correctIdx),
+        explanation: questionForm.explanation,
+      };
+    } else if (questionForm.type === 'PGK') {
+      newQ = {
+        id: `qb-${Date.now()}`,
+        subjectId: questionForm.subjectId,
+        grade: 5,
+        type: 'PGK',
+        level: questionForm.level,
+        stimulus: questionForm.stimulus,
+        questionText: questionForm.questionText,
+        options: [questionForm.optionA, questionForm.optionB, questionForm.optionC, questionForm.optionD],
+        correctAnswers: questionForm.pgkCorrectIndices,
+        explanation: questionForm.explanation,
+      };
+    } else {
+      newQ = {
+        id: `qb-${Date.now()}`,
+        subjectId: questionForm.subjectId,
+        grade: 5,
+        type: 'BS',
+        level: questionForm.level,
+        stimulus: questionForm.stimulus,
+        questionText: questionForm.questionText,
+        statements: questionForm.bsStatements.map((st, idx) => ({
+          id: `st-new-${idx}`,
+          text: st.text,
+          isTrue: st.isTrue,
+        })),
+        explanation: questionForm.explanation,
+      };
+    }
+
+    if (editingQuestionId) {
+      const updatedQ = { ...newQ, id: editingQuestionId };
+      setLocalQuestionBank(localQuestionBank.map((q) => (q.id === editingQuestionId ? updatedQ : q)));
+      
+      // Update question inside all assessments
+      setLocalAssessments(
+        localAssessments.map((ass) => ({
+          ...ass,
+          questions: (ass.questions || []).map((q) => (q.id === editingQuestionId ? updatedQ : q)),
+        }))
+      );
+
+      // Sync edited question to Google Sheets Questions sheet
+      const payload = {
+        id: editingQuestionId,
+        subjectId: updatedQ.subjectId,
+        type: updatedQ.type,
+        level: updatedQ.level,
+        stimulus: updatedQ.stimulus || '',
+        questionText: updatedQ.questionText,
+        options: JSON.stringify(updatedQ.options || []),
+        correctAnswer: updatedQ.correctAnswer !== undefined ? updatedQ.correctAnswer : '',
+        correctAnswers: JSON.stringify(updatedQ.correctAnswers || []),
+        statements: JSON.stringify(updatedQ.statements || []),
+        explanation: updatedQ.explanation || '',
+        lastUpdated: new Date().toISOString()
+      };
+      pushAppData('Questions', 'create', payload).catch(e => console.warn('[GAS Sync] Questions edit sync failed:', e));
+
+      setEditingQuestionId(null);
+      toast.success('Soal berhasil diperbarui di Bank Soal & Asesmen!');
+    } else {
+      setLocalQuestionBank([newQ, ...localQuestionBank]);
+
+      // Sync new question to Google Sheets Questions sheet
+      const payload = {
+        id: newQ.id,
+        subjectId: newQ.subjectId,
+        type: newQ.type,
+        level: newQ.level,
+        stimulus: newQ.stimulus || '',
+        questionText: newQ.questionText,
+        options: JSON.stringify(newQ.options || []),
+        correctAnswer: newQ.correctAnswer !== undefined ? newQ.correctAnswer : '',
+        correctAnswers: JSON.stringify(newQ.correctAnswers || []),
+        statements: JSON.stringify(newQ.statements || []),
+        explanation: newQ.explanation || '',
+        lastUpdated: new Date().toISOString()
+      };
+      pushAppData('Questions', 'create', payload).catch(e => console.warn('[GAS Sync] Questions create sync failed:', e));
+
+      if (targetAssessmentIdForNewQuestion) {
+        setLocalAssessments(
+          localAssessments.map((ass) => {
+            if (ass.id === targetAssessmentIdForNewQuestion) {
+              const updated = [...(ass.questions || []), newQ];
+              return { ...ass, totalQuestions: updated.length, questions: updated };
+            }
+            return ass;
+          })
+        );
+        toast.success('Soal baru berhasil ditambahkan ke Bank Soal & Asesmen!');
+        setTargetAssessmentIdForNewQuestion(null);
+      } else {
+        toast.success('Soal baru berhasil ditambahkan ke Bank Soal!');
+      }
+    }
+    setShowAddQuestionModal(false);
+  };
+
+  const handleEditQuestion = (qb: QuestionBankItem) => {
+    setEditingQuestionId(qb.id);
+    setQuestionForm({
+      subjectId: qb.subjectId,
+      type: qb.type,
+      level: qb.level,
+      stimulus: qb.stimulus || '',
+      questionText: qb.questionText,
+      optionA: qb.options?.[0] || '',
+      optionB: qb.options?.[1] || '',
+      optionC: qb.options?.[2] || '',
+      optionD: qb.options?.[3] || '',
+      correctIdx: qb.correctAnswer ?? 0,
+      pgkCorrectIndices: qb.correctAnswers && qb.correctAnswers.length > 0 ? qb.correctAnswers : [0],
+      bsStatements: qb.statements && qb.statements.length > 0 ? qb.statements.map((s) => ({ text: s.text, isTrue: s.isTrue })) : [
+        { text: 'Pernyataan 1', isTrue: true },
+        { text: 'Pernyataan 2', isTrue: false },
+        { text: 'Pernyataan 3', isTrue: true },
+      ],
+      explanation: qb.explanation || '',
+    });
+    setShowAddQuestionModal(true);
+  };
+
+  const handleDeleteQuestion = (id: string) => {
+    setLocalQuestionBank(localQuestionBank.filter((q) => q.id !== id));
+    setLocalAssessments(
+      localAssessments.map((ass) => {
+        const remaining = (ass.questions || []).filter((q) => q.id !== id);
+        return {
+          ...ass,
+          questions: remaining,
+          totalQuestions: remaining.length,
+        };
+      })
+    );
+    toast.success('Soal berhasil dihapus dari Bank Soal & Seluruh Asesmen.');
+  };
+
+  const handleSendTeacherFeedback = (reflectionId: string) => {
+    const text = teacherFeedbackMap[reflectionId];
+    if (text) {
+      toast.success('Feedback berhasil dikirimkan ke siswa!');
+      setTeacherFeedbackMap({ ...teacherFeedbackMap, [reflectionId]: '' });
+    }
+  };
+
+  const handleSendSandboxMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sandboxInput.trim() || isSandboxLoading) return;
+
+    const userMsg = sandboxInput.trim();
+    setSandboxMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
+    setSandboxInput('');
+    setIsSandboxLoading(true);
+
+    try {
+      const res = await fetch('/api/ai/tutor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMsg,
+          topic: showAiSandboxModal?.topicTitle || 'Materi SD',
+          subject: showAiSandboxModal?.subjectId || 'IPAS',
+          tutorName: showAiSandboxModal?.tutorName || 'PRIMA AI',
+          communicationStyle: showAiSandboxModal?.communicationStyle,
+          rulesAndScaffolding: showAiSandboxModal?.rulesAndScaffolding,
+          learningGoal: showAiSandboxModal?.learningGoal,
+        }),
+      });
+
+      const data = await res.json();
+      setSandboxMessages((prev) => [
+        ...prev,
+        {
+          role: 'model',
+          text: data.reply || 'Mari kita cari tahu petunjuknya bersama! 💡',
+        },
+      ]);
+    } catch (err) {
+      setSandboxMessages((prev) => [
+        ...prev,
+        {
+          role: 'model',
+          text: '💡 Pertanyaan yang menarik! Coba kita ingat kembali konsep dasar dari materi yang sedang dipelajari.',
+        },
+      ]);
+    } finally {
+      setIsSandboxLoading(false);
+    }
+  };
+
+  const handleExportData = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+      users: usersList,
+      materials: localMaterials,
+      assessments: localAssessments,
+      reflections: localReflections,
+    }, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", "PRIMA_Data_Export.json");
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const sidebarMenus = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'murid', label: 'Kelola Murid', icon: Users, badge: students.length },
+    { id: 'profil', label: 'Profil Guru', icon: User },
+    { id: 'subjects', label: 'Mata Pelajaran', icon: BookOpen, badge: localSubjects.length },
+    { id: 'materi', label: 'Materi Pembelajaran', icon: FileText, badge: localMaterials.length },
+    { id: 'video', label: 'Video Interaktif', icon: Video, badge: localInteractiveVideos.length },
+    { id: 'aktivitas', label: 'Aktivitas Interaktif', icon: Gamepad2, badge: localActivities.length },
+    { id: 'ai', label: 'PRIMA AI Tutor', icon: Bot, badge: localAiConfigs.length },
+    { id: 'consultant', label: '🤖 AI Konsultasi Kurikulum', icon: MessageCircle },
+    { id: 'coding', label: 'Coding Challenge', icon: Code, badge: localCodingChallenges.length },
+    { id: 'asesmen', label: 'Asesmen & Kuis', icon: Brain, badge: localAssessments.length },
+    { id: 'bank-soal', label: 'Bank Soal (AKM)', icon: Database, badge: localQuestionBank.length },
+    { id: 'analitik', label: 'Analitik Pembelajaran', icon: BarChart2 },
+    { id: 'gamifikasi', label: 'Gamifikasi & Leaderboard', icon: Award },
+    { id: 'refleksi', label: 'Refleksi Murid', icon: MessageSquare, badge: localReflections.length },
+    { id: 'pengumuman', label: 'Pengumuman', icon: Megaphone, badge: localAnnouncements.length },
+    { id: 'pengaturan', label: 'Pengaturan Portal', icon: Settings },
+  ];
+
+  return (
+    <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
+      <Toaster position="top-right" />
+      
+      {/* Sidebar Navigation */}
+      <aside className="w-full md:w-64 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0 border-r border-slate-800">
+        <div>
+          <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+            <img 
+              src="https://www.image2url.com/r2/default/images/1791081900879-642df693-a14a-458c-af0d-5ed4e769b4d6.png" 
+              alt="Logo" 
+              className="w-10 h-10 rounded-xl object-contain shadow transition-all duration-300 ease-out hover:scale-110 hover:rotate-6 hover:brightness-110 active:scale-95 cursor-pointer"
+            />
+            <div>
+              <h2 className="font-heading font-black text-white text-lg tracking-tight">PORTAL GURU PRIMA</h2>
+              <p className="text-[10px] font-semibold text-slate-300 leading-tight mt-0.5">
+                <span className="text-emerald-400 font-extrabold">P</span>embelajaran{' '}
+                <span className="text-cyan-300 font-extrabold">R</span>esponsif{' '}
+                <span className="text-amber-300 font-extrabold">I</span>nteraktif berbasis{' '}
+                <span className="text-rose-400 font-extrabold">M</span>ultimedia dan{' '}
+                <span className="text-indigo-300 font-extrabold">A</span>I
+              </p>
+            </div>
+          </div>
+
+          <nav className="p-3 space-y-1 text-xs font-bold max-h-[calc(100vh-160px)] overflow-y-auto no-scrollbar">
+            {sidebarMenus.map((menu) => {
+              const Icon = menu.icon;
+              const isActive = activeTab === menu.id;
+              return (
+                <button
+                  key={menu.id}
+                  onClick={() => setActiveTab(menu.id)}
+                  className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
+                    isActive
+                      ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-md'
+                      : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span>{menu.label}</span>
+                  </div>
+                  {menu.badge !== undefined && (
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                      {menu.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="p-4 border-t border-slate-800 space-y-3">
+          <div className="flex items-center gap-3 px-1">
+            <img src={currentUser.avatar} alt="Guru" className="w-9 h-9 rounded-xl object-cover ring-2 ring-sky-400" />
+            <div className="overflow-hidden">
+              <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+              <p className="text-[10px] text-slate-400 truncate">Guru Pengampu SD</p>
+            </div>
+          </div>
+
+          <button
+            onClick={onRequestLogout}
+            className="w-full py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>KELUAR</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Workspace */}
+      <main className="flex-1 p-6 sm:p-8 space-y-8 overflow-y-auto">
+        
+        {/* 1. DASHBOARD */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-8 animate-fadeIn">
+            <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-white shadow-lg relative overflow-hidden">
+              <div className="space-y-2 relative z-10">
+                <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Ruang Kerja Pengajar PRIMA</span>
+                <h1 className="font-heading text-2xl sm:text-3xl font-black text-slate-900">Selamat datang, Bapak/Ibu {currentUser.name} 👋</h1>
+                <p className="text-sm font-medium text-slate-600 max-w-2xl">Pantau perkembangan belajar murid, kelola materi interaktif, dan kembangkan tantangan AI untuk menciptakan kelas SD yang responsif.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
+              <div className="glass-card p-4 rounded-2xl border border-slate-200 shadow-sm"><p className="text-[11px] font-bold text-slate-500">👨🎓 Total Murid</p><p className="text-2xl font-black text-slate-900 mt-1">{students.length}</p></div>
+              <div className="glass-card p-4 rounded-2xl border border-slate-200 shadow-sm"><p className="text-[11px] font-bold text-slate-500">📚 Mata Pelajaran</p><p className="text-2xl font-black text-slate-900 mt-1">{localSubjects.length}</p></div>
+              <div className="glass-card p-4 rounded-2xl border border-slate-200 shadow-sm"><p className="text-[11px] font-bold text-slate-500">📖 Materi Aktif</p><p className="text-2xl font-black text-slate-900 mt-1">{localMaterials.length}</p></div>
+              <div className="glass-card p-4 rounded-2xl border border-slate-200 shadow-sm"><p className="text-[11px] font-bold text-slate-500">📝 Asesmen</p><p className="text-2xl font-black text-slate-900 mt-1">{localAssessments.length}</p></div>
+              <div className="glass-card p-4 rounded-2xl border border-slate-200 shadow-sm"><p className="text-[11px] font-bold text-slate-500">🎬 Video Interaktif</p><p className="text-2xl font-black text-slate-900 mt-1">{localInteractiveVideos.length}</p></div>
+              <div className="glass-card p-4 rounded-2xl border border-slate-200 shadow-sm"><p className="text-[11px] font-bold text-slate-500">🤖 Aktivitas AI</p><p className="text-2xl font-black text-slate-900 mt-1">{localAiConfigs.length}</p></div>
+            </div>
+          </div>
+        )}
+
+        {/* 2. KELOLA MURID */}
+        {activeTab === 'murid' && (
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-5 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div><h3 className="font-heading text-xl font-bold text-slate-900">👨🎓 Kelola Murid</h3><p className="text-xs text-slate-500">Kelola akun siswa, pantau progress, dan reset password.</p></div>
+              <button onClick={() => setShowAddStudentModal(true)} className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md flex items-center gap-2 cursor-pointer"><Plus className="w-4 h-4" /><span>+ Tambah Murid</span></button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 text-slate-700 font-bold uppercase"><tr><th className="p-3">No</th><th className="p-3">Nama</th><th className="p-3">Username</th><th className="p-3">Kelas</th><th className="p-3">Status</th><th className="p-3 text-right">Aksi</th></tr></thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {filteredStudents.map((s, idx) => (
+                    <tr key={s.id} className="hover:bg-slate-50">
+                      <td className="p-3 font-bold text-slate-400">{idx + 1}</td>
+                      <td className="p-3 font-bold text-slate-900 flex items-center gap-2"><img src={s.avatar} className="w-7 h-7 rounded-full object-cover" /><span>{s.name}</span></td>
+                      <td className="p-3 font-mono text-slate-700">{s.username}</td>
+                      <td className="p-3 font-bold text-indigo-600">Kelas {s.grade}</td>
+                      <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">Aktif</span></td>
+                      <td className="p-3 text-right space-x-2">
+                        <button onClick={() => handleStartEditStudent(s)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit Akun Murid"><Edit3 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDeleteStudent(s.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Akun Murid"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* 3. PROFIL GURU */}
+        {activeTab === 'profil' && (
+          <div className="glass-card p-6 sm:p-8 rounded-3xl border border-slate-200 max-w-3xl mx-auto space-y-6 animate-fadeIn">
+            <h3 className="font-heading text-xl font-bold text-slate-900 border-b pb-4">👨🏫 Profil & Pengaturan Akun Pengajar</h3>
+            
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <img src={currentUser.avatar} alt="Foto Profil" className="w-24 h-24 rounded-2xl object-cover ring-4 ring-indigo-500 shadow-md" />
+              <div className="space-y-1.5 text-center sm:text-left">
+                <h4 className="font-heading font-black text-2xl text-slate-900">{profileForm.name}</h4>
+                <p className="text-xs font-bold text-indigo-600">NIP: {profileForm.nip}</p>
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1 text-xs">
+                  {profileForm.grade !== '' ? (
+                    <span className="px-3 py-1 rounded-xl bg-purple-50 text-purple-700 font-bold border border-purple-200 flex items-center gap-1">
+                      <span>🎯</span>
+                      <span>Kelas {profileForm.grade}</span>
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 rounded-xl bg-amber-50 text-amber-700 font-bold border border-amber-200 flex items-center gap-1">
+                      <span>⚠️</span>
+                      <span>Kelas Belum Diatur</span>
+                    </span>
+                  )}
+                  {profileForm.schoolName && (
+                    <span className="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 flex items-center gap-1">
+                      <span>🏫</span>
+                      <span>{profileForm.schoolName}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="space-y-4 text-xs font-bold text-slate-700 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-slate-700">Nama Lengkap Guru</label>
+                  <input
+                    type="text"
+                    required
+                    value={profileForm.name}
+                    onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border mt-1 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-700">NIP Pengajar</label>
+                  <input
+                    type="text"
+                    value={profileForm.nip}
+                    onChange={(e) => setProfileForm({ ...profileForm, nip: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border mt-1 font-mono font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="text-indigo-900 flex items-center gap-1">
+                    <span>🏫</span>
+                    <span>Nama Sekolah</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.schoolName}
+                    onChange={(e) => setProfileForm({ ...profileForm, schoolName: e.target.value })}
+                    placeholder="Contoh: SD Negeri 1 Sukamaju"
+                    className="w-full p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/40 mt-1 font-semibold text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="text-purple-900 flex items-center gap-1 font-bold">
+                    <span>🎯</span>
+                    <span>Kelas</span>
+                  </label>
+                  <select
+                    value={profileForm.grade}
+                    onChange={(e) => setProfileForm({ ...profileForm, grade: e.target.value === '' ? '' : Number(e.target.value) })}
+                    className="w-full p-2.5 rounded-xl border border-purple-200 bg-purple-50/40 mt-1 font-bold text-purple-950"
+                  >
+                    <option value="">-- Pilih Kelas --</option>
+                    <option value={4}>Kelas 4</option>
+                    <option value={5}>Kelas 5</option>
+                    <option value={6}>Kelas 6</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-700">Email Pengajar</label>
+                  <input
+                    type="email"
+                    value={profileForm.email}
+                    onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border mt-1 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-700">Nomor Telepon / WhatsApp</label>
+                  <input
+                    type="text"
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border mt-1 font-semibold"
+                  />
+                </div>
+              </div>
+              
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Simpan</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* 4. MATA PELAJARAN */}
+        {activeTab === 'subjects' && (
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-heading text-xl font-bold text-slate-900">📚 Mata Pelajaran Digital</h3>
+                <p className="text-xs text-slate-500">Mata pelajaran aktif pada kurikulum SD yang dapat diinput dan disesuaikan.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingSubject(null);
+                  setSubjectForm({ id: '', name: '', description: '', grade: teacherGrade || 5, icon: '📚', color: 'from-blue-500 to-indigo-600', status: 'PUBLISHED' });
+                  setShowAddSubjectModal(true);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Tambah Mata Pelajaran</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              {localSubjects.map((sub) => (
+                <div key={sub.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-3 relative group hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <span className="text-3xl p-3 bg-white rounded-2xl inline-block border shadow-sm">{sub.icon}</span>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => {
+                          const updated = localSubjects.map(s => s.id === sub.id ? {...s, status: (s.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED') as 'PUBLISHED' | 'DRAFT'} : s);
+                          setLocalSubjects(updated);
+                          saveSubjects(updated);
+                          toast.success(`Mata pelajaran ${sub.name} berhasil diubah statusnya.`);
+                        }}
+                        className="cursor-pointer"
+                        title="Toggle Status"
+                      >
+                        {sub.status === 'PUBLISHED' ? <ToggleRight className="w-8 h-8 text-emerald-500" /> : <ToggleLeft className="w-8 h-8 text-slate-400" />}
+                      </button>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleStartEditSubject(sub)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit Mapel"><Edit3 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDeleteSubject(sub.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Mapel"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md">Kelas {sub.grade}</span>
+                    <h4 className="font-heading font-bold text-lg text-slate-900 mt-1">{sub.name}</h4>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">{sub.description}</p>
+                  <p className={`text-xs font-bold ${sub.status === 'PUBLISHED' ? 'text-emerald-600' : 'text-slate-500'}`}>
+                    {sub.status === 'PUBLISHED' ? '● Aktif (Ditampilkan)' : '○ Draf (Disembunyikan)'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 6. MATERI PEMBELAJARAN */}
+        {activeTab === 'materi' && (
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
+            <div className="flex items-center justify-between">
+              <div><h3 className="font-heading text-xl font-bold text-slate-900">📖 Modul & Materi Pembelajaran</h3><p className="text-xs text-slate-500">Kelola dokumen, materi, dan tujuan pembelajaran.</p></div>
+              <button onClick={() => setShowAddMaterialModal(true)} className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer"><Plus className="w-4 h-4" /><span>+ Buat Modul Baru</span></button>
+            </div>
+            <div className="space-y-4">
+              {localMaterials.map((mat) => (
+                <div key={mat.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-indigo-600 uppercase">{mat.topicTitle}</span>
+                    <div className="flex gap-1">
+                      <button onClick={() => handleStartEditMaterial(mat)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit Materi"><Edit3 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDeleteMaterial(mat.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Materi"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                  <h4 className="font-heading font-bold text-base text-slate-900">{mat.learningObjectives}</h4>
+                  <p className="text-xs text-slate-600">{mat.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 7. VIDEO INTERAKTIF */}
+        {activeTab === 'video' && (
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-heading text-xl font-bold text-slate-900">🎬 Kelola Video Interaktif</h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold flex items-center gap-1 border border-emerald-200">
+                    <Database className="w-3 h-3 text-emerald-600" />
+                    <span>Database: Sheet "Videos"</span>
+                  </span>
+                  {isVideoSyncing && (
+                    <span className="text-[10px] text-indigo-600 font-bold flex items-center gap-1 animate-pulse">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span>Sinkronisasi Database...</span>
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Tautan video YouTube / Google Drive tersimpan di Database Spreadsheet dan langsung muncul di langkah pembelajaran murid.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleManualSyncVideo}
+                  disabled={isVideoSyncing}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
+                  title="Tarik & sinkronkan data terbaru dari Google Spreadsheet"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isVideoSyncing ? 'animate-spin text-indigo-600' : ''}`} />
+                  <span>Sinkronkan Database</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setEditingVideo(null);
+                    setVideoForm({
+                      title: '',
+                      subjectId: localSubjects[0]?.id || 'ipas',
+                      videoUrl: '',
+                      cpTimeSeconds: 30,
+                      cpQuestion: '',
+                      cpOptionA: '',
+                      cpOptionB: '',
+                      cpOptionC: '',
+                      cpOptionD: '',
+                      cpCorrectIdx: 0,
+                    });
+                    setShowAddVideoModal(true);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer shrink-0 transition-all hover:shadow-md"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Input Link Video</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Toggle Petunjuk Database Spreadsheet */}
+            <div className="bg-sky-50/80 rounded-2xl border border-sky-200/80 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sky-900 font-bold text-xs">
+                  <Database className="w-4 h-4 text-sky-600" />
+                  <span>Petunjuk Format Database Google Spreadsheet (Sheet "Videos")</span>
+                </div>
+                <button
+                  onClick={() => setShowSheetGuide(!showSheetGuide)}
+                  className="text-xs font-bold text-sky-700 hover:text-sky-900 underline cursor-pointer"
+                >
+                  {showSheetGuide ? 'Sembunyikan Panduan ▲' : 'Lihat Format Kolom ▼'}
+                </button>
+              </div>
+
+              {showSheetGuide && (
+                <div className="pt-2 border-t border-sky-200 text-xs text-sky-950 space-y-3 animate-fadeIn">
+                  <p className="text-[11px] leading-relaxed">
+                    Jika tab/sheet <strong>"Videos"</strong> belum ada pada Google Spreadsheet Anda, buatlah tab baru dengan detail struktur berikut:
+                  </p>
+                  
+                  <div className="bg-white p-3 rounded-xl border border-sky-200 space-y-2 overflow-x-auto font-mono text-[11px]">
+                    <div className="font-bold text-sky-800">Nama Sheet (Tab): <span className="bg-sky-100 text-sky-900 px-2 py-0.5 rounded">Videos</span></div>
+                    <div className="font-bold text-slate-700">Baris 1 (Header Kolom Wajib):</div>
+                    <div className="p-2 bg-slate-900 text-emerald-400 rounded-lg text-[10px] tracking-wide whitespace-nowrap">
+                      id | title | subjectId | videoUrl | grade | checkpointsCount | createdAt
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                    <div className="p-2.5 bg-white/80 rounded-xl border border-sky-200 space-y-1">
+                      <p className="font-bold text-sky-900">📌 Penjelasan Kolom:</p>
+                      <ul className="list-disc list-inside space-y-0.5 text-slate-700">
+                        <li><code>id</code> : ID unik video (misal: <code>vid-01</code>)</li>
+                        <li><code>title</code> : Judul video interaktif</li>
+                        <li><code>subjectId</code> : ID Mapel (<code>ipas</code>, <code>matematika</code>, dll)</li>
+                        <li><code>videoUrl</code> : URL YouTube / Google Drive / MP4</li>
+                      </ul>
+                    </div>
+                    <div className="p-2.5 bg-white/80 rounded-xl border border-sky-200 space-y-1">
+                      <p className="font-bold text-sky-900">⚙️ Kolom Tambahan:</p>
+                      <ul className="list-disc list-inside space-y-0.5 text-slate-700">
+                        <li><code>grade</code> : Tingkat Kelas (misal: <code>5</code>)</li>
+                        <li><code>checkpointsCount</code> : Jumlah kuis jeda (misal: <code>1</code>)</li>
+                        <li><code>createdAt</code> : Tanggal input (misal: <code>2026-10-03</code>)</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Video List or Clean Empty State */}
+            {localInteractiveVideos.length === 0 ? (
+              <div className="p-10 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-300 space-y-4">
+                <div className="w-14 h-14 rounded-2xl bg-sky-100 text-sky-600 mx-auto flex items-center justify-center shadow-inner">
+                  <Video className="w-7 h-7" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-heading font-bold text-slate-800 text-base">Belum Ada Video Interaktif di Database</h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                    Sistem tidak menampilkan video dummy/hardcode. Masukkan tautan video YouTube atau Google Drive pembelajaran pertama Anda melalui tombol <strong>"+ Input Link Video"</strong>.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <button
+                    onClick={() => {
+                      setEditingVideo(null);
+                      setVideoForm({
+                        title: '',
+                        subjectId: localSubjects[0]?.id || 'ipas',
+                        videoUrl: '',
+                        cpTimeSeconds: 30,
+                        cpQuestion: '',
+                        cpOptionA: '',
+                        cpOptionB: '',
+                        cpOptionC: '',
+                        cpOptionD: '',
+                        cpCorrectIdx: 0,
+                      });
+                      setShowAddVideoModal(true);
+                    }}
+                    className="px-6 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow inline-flex items-center gap-2 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Input Video Sekarang</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {localInteractiveVideos.map((vid) => {
+                  const { embedUrl, type: vType } = parseEmbedUrl(vid.videoUrl);
+                  const sub = localSubjects.find((s) => s.id === vid.subjectId);
+                  const subName = sub ? `${sub.icon || '📚'} ${sub.name}` : vid.subjectId.toUpperCase();
+
+                  return (
+                    <div key={vid.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm relative group hover:shadow-md transition-all">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-sky-100 text-sky-800 uppercase border border-sky-200">
+                          Mapel: {subName}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleStartEditVideo(vid)}
+                            className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer transition-colors"
+                            title="Edit Video"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteVideo(vid.id)}
+                            className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg cursor-pointer transition-colors"
+                            title="Hapus Video"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${vType === 'youtube' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                          {vType === 'youtube' ? 'YouTube' : 'Google Drive'}
+                        </span>
+                        <h4 className="font-heading font-extrabold text-slate-900 text-sm line-clamp-1">{vid.title}</h4>
+                      </div>
+
+                      <div className="rounded-2xl overflow-hidden aspect-video bg-slate-950 border border-slate-800 shadow">
+                        <iframe src={embedUrl} title={vid.title} className="w-full h-full border-0" allowFullScreen />
+                      </div>
+
+                      <div className="pt-1 text-[11px] text-slate-500 font-mono truncate bg-white p-2 rounded-xl border border-slate-200 flex items-center justify-between">
+                        <span className="truncate">{vid.videoUrl}</span>
+                        <a href={vid.videoUrl} target="_blank" rel="noreferrer" className="text-sky-600 hover:text-sky-800 font-bold ml-2 shrink-0">Buka ↗</a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 8. AKTIVITAS INTERAKTIF */}
+        {activeTab === 'aktivitas' && (
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
+            <div className="flex items-center justify-between">
+              <div><h3 className="font-heading text-xl font-bold text-slate-900">🎮 Aktivitas & Game Simulasi Interaktif</h3><p className="text-xs text-slate-500">Kelola aktivitas Matching, Simulasi Laboratorium, dan Puzzle.</p></div>
+              <button onClick={() => { setEditingActivity(null); setActivityForm({ title: '', subjectId: 'ipas', type: 'MATCHING', difficulty: 'MOTS', points: 100, description: '' }); setShowAddActivityModal(true); }} className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer"><Plus className="w-4 h-4" /><span>+ Buat Aktivitas Baru</span></button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              {localActivities.map((act) => {
+                const sub = localSubjects.find((s) => s.id === act.subjectId);
+                const subName = sub ? sub.name : act.subjectId.toUpperCase();
+                return (
+                  <div key={act.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-3 relative group hover:border-slate-300 transition-all flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase">{act.type}</span>
+                        <div className="flex gap-1.5">
+                          <button onClick={() => handleStartEditActivity(act)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer transition-colors" title="Edit Aktivitas"><Edit3 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => handleDeleteActivity(act.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer transition-colors" title="Hapus Aktivitas"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-indigo-600">{subName}</span>
+                        <span className="font-extrabold text-amber-600">+{act.points} XP ({act.difficulty})</span>
+                      </div>
+                      <h4 className="font-heading font-bold text-slate-900 text-base">{act.title}</h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">{act.description}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 9. PRIMA AI TUTOR CONFIG & GEMINI ENGINE */}
+        {activeTab === 'ai' && (
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
+            
+            {/* Gemini AI Engine Status Card */}
+            <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white shadow-xl relative overflow-hidden">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-purple-500/30 border border-purple-400/40 text-purple-300">
+                      <Cpu className="w-5 h-5" />
+                    </span>
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-purple-300">
+                      Google Gemini AI Engine
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-extrabold">
+                      ONLINE / AKTIF
+                    </span>
+                  </div>
+                  <h3 className="font-heading font-black text-2xl text-white">
+                    Dasar Otak Chatbot: Gemini 3.8 Flash
+                  </h3>
+                  <p className="text-xs text-purple-200 max-w-xl leading-relaxed">
+                    Chatbot PRIMA AI menggunakan model <strong>gemini-3.8-flash</strong> dengan metode <em>Scaffolding & Socratik</em>. Guru dapat mengatur karakter, prompt pemandu, dan batasan jawaban untuk setiap mata pelajaran.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => { setEditingAiConfig(null); setAiConfigForm({ tutorName: 'PRIMA AI Sains 5', subjectId: 'ipas', topicTitle: 'Harmoni dalam Ekosistem', learningGoal: 'Membimbing siswa memahami konsep pembelajaran.', communicationStyle: 'Ramah, bersahabat, dan memotivasi untuk siswa SD.', rulesAndScaffolding: 'Bimbing dengan pertanyaan socratik, jangan beri jawaban instan.' }); setShowAddAiConfigModal(true); }}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold text-xs shadow-lg flex items-center gap-2 shrink-0 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Konfigurasi AI Baru</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-purple-800/60 text-xs">
+                <div>
+                  <p className="text-[10px] text-purple-300">Engine SDK</p>
+                  <p className="font-mono font-bold text-white mt-0.5">@google/genai</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-purple-300">Arsitektur API</p>
+                  <p className="font-bold text-white mt-0.5">Server-Side Proxy (/api/ai/tutor)</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-purple-300">Metode Pedagogik</p>
+                  <p className="font-bold text-emerald-300 mt-0.5">Scaffolding (Pemandu)</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-purple-300">Target Siswa</p>
+                  <p className="font-bold text-white mt-0.5">SD Kelas 4–6</p>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Tutor Configurations List */}
+            <div className="space-y-4">
+              <h4 className="font-heading font-bold text-lg text-slate-900">Daftar Konfigurasi AI Tutor Mata Pelajaran</h4>
+              {localAiConfigs.map((cfg) => (
+                <div key={cfg.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-3 relative group">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-indigo-600 uppercase">Mapel: {cfg.subjectId} | Topik: {cfg.topicTitle}</span>
+                      <h4 className="font-heading font-black text-slate-900 text-lg mt-0.5">{cfg.tutorName}</h4>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleStartEditAiConfig(cfg)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit AI"><Edit3 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDeleteAiConfig(cfg.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus AI"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                      <button
+                        onClick={() => setShowAiSandboxModal(cfg)}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow cursor-pointer"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        <span>Uji Coba Sandbox AI</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-xs space-y-1 text-slate-600 bg-white p-3 rounded-2xl border border-slate-200">
+                    <p><strong>🎯 Tujuan Pembelajaran:</strong> {cfg.learningGoal}</p>
+                    <p><strong>🗣️ Gaya Komunikasi:</strong> {cfg.communicationStyle}</p>
+                    <p><strong>🛡️ Aturan Menjawab & Scaffolding:</strong> {cfg.rulesAndScaffolding}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* AI KONSULTASI KURIKULUM & PEDAGOGIK */}
+        {activeTab === 'consultant' && (
+          <div className="glass-card p-6 sm:p-8 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn flex flex-col h-[75vh]">
+            <div className="flex items-center justify-between border-b pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-purple-100 text-purple-700 rounded-2xl">
+                  <Bot className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-heading text-xl font-bold text-slate-900">🤖 AI Konsultasi Kurikulum & Pedagogik</h3>
+                  <p className="text-xs text-slate-500">Tanyakan rancangan TP, KKTP, ide modul ajar, atau bantuan teknis platform kepada Gemini AI.</p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-xs font-extrabold flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                <span>Gemini 3.8 Flash Active</span>
+              </span>
+            </div>
+
+            {/* Chat Messages Box */}
+            <div className="flex-1 overflow-y-auto space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+              {consultantMessages.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-xl p-4 rounded-2xl text-xs leading-relaxed shadow-sm ${
+                    msg.role === 'user'
+                      ? 'bg-purple-600 text-white rounded-br-none'
+                      : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
+                  }`}>
+                    {msg.role === 'model' && (
+                      <div className="font-bold text-purple-700 mb-1 flex items-center gap-1.5 text-[11px]">
+                        <Bot className="w-3.5 h-3.5" />
+                        <span>PRIMA Teacher Assistant</span>
+                      </div>
+                    )}
+                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                  </div>
+                </div>
+              ))}
+              {isConsultantLoading && (
+                <div className="flex justify-start">
+                  <div className="p-4 bg-white border border-slate-200 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-2 text-xs text-slate-500">
+                    <div className="w-2 h-2 rounded-full bg-purple-600 animate-ping" />
+                    <span>AI sedang menyusun saran kurikulum & pedagogik...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chat Input */}
+            <form onSubmit={handleSendConsultantMessage} className="flex items-center gap-3 pt-2">
+              <input
+                type="text"
+                required
+                value={consultantInput}
+                onChange={(e) => setConsultantInput(e.target.value)}
+                placeholder="Tanyakan contoh modul ajar IPA, cara menyusun KKTP, atau bantuan teknis..."
+                className="flex-1 p-3 rounded-2xl border border-slate-300 bg-white text-xs text-slate-800 font-medium focus:ring-2 focus:ring-purple-500 shadow-sm"
+              />
+              <button
+                type="submit"
+                disabled={isConsultantLoading}
+                className="px-6 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md flex items-center gap-2 cursor-pointer transition-all hover:scale-105 disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+                <span>Kirim Konsultasi</span>
+              </button>
+            </form>
+          </div>
+        )}
+        {activeTab === 'coding' && (
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
+            <div className="flex items-center justify-between">
+              <div><h3 className="font-heading text-xl font-bold text-slate-900">💻 Block-Based Coding Challenges</h3><p className="text-xs text-slate-500">Kelola tantangan logika coding visual berbasis balok instruksi Scratch-style.</p></div>
+              <button onClick={() => { setEditingCoding(null); setCodingForm({ title: '', subjectId: 'ipas', allowedBlocksCount: 5, targetGoal: '' }); setShowAddCodingModal(true); }} className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer"><Plus className="w-4 h-4" /><span>+ Buat Challenge Coding</span></button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {localCodingChallenges.map((cod) => (
+                <div key={cod.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-3 relative group hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">Batas Balok: {cod.allowedBlocksCount} Block</span>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => handleStartEditCoding(cod)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit Challenge"><Edit3 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDeleteCoding(cod.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Challenge"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                  <h4 className="font-heading font-bold text-slate-900 text-base">{cod.title}</h4>
+                  <p className="text-xs text-slate-600">{cod.targetGoal}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 11. ASESMEN & KUIS */}
+        {activeTab === 'asesmen' && (
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-heading text-xl font-bold text-slate-900">🧠 Asesmen & Kuis Pembelajaran</h3>
+                <p className="text-xs text-slate-500">Asesmen terhubung langsung dengan Bank Soal. Kelola durasi, KKTP target, dan susunan soal.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingAssessment(null);
+                  setAssessmentForm({
+                    title: '',
+                    subjectId: localSubjects[0]?.id || 'ipas',
+                    durationMinutes: 30,
+                    kktpTarget: 75,
+                    selectedQuestionIds: localQuestionBank.map((q) => q.id),
+                  });
+                  setShowAddAssessmentModal(true);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Terbitkan Asesmen Baru</span>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {localAssessments.map((ass) => {
+                const subName = localSubjects.find((s) => s.id === ass.subjectId)?.name || ass.subjectId.toUpperCase();
+                const isExpanded = expandedAssessmentId === ass.id;
+                const questionsList = ass.questions || [];
+
+                return (
+                  <div key={ass.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm hover:border-slate-300 transition-all">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                            {subName}
+                          </span>
+                          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                            {questionsList.length} Soal Terhubung
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">
+                            {ass.status}
+                          </span>
+                        </div>
+                        <h4 className="font-heading font-extrabold text-slate-900 text-base">{ass.title}</h4>
+                        <p className="text-xs text-slate-500">
+                          ⏱️ Durasi: <strong>{ass.durationMinutes} Menit</strong> | 🎯 KKTP Target: <strong>{ass.kktpTarget} Point</strong> | 🔄 Percobaan: Maks {ass.maxAttempts}x
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => setExpandedAssessmentId(isExpanded ? null : ass.id)}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                            isExpanded ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                          }`}
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>{isExpanded ? 'Tutup Soal' : `Kelola Soal (${questionsList.length})`}</span>
+                        </button>
+                        <button
+                          onClick={() => handleStartEditAssessment(ass)}
+                          className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl cursor-pointer"
+                          title="Edit Asesmen"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAssessment(ass.id)}
+                          className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl cursor-pointer"
+                          title="Hapus Asesmen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Expanded View: Questions Inside Assessment */}
+                    {isExpanded && (
+                      <div className="pt-4 border-t border-slate-200 space-y-4 animate-fadeIn">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-indigo-50/70 rounded-2xl border border-indigo-200">
+                          <span className="text-xs font-bold text-indigo-950 flex items-center gap-1">
+                            <BookOpen className="w-4 h-4 text-indigo-600" />
+                            <span>Daftar Soal yang Diujikan pada Asesmen ini</span>
+                          </span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setShowSelectQuestionModalForAssessment(ass)}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1 cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Pilih Soal dari Bank Soal</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setTargetAssessmentIdForNewQuestion(ass.id);
+                                setEditingQuestionId(null);
+                                setQuestionForm({
+                                  subjectId: ass.subjectId,
+                                  type: 'PG',
+                                  level: 'HOTS',
+                                  stimulus: '',
+                                  questionText: '',
+                                  optionA: '',
+                                  optionB: '',
+                                  optionC: '',
+                                  optionD: '',
+                                  correctIdx: 0,
+                                  pgkCorrectIndices: [0],
+                                  bsStatements: [
+                                    { text: 'Pernyataan 1', isTrue: true },
+                                    { text: 'Pernyataan 2', isTrue: false },
+                                    { text: 'Pernyataan 3', isTrue: true },
+                                  ],
+                                  explanation: '',
+                                });
+                                setShowAddQuestionModal(true);
+                              }}
+                              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1 cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Buat Soal Baru Langsung</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {questionsList.length === 0 ? (
+                          <div className="p-6 text-center text-xs text-slate-500 bg-white rounded-2xl border border-dashed border-slate-300">
+                            Belum ada soal yang terhubung ke Asesmen ini. Klik tombol "Pilih Soal dari Bank Soal" di atas untuk menambahkan.
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {questionsList.map((q, idx) => (
+                              <div key={q.id} className="p-4 bg-white rounded-2xl border border-slate-200 text-xs space-y-2 relative">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="font-extrabold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded uppercase text-[10px]">
+                                      {q.type}
+                                    </span>
+                                    <span className="font-bold text-slate-500 text-[10px]">
+                                      Level {q.level}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleToggleQuestionInAssessment(ass.id, q)}
+                                    className="px-2.5 py-1 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <X className="w-3 h-3" />
+                                    <span>Lepas Soal</span>
+                                  </button>
+                                </div>
+                                {q.stimulus && <p className="italic text-slate-600 bg-slate-50 p-2 rounded-lg border">{q.stimulus}</p>}
+                                <p className="font-bold text-slate-900">{q.questionText}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 12. BANK SOAL */}
+        {activeTab === 'bank-soal' && (
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-heading text-xl font-bold text-slate-900">📝 Bank Soal Berbasis Stimulus (AKM SD)</h3>
+                <p className="text-xs text-slate-500">Mendukung 3 Jenis Soal: PG (Pilihan Ganda), PGK (Kompleks), dan BS (Benar/Salah).</p>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingQuestionId(null);
+                  setQuestionForm({
+                    subjectId: 'ipas',
+                    type: 'PG',
+                    level: 'HOTS',
+                    stimulus: '',
+                    questionText: '',
+                    optionA: '',
+                    optionB: '',
+                    optionC: '',
+                    optionD: '',
+                    correctIdx: 0,
+                    pgkCorrectIndices: [0, 2],
+                    bsStatements: [
+                      { text: 'Pernyataan 1: ...', isTrue: true },
+                      { text: 'Pernyataan 2: ...', isTrue: false },
+                      { text: 'Pernyataan 3: ...', isTrue: true },
+                    ],
+                    explanation: '',
+                  });
+                  setShowAddQuestionModal(true);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Buat Soal Stimulus Baru</span>
+              </button>
+            </div>
+            <div className="space-y-6">
+              {localQuestionBank.map((qb, idx) => {
+                const linkedAssessments = localAssessments.filter((a) =>
+                  (a.questions || []).some((q) => q.id === qb.id)
+                );
+
+                return (
+                  <div key={qb.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm hover:border-slate-300 transition-all">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-purple-600 text-white font-black text-xs flex items-center justify-center">
+                          {idx + 1}
+                        </span>
+                        <span className="text-xs font-bold text-purple-900 bg-purple-100 px-3 py-0.5 rounded-full uppercase">
+                          {qb.type === 'PGK' ? 'PGK (Pilihan Ganda Kompleks)' : qb.type === 'BS' ? 'BS (Benar / Salah)' : 'PG (Pilihan Ganda)'}
+                        </span>
+                        <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                          Level {qb.level}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                          Mapel: {qb.subjectId.toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => setShowLinkQuestionToAssessmentModal(qb)}
+                          className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                          title="Hubungkan ke Asesmen"
+                        >
+                          <Layers className="w-3.5 h-3.5" />
+                          <span>Hubungkan ke Asesmen ({linkedAssessments.length})</span>
+                        </button>
+                        <button
+                          onClick={() => handleEditQuestion(qb)}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                          title="Edit Soal"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteQuestion(qb.id)}
+                          className="px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                          title="Hapus Soal"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Hapus</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Linked Assessment Badge */}
+                    <div className="p-2.5 bg-white rounded-2xl border border-slate-200 text-xs flex items-center gap-2">
+                      <span className="font-bold text-slate-500 text-[11px]">🔗 Terhubung ke Asesmen:</span>
+                      {linkedAssessments.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {linkedAssessments.map((a) => (
+                            <span key={a.id} className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+                              {a.title}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 italic text-[11px]">Belum terhubung ke Asesmen mana pun (Klik tombol "Hubungkan ke Asesmen" di atas).</span>
+                      )}
+                    </div>
+
+                    {qb.stimulus && (
+                      <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-950 space-y-1">
+                        <strong className="text-xs text-indigo-700 uppercase block">📖 TEKS STIMULUS:</strong>
+                        <p className="text-xs leading-relaxed italic">{qb.stimulus}</p>
+                      </div>
+                    )}
+
+                    <p className="text-xs sm:text-sm font-bold text-slate-900">{qb.questionText}</p>
+
+                    {/* Render Options Preview for PG */}
+                    {qb.type === 'PG' && qb.options && qb.options.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
+                        {qb.options.map((opt, optIdx) => (
+                          <div
+                            key={optIdx}
+                            className={`p-2.5 rounded-xl border flex items-center gap-2 ${
+                              qb.correctAnswer === optIdx
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-900 font-bold'
+                                : 'bg-white border-slate-200 text-slate-700'
+                            }`}
+                          >
+                            <span className="w-5 h-5 rounded-lg bg-slate-100 font-mono font-bold text-center leading-5 text-[11px] shrink-0">
+                              {String.fromCharCode(65 + optIdx)}
+                            </span>
+                            <span className="flex-1">{opt}</span>
+                            {qb.correctAnswer === optIdx && (
+                              <span className="text-[10px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded font-bold shrink-0">Kunci Benar</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Render Options Preview for PGK */}
+                    {qb.type === 'PGK' && qb.options && qb.options.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
+                        {qb.options.map((opt, optIdx) => {
+                          const isCorrect = qb.correctAnswers?.includes(optIdx);
+                          return (
+                            <div
+                              key={optIdx}
+                              className={`p-2.5 rounded-xl border flex items-center gap-2 ${
+                                isCorrect
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900 font-bold'
+                                  : 'bg-white border-slate-200 text-slate-700'
+                              }`}
+                            >
+                              <span className="w-5 h-5 rounded-lg bg-slate-100 font-mono font-bold text-center leading-5 text-[11px] shrink-0">
+                                {String.fromCharCode(65 + optIdx)}
+                              </span>
+                              <span className="flex-1">{opt}</span>
+                              {isCorrect && (
+                                <span className="text-[10px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded font-bold shrink-0">Kunci Benar</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Render Statements Preview for BS */}
+                    {qb.type === 'BS' && qb.statements && qb.statements.length > 0 && (
+                      <div className="space-y-1.5 pt-1 text-xs">
+                        {qb.statements.map((st, stIdx) => (
+                          <div key={stIdx} className="p-2.5 rounded-xl border bg-white border-slate-200 flex items-center justify-between">
+                            <span className="text-slate-800 font-medium">{st.text}</span>
+                            <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${st.isTrue ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                              {st.isTrue ? 'BENAR' : 'SALAH'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {qb.explanation && (
+                      <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900">
+                        💡 <strong>Pembahasan:</strong> {qb.explanation}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 13. ANALITIK PEMBELAJARAN */}
+        {activeTab === 'analitik' && (
+          <div className="glass-card p-6 sm:p-8 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
+            <h3 className="font-heading text-xl font-bold text-slate-900">📊 Analitik & Grafik Ketercapaian Pembelajaran</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-6 bg-sky-50 rounded-3xl border border-sky-100 text-center"><p className="text-xs font-bold text-sky-700">Waktu Belajar Minggu Ini</p><p className="text-3xl font-black text-sky-950 mt-2">142 Menit / Siswa</p></div>
+              <div className="p-6 bg-emerald-50 rounded-3xl border border-emerald-100 text-center"><p className="text-xs font-bold text-emerald-700">Interaksi PRIMA AI Tutor</p><p className="text-3xl font-black text-emerald-950 mt-2">418 Pertanyaan</p></div>
+              <div className="p-6 bg-purple-50 rounded-3xl border border-purple-100 text-center"><p className="text-xs font-bold text-purple-700">Ketuntasan KKTP Kelas</p><p className="text-3xl font-black text-purple-950 mt-2">89.2%</p></div>
+            </div>
+          </div>
+        )}
+
+        {/* 14. GAMIFIKASI & LEADERBOARD */}
+        {activeTab === 'gamifikasi' && (
+          <div className="glass-card p-6 sm:p-8 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
+            <h3 className="font-heading text-xl font-bold text-slate-900">🏆 Leaderboard & Gamifikasi Sehat Siswa</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 text-slate-700 font-bold uppercase"><tr><th className="p-3">Rank</th><th className="p-3">Nama Siswa</th><th className="p-3">Total XP</th><th className="p-3">Level</th><th className="p-3">Streak Belajar</th></tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                  {leaderboardStudents.map((s, idx) => (
+                    <tr key={s.id} className="hover:bg-slate-50">
+                      <td className="p-3 font-bold text-amber-600">#{idx + 1}</td>
+                      <td className="p-3 font-bold text-slate-900 flex items-center gap-2"><img src={s.avatar} className="w-7 h-7 rounded-full object-cover" /><span>{s.name}</span></td>
+                      <td className="p-3 font-extrabold text-indigo-600">{s.xp.toLocaleString()} XP</td>
+                      <td className="p-3 font-bold">Level {s.level} Explorer</td>
+                      <td className="p-3 text-emerald-600 font-bold">🔥 {s.streakDays} Hari Aktif</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* 15. REFLEKSI MURID */}
+        {activeTab === 'refleksi' && (
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
+            <h3 className="font-heading text-xl font-bold text-slate-900">💬 Jurnal Refleksi Siswa & Feedback Guru</h3>
+            <div className="space-y-4">
+              {localReflections.map((ref) => (
+                <div key={ref.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between"><span className="font-bold text-slate-900 text-sm">{ref.studentName}</span><span className="text-[10px] text-slate-400">{ref.createdAt}</span></div>
+                  <p className="text-xs text-slate-700 italic">"{ref.content}"</p>
+                  {ref.aiInsight && <div className="p-3 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-900 text-xs font-semibold">🤖 PRIMA AI Insight: {ref.aiInsight}</div>}
+                  <div className="pt-2 flex items-center gap-2">
+                    <input type="text" value={teacherFeedbackMap[ref.id] || ''} onChange={(e) => setTeacherFeedbackMap({ ...teacherFeedbackMap, [ref.id]: e.target.value })} placeholder="Tulis masukan balasan untuk siswa di sini..." className="flex-1 p-2 rounded-xl border text-xs" />
+                    <button onClick={() => handleSendTeacherFeedback(ref.id)} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-xs cursor-pointer"><Send className="w-3.5 h-3.5" /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 16. PENGUMUMAN */}
+        {activeTab === 'pengumuman' && (
+          <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
+            <div className="flex items-center justify-between">
+              <div><h3 className="font-heading text-xl font-bold text-slate-900">📢 Pengumuman Kelas</h3><p className="text-xs text-slate-500">Terbitkan pesan dan arahan tugas untuk seluruh siswa.</p></div>
+              <button onClick={() => { setEditingAnnouncement(null); setAnnouncementForm({ title: '', content: '', targetClass: 'SEMUA' }); setShowAddAnnouncementModal(true); }} className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer"><Plus className="w-4 h-4" /><span>+ Buat Pengumuman</span></button>
+            </div>
+            <div className="space-y-4">
+              {localAnnouncements.map((anc) => (
+                <div key={anc.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 relative group hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-900 text-sm">{anc.title}</h4>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => handleStartEditAnnouncement(anc)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit Pengumuman"><Edit3 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDeleteAnnouncement(anc.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Pengumuman"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-600">{anc.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 17. PENGATURAN PORTAL */}
+        {activeTab === 'pengaturan' && (
+          <div className="glass-card p-6 sm:p-8 rounded-3xl border border-slate-200 max-w-3xl mx-auto space-y-6 animate-fadeIn">
+            <h3 className="font-heading text-xl font-bold text-slate-900 border-b pb-4">⚙️ Pengaturan Portal Guru & Sistem AI</h3>
+            
+            {/* Gemini API Engine Card in Settings */}
+            <div className="p-5 rounded-2xl bg-purple-50 border border-purple-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Cpu className="w-5 h-5 text-purple-700" />
+                  <span className="font-heading font-black text-purple-950 text-sm">Integrasi Gemini AI Engine</span>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">TERHUBUNG</span>
+              </div>
+              <p className="text-xs text-purple-900 leading-relaxed font-medium">
+                Sistem chatbot AI ditenagai oleh model <strong>Google Gemini (gemini-3.8-flash)</strong> melalui backend proxy aman. Kunci API dikelola secara terpusat oleh server platform AI Studio.
+              </p>
+            </div>
+
+            <div className="space-y-4 text-xs font-bold text-slate-700">
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border"><span>Notifikasi Email Refleksi Siswa</span><input type="checkbox" defaultChecked className="w-4 h-4 text-indigo-600 cursor-pointer" /></div>
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border"><span>Mode Pendampingan AI Scaffolding Otomatis</span><input type="checkbox" defaultChecked className="w-4 h-4 text-indigo-600 cursor-pointer" /></div>
+              <div className="pt-4 border-t flex items-center justify-between">
+                <span>Ekspor Seluruh Data Kelas (.JSON)</span>
+                <button onClick={handleExportData} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer shadow"><Download className="w-4 h-4" /><span>Ekspor Data Now</span></button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* ALL MODALS */}
+
+      {/* Add Student Modal */}
+      {showAddStudentModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full space-y-4 border border-slate-200">
+            <h3 className="font-heading font-black text-xl text-slate-900">Tambah Akun Murid Baru</h3>
+            <form onSubmit={handleSaveStudent} className="space-y-3 text-xs">
+              <div><label className="font-bold text-slate-700">Nama Lengkap Murid</label><input type="text" required value={studentForm.name} onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })} placeholder="Contoh: Andi Pratama" className="w-full p-2.5 rounded-xl border mt-1" /></div>
+              <div><label className="font-bold text-slate-700">Username</label><input type="text" required value={studentForm.username} onChange={(e) => setStudentForm({ ...studentForm, username: e.target.value })} placeholder="Contoh: andi5a" className="w-full p-2.5 rounded-xl border mt-1 font-mono" /></div>
+              <div className="flex items-center gap-3 pt-3"><button type="button" onClick={() => setShowAddStudentModal(false)} className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 cursor-pointer">Batal</button><button type="submit" className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold cursor-pointer shadow">Simpan Akun</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Video Modal */}
+      {showAddVideoModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-lg w-full space-y-4 border border-slate-200 my-8 animate-fadeIn">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-sky-100 text-sky-700 rounded-xl">
+                  <Video className="w-5 h-5" />
+                </div>
+                <h3 className="font-heading font-black text-xl text-slate-900">
+                  {editingVideo ? 'Edit Video Interaktif' : 'Input Link Video (YouTube / Drive)'}
+                </h3>
+              </div>
+              <button
+                onClick={() => { setShowAddVideoModal(false); setEditingVideo(null); }}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveVideo} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Mata Pelajaran</label>
+                <select
+                  value={videoForm.subjectId}
+                  onChange={(e) => setVideoForm({ ...videoForm, subjectId: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500"
+                >
+                  {localSubjects.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.icon || '📚'} {sub.name} (Kelas {sub.grade || 5})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Judul Video Pembelajaran</label>
+                <input
+                  type="text"
+                  required
+                  value={videoForm.title}
+                  onChange={(e) => setVideoForm({ ...videoForm, title: e.target.value })}
+                  placeholder="Contoh: Petualangan Ekosistem Hutan Tropis"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-indigo-900 block mb-1">
+                  Tautan Video (YouTube / Google Drive) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={videoForm.videoUrl}
+                  onChange={(e) => setVideoForm({ ...videoForm, videoUrl: e.target.value })}
+                  placeholder="https://www.youtube.com/watch?v=... atau https://drive.google.com/file/d/..."
+                  className="w-full p-2.5 rounded-xl border border-indigo-300 bg-indigo-50/50 font-mono text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Mendukung URL YouTube (termasuk Shorts & Embed) serta link Google Drive Preview.
+                </p>
+              </div>
+
+              <div className="p-3 bg-sky-50 rounded-2xl border border-sky-200 text-[11px] text-sky-900 space-y-1">
+                <p className="font-bold flex items-center gap-1">
+                  <Database className="w-3.5 h-3.5 text-sky-700" />
+                  <span>Penyimpanan Database Otomatis:</span>
+                </p>
+                <p className="text-[10px] text-sky-800">
+                  Data ini akan disimpan ke Database Lokal dan dikirim ke Sheet <code>Videos</code> pada Google Spreadsheet Anda.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowAddVideoModal(false); setEditingVideo(null); }}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 cursor-pointer transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold cursor-pointer shadow-md transition-all hover:shadow-lg"
+                >
+                  {editingVideo ? 'Simpan Perubahan' : 'Simpan ke Database'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Activity Modal */}
+      {showAddActivityModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-lg w-full space-y-4 border border-slate-200 my-8 animate-fadeIn">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
+                  <Gamepad2 className="w-5 h-5" />
+                </div>
+                <h3 className="font-heading font-black text-xl text-slate-900">
+                  {editingActivity ? 'Edit Aktivitas Interaktif' : 'Buat Aktivitas Interaktif Baru'}
+                </h3>
+              </div>
+              <button
+                onClick={() => { setShowAddActivityModal(false); setEditingActivity(null); }}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveActivity} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Mata Pelajaran</label>
+                <select
+                  value={activityForm.subjectId}
+                  onChange={(e) => setActivityForm({ ...activityForm, subjectId: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                >
+                  {localSubjects.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.icon || '📚'} {sub.name} (Kelas {sub.grade || 5})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Judul Aktivitas / Simulasi</label>
+                <input
+                  type="text"
+                  required
+                  value={activityForm.title}
+                  onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
+                  placeholder="Contoh: Simulasi Rantai Makanan Sawah"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Jenis Aktivitas</label>
+                  <select
+                    value={activityForm.type}
+                    onChange={(e) => setActivityForm({ ...activityForm, type: e.target.value as any })}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="MATCHING">MATCHING (Pencocokan)</option>
+                    <option value="SIMULATION">SIMULATION (Laboratorium)</option>
+                    <option value="PUZZLE">PUZZLE (Teka-teki)</option>
+                    <option value="LAB">LAB (Eksperimen Maya)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Tingkat Kesulitan</label>
+                  <select
+                    value={activityForm.difficulty}
+                    onChange={(e) => setActivityForm({ ...activityForm, difficulty: e.target.value as any })}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="LOTS">LOTS (Dasar)</option>
+                    <option value="MOTS">MOTS (Menengah)</option>
+                    <option value="HOTS">HOTS (Tinggi)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-amber-800 block mb-1">Poin XP Reward</label>
+                <input
+                  type="number"
+                  min={10}
+                  max={500}
+                  required
+                  value={activityForm.points}
+                  onChange={(e) => setActivityForm({ ...activityForm, points: Number(e.target.value) })}
+                  className="w-full p-2.5 rounded-xl border border-amber-300 bg-amber-50/50 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Deskripsi & Petunjuk Pengerjaan</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={activityForm.description}
+                  onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
+                  placeholder="Petunjuk singkat bagi siswa yang akan memainkan simulasi ini..."
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowAddActivityModal(false); setEditingActivity(null); }}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 cursor-pointer transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer shadow-md transition-all hover:shadow-lg"
+                >
+                  {editingActivity ? 'Simpan Perubahan' : 'Simpan ke Database'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add AI Config Modal */}
+      {showAddAiConfigModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-lg w-full space-y-4 border border-slate-200 my-8">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-heading font-black text-xl text-slate-900">{editingAiConfig ? 'Edit Konfigurasi AI Tutor' : 'Konfigurasi AI Tutor (Gemini API)'}</h3>
+              <button onClick={() => { setShowAddAiConfigModal(false); setEditingAiConfig(null); }} className="p-1 rounded-full bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleSaveAiConfig} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700">Nama Persona AI Tutor</label>
+                <input type="text" required value={aiConfigForm.tutorName} onChange={(e) => setAiConfigForm({ ...aiConfigForm, tutorName: e.target.value })} placeholder="Contoh: PRIMA AI Sains 5" className="w-full p-2.5 rounded-xl border mt-1 font-semibold" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700">Topik Pembelajaran</label>
+                <input type="text" required value={aiConfigForm.topicTitle} onChange={(e) => setAiConfigForm({ ...aiConfigForm, topicTitle: e.target.value })} placeholder="Contoh: Harmoni dalam Ekosistem" className="w-full p-2.5 rounded-xl border mt-1" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700">Tujuan Pembelajaran & Konsep Kunci</label>
+                <textarea rows={2} value={aiConfigForm.learningGoal} onChange={(e) => setAiConfigForm({ ...aiConfigForm, learningGoal: e.target.value })} placeholder="Tujuan yang ingin dicapai siswa..." className="w-full p-2.5 rounded-xl border mt-1" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700">Gaya Komunikasi</label>
+                <input type="text" value={aiConfigForm.communicationStyle} onChange={(e) => setAiConfigForm({ ...aiConfigForm, communicationStyle: e.target.value })} className="w-full p-2.5 rounded-xl border mt-1" />
+              </div>
+              <div>
+                <label className="font-bold text-indigo-800">Aturan Scaffolding & Batasan Menjawab</label>
+                <textarea rows={3} value={aiConfigForm.rulesAndScaffolding} onChange={(e) => setAiConfigForm({ ...aiConfigForm, rulesAndScaffolding: e.target.value })} placeholder="Instruksi khusus, larangan memberi kunci jawaban langsung, dll." className="w-full p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 mt-1" />
+              </div>
+              <div className="flex items-center gap-3 pt-3">
+                <button type="button" onClick={() => { setShowAddAiConfigModal(false); setEditingAiConfig(null); }} className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 cursor-pointer">Batal</button>
+                <button type="submit" className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold cursor-pointer shadow">Simpan Konfigurasi</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* AI Sandbox Drawer (Real Gemini API Powered) */}
+      {showAiSandboxModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="glass-card p-6 rounded-3xl max-w-lg w-full space-y-4 border border-slate-200 text-slate-900 bg-white">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 uppercase">
+                  Live Gemini 3.8 Flash Sandbox
+                </span>
+                <h4 className="font-heading font-black text-lg text-slate-900 mt-0.5">
+                  🤖 {showAiSandboxModal.tutorName}
+                </h4>
+              </div>
+              <button onClick={() => setShowAiSandboxModal(null)} className="p-1 rounded-full bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="p-2.5 bg-purple-50 rounded-xl border border-purple-200 text-[11px] text-purple-900 font-medium">
+              💡 <strong>Aturan Terpasang:</strong> {showAiSandboxModal.rulesAndScaffolding}
+            </div>
+
+            {/* Chat Messages */}
+            <div className="h-64 overflow-y-auto space-y-2.5 p-3 bg-slate-50 rounded-2xl border text-xs">
+              {sandboxMessages.map((m, idx) => (
+                <div key={idx} className={`p-3 rounded-2xl leading-relaxed ${
+                  m.role === 'user'
+                    ? 'bg-indigo-600 text-white ml-auto max-w-[85%] font-medium shadow-sm'
+                    : 'bg-white border border-slate-200 text-slate-800 max-w-[90%] shadow-sm'
+                }`}>
+                  {m.text}
+                </div>
+              ))}
+              {isSandboxLoading && (
+                <div className="p-3 bg-white border border-slate-200 rounded-2xl max-w-[85%] text-xs text-indigo-600 font-semibold flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 animate-spin text-purple-600" />
+                  <span>Gemini AI sedang menyusun jawaban bimbingan...</span>
+                </div>
+              )}
+            </div>
+
+            {/* Chat Input Form */}
+            <form onSubmit={handleSendSandboxMessage} className="flex gap-2">
+              <input
+                type="text"
+                value={sandboxInput}
+                disabled={isSandboxLoading}
+                onChange={(e) => setSandboxInput(e.target.value)}
+                placeholder="Ketik pertanyaan siswa untuk menguji respon AI..."
+                className="flex-1 p-2.5 rounded-xl border text-xs font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <button
+                type="submit"
+                disabled={isSandboxLoading || !sandboxInput.trim()}
+                className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs shadow flex items-center gap-1 cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+                <span>Kirim</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Coding Modal */}
+      {showAddCodingModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-heading font-black text-xl text-slate-900">{editingCoding ? 'Edit Challenge Coding' : 'Buat Challenge Coding Baru'}</h3>
+              <button onClick={() => { setShowAddCodingModal(false); setEditingCoding(null); }} className="p-1 rounded-full bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleSaveCoding} className="space-y-3 text-xs">
+              <div><label className="font-bold text-slate-700">Judul Challenge</label><input type="text" required value={codingForm.title} onChange={(e) => setCodingForm({ ...codingForm, title: e.target.value })} placeholder="Judul challenge..." className="w-full p-2.5 rounded-xl border mt-1 font-semibold" /></div>
+              <div><label className="font-bold text-slate-700">Target Tujuan Coding</label><textarea rows={2} value={codingForm.targetGoal} onChange={(e) => setCodingForm({ ...codingForm, targetGoal: e.target.value })} placeholder="Tujuan yang harus dicapai balok coding..." className="w-full p-2.5 rounded-xl border mt-1" /></div>
+              <div><label className="font-bold text-slate-700">Batas Maksimal Balok</label><input type="number" min="1" max="20" value={codingForm.allowedBlocksCount} onChange={(e) => setCodingForm({ ...codingForm, allowedBlocksCount: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border mt-1" /></div>
+              <div className="flex items-center gap-3 pt-3"><button type="button" onClick={() => { setShowAddCodingModal(false); setEditingCoding(null); }} className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 cursor-pointer">Batal</button><button type="submit" className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold cursor-pointer shadow">Simpan Challenge</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Assessment Modal */}
+      {showAddAssessmentModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-lg w-full space-y-4 border border-slate-200 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-heading font-black text-xl text-slate-900">{editingAssessment ? 'Edit Asesmen Pembelajaran' : 'Terbitkan Asesmen Kuis Baru'}</h3>
+              <button onClick={() => { setShowAddAssessmentModal(false); setEditingAssessment(null); }} className="p-1 rounded-full bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleSaveAssessment} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700">Judul Asesmen</label>
+                <input type="text" required value={assessmentForm.title} onChange={(e) => setAssessmentForm({ ...assessmentForm, title: e.target.value })} placeholder="Contoh: Asesmen Formatif Bab 1" className="w-full p-2.5 rounded-xl border mt-1 font-semibold" />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-700">Mata Pelajaran</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingSubject(null);
+                      setSubjectForm({ id: '', name: '', description: '', grade: 5, icon: '📚', color: 'from-blue-500 to-indigo-600', status: 'PUBLISHED' });
+                      setShowAddSubjectModal(true);
+                    }}
+                    className="text-[10px] text-indigo-600 font-bold hover:underline cursor-pointer"
+                  >
+                    + Mapel Baru
+                  </button>
+                </div>
+                <select
+                  value={assessmentForm.subjectId}
+                  onChange={(e) => setAssessmentForm({ ...assessmentForm, subjectId: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border mt-1 font-semibold"
+                >
+                  {localSubjects.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name} (Kelas {sub.grade})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="font-bold text-slate-700">Durasi (Menit)</label><input type="number" min="5" max="180" value={assessmentForm.durationMinutes} onChange={(e) => setAssessmentForm({ ...assessmentForm, durationMinutes: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border mt-1 font-semibold" /></div>
+                <div><label className="font-bold text-slate-700">KKTP Target (Nilai)</label><input type="number" min="0" max="100" value={assessmentForm.kktpTarget} onChange={(e) => setAssessmentForm({ ...assessmentForm, kktpTarget: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border mt-1 font-semibold" /></div>
+              </div>
+
+              {/* Bank Soal Question Picker Checkboxes */}
+              <div className="space-y-2 border-t pt-3">
+                <label className="font-bold text-slate-900 block">
+                  Pilih Soal dari Bank Soal ({assessmentForm.selectedQuestionIds.length} Terpilih):
+                </label>
+                <div className="max-h-48 overflow-y-auto space-y-2 p-2 bg-slate-50 rounded-2xl border">
+                  {localQuestionBank.map((qb, i) => {
+                    const isChecked = assessmentForm.selectedQuestionIds.includes(qb.id);
+                    return (
+                      <label key={qb.id} className="flex items-start gap-2 p-2 rounded-xl bg-white border cursor-pointer hover:bg-indigo-50/50">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setAssessmentForm({ ...assessmentForm, selectedQuestionIds: [...assessmentForm.selectedQuestionIds, qb.id] });
+                            } else {
+                              setAssessmentForm({ ...assessmentForm, selectedQuestionIds: assessmentForm.selectedQuestionIds.filter((id) => id !== qb.id) });
+                            }
+                          }}
+                          className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <div className="text-[11px] leading-snug">
+                          <span className="font-extrabold text-indigo-700 mr-1">[{qb.type} - Level {qb.level}]</span>
+                          <span className="font-bold text-slate-900">{qb.questionText}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-3"><button type="button" onClick={() => { setShowAddAssessmentModal(false); setEditingAssessment(null); }} className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 cursor-pointer">Batal</button><button type="submit" className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold cursor-pointer shadow">Simpan Asesmen</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Subject Modal */}
+      {showAddSubjectModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-heading font-black text-xl text-slate-900">
+                {editingSubject ? 'Edit Mata Pelajaran' : 'Tambah Mata Pelajaran Baru'}
+              </h3>
+              <button onClick={() => { setShowAddSubjectModal(false); setEditingSubject(null); }} className="p-1 rounded-full bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleSaveSubject} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700">Nama Mata Pelajaran</label>
+                <input
+                  type="text"
+                  required
+                  value={subjectForm.name}
+                  onChange={(e) => setSubjectForm({ ...subjectForm, name: e.target.value })}
+                  placeholder="Contoh: Bahasa Indonesia, Pendidikan Pancasila, PJOK"
+                  className="w-full p-2.5 rounded-xl border mt-1 font-semibold"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700">Tingkat Kelas</label>
+                  <select
+                    value={subjectForm.grade}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, grade: Number(e.target.value) })}
+                    className="w-full p-2.5 rounded-xl border mt-1 font-bold"
+                  >
+                    <option value={1}>Kelas 1</option>
+                    <option value={2}>Kelas 2</option>
+                    <option value={3}>Kelas 3</option>
+                    <option value={4}>Kelas 4</option>
+                    <option value={5}>Kelas 5</option>
+                    <option value={6}>Kelas 6</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700">Ikon Emoji</label>
+                  <input
+                    type="text"
+                    value={subjectForm.icon}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, icon: e.target.value })}
+                    placeholder="📚, 🔬, 📐, 🎨, 🌍, 🏃"
+                    className="w-full p-2.5 rounded-xl border mt-1 text-center font-bold"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="font-bold text-slate-700">Deskripsi Ringkas Kurikulum</label>
+                <textarea
+                  rows={2}
+                  value={subjectForm.description}
+                  onChange={(e) => setSubjectForm({ ...subjectForm, description: e.target.value })}
+                  placeholder="Ringkasan ruang lingkup mata pelajaran..."
+                  className="w-full p-2.5 rounded-xl border mt-1"
+                />
+              </div>
+              <div className="flex items-center gap-3 pt-3">
+                <button type="button" onClick={() => { setShowAddSubjectModal(false); setEditingSubject(null); }} className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 cursor-pointer">Batal</button>
+                <button type="submit" className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer shadow">Simpan Mata Pelajaran</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Select Questions for Assessment Modal */}
+      {showSelectQuestionModalForAssessment && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-lg w-full space-y-4 border border-slate-200 max-h-[85vh] overflow-y-auto my-8">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-heading font-black text-lg text-slate-900">Hubungkan Soal Bank Soal ke Asesmen</h3>
+                <p className="text-xs text-slate-500">{showSelectQuestionModalForAssessment.title}</p>
+              </div>
+              <button onClick={() => setShowSelectQuestionModalForAssessment(null)} className="p-1 rounded-full bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-slate-600">Centang soal yang ingin diikutsertakan dalam ujian asesmen ini:</p>
+              <div className="space-y-2 max-h-80 overflow-y-auto p-2 bg-slate-50 rounded-2xl border">
+                {localQuestionBank.map((qb) => {
+                  const isAttached = (showSelectQuestionModalForAssessment.questions || []).some((q) => q.id === qb.id);
+                  return (
+                    <div key={qb.id} className="p-3 bg-white rounded-xl border flex items-start gap-3 hover:border-indigo-300">
+                      <input
+                        type="checkbox"
+                        checked={isAttached}
+                        onChange={() => handleToggleQuestionInAssessment(showSelectQuestionModalForAssessment.id, qb)}
+                        className="mt-1 rounded text-indigo-600 cursor-pointer"
+                      />
+                      <div className="text-xs space-y-0.5 flex-1">
+                        <span className="font-extrabold text-indigo-700 uppercase mr-2">[{qb.type} - Level {qb.level}]</span>
+                        <span className="font-bold text-slate-900">{qb.questionText}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={() => setShowSelectQuestionModalForAssessment(null)}
+                className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs shadow cursor-pointer"
+              >
+                Selesai & Simpan Susunan Soal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link Question to Assessments Modal */}
+      {showLinkQuestionToAssessmentModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-heading font-black text-lg text-slate-900">Hubungkan Soal ke Asesmen</h3>
+                <p className="text-xs text-slate-500 line-clamp-1">{showLinkQuestionToAssessmentModal.questionText}</p>
+              </div>
+              <button onClick={() => setShowLinkQuestionToAssessmentModal(null)} className="p-1 rounded-full bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-slate-600">Pilih Asesmen / Kuis yang memuat soal ini:</p>
+              <div className="space-y-2 max-h-60 overflow-y-auto p-2 bg-slate-50 rounded-2xl border">
+                {localAssessments.map((ass) => {
+                  const isLinked = (ass.questions || []).some((q) => q.id === showLinkQuestionToAssessmentModal.id);
+                  return (
+                    <label key={ass.id} className="flex items-center gap-2 p-2.5 bg-white rounded-xl border cursor-pointer hover:bg-indigo-50/50">
+                      <input
+                        type="checkbox"
+                        checked={isLinked}
+                        onChange={() => handleToggleQuestionInAssessment(ass.id, showLinkQuestionToAssessmentModal)}
+                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-xs font-bold text-slate-900">{ass.title}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowLinkQuestionToAssessmentModal(null)}
+              className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs shadow cursor-pointer"
+            >
+              Selesai Hubungkan
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Question Modal */}
+      {showAddQuestionModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-xl w-full my-8 space-y-4 border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-heading font-black text-xl text-slate-900">
+                {editingQuestionId ? '✏️ Edit Soal Berbasis Stimulus' : '📝 Buat Soal Berbasis Stimulus'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowAddQuestionModal(false);
+                  setEditingQuestionId(null);
+                }}
+                className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateQuestion} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="font-bold text-slate-700">Jenis Soal</label><select value={questionForm.type} onChange={(e) => setQuestionForm({ ...questionForm, type: e.target.value as any })} className="w-full p-2.5 rounded-xl border mt-1 font-bold text-indigo-700"><option value="PG">PG (Pilihan Ganda)</option><option value="PGK">PGK (Pilihan Ganda Kompleks)</option><option value="BS">BS (Benar / Salah)</option></select></div>
+                <div><label className="font-bold text-slate-700">Tingkat Kognitif</label><select value={questionForm.level} onChange={(e) => setQuestionForm({ ...questionForm, level: e.target.value as any })} className="w-full p-2.5 rounded-xl border mt-1 font-bold"><option value="LOTS">LOTS</option><option value="MOTS">MOTS</option><option value="HOTS">HOTS</option></select></div>
+              </div>
+              <div><label className="font-bold text-indigo-800">Teks Stimulus</label><textarea rows={3} value={questionForm.stimulus} onChange={(e) => setQuestionForm({ ...questionForm, stimulus: e.target.value })} placeholder="Ketik wacana atau konteks stimulus..." className="w-full p-2.5 rounded-xl border border-indigo-200 bg-indigo-50 mt-1" /></div>
+              <div><label className="font-bold text-slate-700">Pertanyaan Soal</label><textarea required rows={2} value={questionForm.questionText} onChange={(e) => setQuestionForm({ ...questionForm, questionText: e.target.value })} placeholder="Ketik pertanyaan..." className="w-full p-2.5 rounded-xl border mt-1" /></div>
+              
+              {/* Choice Input Fields for PG */}
+              {questionForm.type === 'PG' && (
+                <div className="space-y-2">
+                  <label className="font-bold text-slate-700">Pilihan Jawaban (A, B, C, D)</label>
+                  <input type="text" value={questionForm.optionA} onChange={(e) => setQuestionForm({...questionForm, optionA: e.target.value})} placeholder="Pilihan A" className="w-full p-2 rounded-lg border" />
+                  <input type="text" value={questionForm.optionB} onChange={(e) => setQuestionForm({...questionForm, optionB: e.target.value})} placeholder="Pilihan B" className="w-full p-2 rounded-lg border" />
+                  <input type="text" value={questionForm.optionC} onChange={(e) => setQuestionForm({...questionForm, optionC: e.target.value})} placeholder="Pilihan C" className="w-full p-2 rounded-lg border" />
+                  <input type="text" value={questionForm.optionD} onChange={(e) => setQuestionForm({...questionForm, optionD: e.target.value})} placeholder="Pilihan D" className="w-full p-2 rounded-lg border" />
+                  <label className="font-bold text-slate-700">Indeks Jawaban Benar (0 = A, 1 = B, 2 = C, 3 = D)</label>
+                  <input type="number" min="0" max="3" value={questionForm.correctIdx} onChange={(e) => setQuestionForm({...questionForm, correctIdx: parseInt(e.target.value) || 0})} className="w-full p-2 rounded-lg border" />
+                </div>
+              )}
+
+              {/* Choice Input Fields for PGK */}
+              {questionForm.type === 'PGK' && (
+                <div className="space-y-2">
+                  <label className="font-bold text-slate-700">Pilihan Jawaban (A, B, C, D)</label>
+                  <input type="text" value={questionForm.optionA} onChange={(e) => setQuestionForm({...questionForm, optionA: e.target.value})} placeholder="Pilihan A" className="w-full p-2 rounded-lg border" />
+                  <input type="text" value={questionForm.optionB} onChange={(e) => setQuestionForm({...questionForm, optionB: e.target.value})} placeholder="Pilihan B" className="w-full p-2 rounded-lg border" />
+                  <input type="text" value={questionForm.optionC} onChange={(e) => setQuestionForm({...questionForm, optionC: e.target.value})} placeholder="Pilihan C" className="w-full p-2 rounded-lg border" />
+                  <input type="text" value={questionForm.optionD} onChange={(e) => setQuestionForm({...questionForm, optionD: e.target.value})} placeholder="Pilihan D" className="w-full p-2 rounded-lg border" />
+                  <label className="font-bold text-slate-700">Indeks Jawaban Benar (Gunakan koma, misal: 0,2 untuk A dan C)</label>
+                  <input type="text" value={questionForm.pgkCorrectIndices.join(',')} onChange={(e) => setQuestionForm({...questionForm, pgkCorrectIndices: e.target.value.split(',').map((val) => parseInt(val.trim())).filter((val) => !isNaN(val))})} placeholder="Contoh: 0,2" className="w-full p-2 rounded-lg border" />
+                </div>
+              )}
+
+              {/* Choice Input Fields for BS */}
+              {questionForm.type === 'BS' && (
+                <div className="space-y-2">
+                  <label className="font-bold text-slate-700">Pernyataan Benar/Salah</label>
+                  {questionForm.bsStatements.map((st, i) => (
+                    <div key={i} className="flex gap-2">
+                      <input type="text" value={st.text} onChange={(e) => {
+                        const newSt = [...questionForm.bsStatements];
+                        newSt[i].text = e.target.value;
+                        setQuestionForm({...questionForm, bsStatements: newSt});
+                      }} className="flex-1 p-2 rounded-lg border" />
+                      <select value={st.isTrue ? 'true' : 'false'} onChange={(e) => {
+                        const newSt = [...questionForm.bsStatements];
+                        newSt[i].isTrue = e.target.value === 'true';
+                        setQuestionForm({...questionForm, bsStatements: newSt});
+                      }} className="p-2 rounded-lg border">
+                        <option value="true">Benar</option>
+                        <option value="false">Salah</option>
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div>
+                <label className="font-bold text-slate-700">Pembahasan / Penjelasan Kunci Jawaban (Opsional)</label>
+                <textarea
+                  rows={2}
+                  value={questionForm.explanation}
+                  onChange={(e) => setQuestionForm({ ...questionForm, explanation: e.target.value })}
+                  placeholder="Ketik penjelasan atau pembahasan soal..."
+                  className="w-full p-2.5 rounded-xl border mt-1"
+                />
+              </div>
+              
+              <div className="flex items-center gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddQuestionModal(false);
+                    setEditingQuestionId(null);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold cursor-pointer shadow transition-colors"
+                >
+                  {editingQuestionId ? 'Perbarui Soal' : 'Simpan Soal'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Material Modal */}
+      {showAddMaterialModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-lg w-full space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-heading font-black text-xl text-slate-900">{editingMaterial ? 'Edit Materi Pembelajaran' : 'Buat Materi Pembelajaran Baru'}</h3>
+              <button onClick={() => { setShowAddMaterialModal(false); setEditingMaterial(null); }} className="p-1 rounded-full bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleSaveMaterial} className="space-y-3 text-xs">
+              <div><label className="font-bold text-slate-700">Topik Pembelajaran</label><input type="text" required value={materialForm.topicTitle} onChange={(e) => setMaterialForm({ ...materialForm, topicTitle: e.target.value })} placeholder="Contoh: Operasi Pecahan" className="w-full p-2.5 rounded-xl border mt-1 font-semibold" /></div>
+              <div><label className="font-bold text-slate-700">Tujuan Pembelajaran</label><textarea rows={2} value={materialForm.learningObjectives} onChange={(e) => setMaterialForm({ ...materialForm, learningObjectives: e.target.value })} placeholder="Tujuan capaian..." className="w-full p-2.5 rounded-xl border mt-1" /></div>
+              <div><label className="font-bold text-slate-700">Isi Ringkasan Materi</label><textarea rows={3} value={materialForm.description} onChange={(e) => setMaterialForm({ ...materialForm, description: e.target.value })} placeholder="Ringkasan konsep materi..." className="w-full p-2.5 rounded-xl border mt-1" /></div>
+              <div className="flex items-center gap-3 pt-3"><button type="button" onClick={() => { setShowAddMaterialModal(false); setEditingMaterial(null); }} className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 cursor-pointer">Batal</button><button type="submit" className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold cursor-pointer shadow">Simpan Materi</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Announcement Modal */}
+      {showAddAnnouncementModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-heading font-black text-xl text-slate-900">{editingAnnouncement ? 'Edit Pengumuman' : 'Buat Pengumuman Baru'}</h3>
+              <button onClick={() => { setShowAddAnnouncementModal(false); setEditingAnnouncement(null); }} className="p-1 rounded-full bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleSaveAnnouncement} className="space-y-3 text-xs">
+              <div><label className="font-bold text-slate-700">Judul Pengumuman</label><input type="text" required value={announcementForm.title} onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })} placeholder="Judul..." className="w-full p-2.5 rounded-xl border mt-1 font-semibold" /></div>
+              <div><label className="font-bold text-slate-700">Isi Pesan Pengumuman</label><textarea rows={3} required value={announcementForm.content} onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })} placeholder="Pesan untuk murid..." className="w-full p-2.5 rounded-xl border mt-1" /></div>
+              <div className="flex items-center gap-3 pt-3"><button type="button" onClick={() => { setShowAddAnnouncementModal(false); setEditingAnnouncement(null); }} className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 cursor-pointer">Batal</button><button type="submit" className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold cursor-pointer shadow">Terbitkan</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};

@@ -1,0 +1,6 @@
+{
+  "name": "PRIMA - Pembelajaran Responsif Interaktif berbasis Multimedia dan AI",
+  "description": "Platform pembelajaran digital interaktif berbasis multimedia, simulasi, game, coding, dan AI untuk siswa Sekolah Dasar (Kelas 4-6).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
