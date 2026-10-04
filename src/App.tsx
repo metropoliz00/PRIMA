@@ -11,6 +11,7 @@ import { Footer } from './components/layout/Footer';
 import { HeroSection } from './components/landing/HeroSection';
 import { LoginPage } from './components/auth/LoginPage';
 import { LogoutDialog } from './components/auth/LogoutDialog';
+import { MetaWhatsAppModal } from './components/teacher/MetaWhatsAppModal';
 
 // Dashboards
 import { AdminDashboard } from './components/admin/AdminDashboard';
@@ -81,6 +82,7 @@ function MainAppContent() {
 
   // Logout Modal State
   const [showLogoutModal, setShowLogoutModal] = useState<boolean>(false);
+  const [isMetaModalOpen, setIsMetaModalOpen] = useState<boolean>(false);
 
   // Learning & Management Datasets
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -338,8 +340,12 @@ function MainAppContent() {
           xp={progress.xp}
           streak={progress.streakDays}
           studentName={progress.studentName}
+          onOpenMetaModal={() => setIsMetaModalOpen(true)}
         />
       )}
+
+      {/* Meta WhatsApp Hub Modal */}
+      <MetaWhatsAppModal isOpen={isMetaModalOpen} onClose={() => setIsMetaModalOpen(false)} />
 
       {/* Router Content */}
       <main className="flex-1">

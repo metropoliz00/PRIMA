@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, GraduationCap, LayoutDashboard, Compass, Trophy, User, LogOut } from 'lucide-react';
+import { Sparkles, GraduationCap, LayoutDashboard, Compass, Trophy, User, LogOut, MessageSquare } from 'lucide-react';
 
 interface NavbarProps {
   role: 'student' | 'teacher';
@@ -10,6 +10,7 @@ interface NavbarProps {
   xp?: number;
   streak?: number;
   studentName?: string;
+  onOpenMetaModal: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -21,6 +22,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   xp = 0,
   streak = 1,
   studentName = '',
+  onOpenMetaModal,
 }) => {
   return (
     <header className="sticky top-0 z-50 w-full glass-panel border-b border-slate-200/80">
@@ -63,6 +65,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>Dashboard Guru</span>
             </button>
           )}
+
+          <button
+            onClick={onOpenMetaModal}
+            className="px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold border border-emerald-200/80 shadow-xs"
+          >
+            <MessageSquare className="w-4 h-4 text-emerald-600" />
+            <span>Meta WhatsApp Bot</span>
+          </button>
         </nav>
 
         {/* Zone 3: Actions & Realtime Gamification */}
