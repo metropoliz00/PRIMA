@@ -184,21 +184,9 @@ export const AITutorStep: React.FC<AITutorStepProps> = ({
           className="flex-1 px-4 py-3 rounded-2xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-medium text-slate-800"
         />
         <button
-          type="button"
-          onClick={() => {
-            const text = `Halo PRIMA AI, saya ingin berdiskusi tentang "${topicTitle}" (${subjectName})${input ? `: ${input}` : ''}. 🚀`;
-            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-          }}
-          className="px-4 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md flex items-center gap-1.5 cursor-pointer shrink-0"
-          title="Buka Chat di WhatsApp HP"
-        >
-          <MessageSquare className="w-4 h-4" />
-          <span className="hidden sm:inline">WhatsApp</span>
-        </button>
-        <button
           type="submit"
           disabled={!input.trim() || isLoading}
-          className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-md flex items-center gap-2 cursor-pointer shrink-0"
+          className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-md flex items-center gap-2 cursor-pointer shrink-0"
         >
           <span>Kirim</span>
           <Send className="w-4 h-4" />
