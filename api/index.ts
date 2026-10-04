@@ -1,33 +1,26 @@
 import express from 'express';
+import type { Request, Response } from 'express';
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json());
 
-const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyCZ04AE0bSt7btar7j8rgfMTrCXgcxbxvw';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyCZ04AE0bSt7btar7j8rgfMTrCXgcxbxvw';
 
-async function callGeminiAPI(promptText: string, key: string): Promise<string> {
+async function callGemini(promptText: string): Promise<string> {
   const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
-  
   for (const model of models) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
+        headers: { 
           'Content-Type': 'application/json',
-          'User-Agent': 'aistudio-build',
+          'User-Agent': 'prima-ai-server'
         },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: promptText }
-              ]
-            }
-          ]
+          contents: [{ parts: [{ text: promptText }] }]
         })
       });
-
       const data = await response.json();
       if (data && data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
         return data.candidates[0].content.parts[0].text;
@@ -42,127 +35,51 @@ async function callGeminiAPI(promptText: string, key: string): Promise<string> {
   throw new Error('All Gemini models failed');
 }
 
-// AI Engine Status
-app.get('/api/ai/status', (req, res) => {
-  res.json({
-    status: 'ONLINE',
-    model: 'gemini-2.5-flash',
-    hasApiKey: true,
-    engine: 'Google Gemini REST API',
-  });
-});
-
-// PRIMA AI Tutor Endpoint
-app.post('/api/ai/tutor', async (req, res) => {
+app.post('/api/ai/tutor', async (req: Request, res: Response) => {
   try {
-    const {
-      message,
-      topic,
-      subject,
-      studentQuestion,
-      context,
-      tutorName,
-      communicationStyle,
-      rulesAndScaffolding,
-      learningGoal,
-    } = req.body;
-
+    const { message, topic, subject, context, tutorName, communicationStyle, rulesAndScaffolding } = req.body || {};
     const botName = tutorName || 'PRIMA AI';
     const style = communicationStyle || 'Ramah, sabar, ceria, santun, dan memotivasi untuk siswa Sekolah Dasar (Kelas 4–6 SD)';
     const customRules = rulesAndScaffolding || 'Gunakan metode Socratik/Scaffolding: Berikan apresiasi, petunjuk sederhana atau analogi ramah anak, dan pertanyaan pemandu lanjutan. JANGAN berikan jawaban akhir secara langsung.';
 
     const systemInstruction = `
 Kamu adalah "${botName}", tutor pendamping belajar cerdas berbasis AI untuk siswa Sekolah Dasar (Kelas 4–6 SD).
-
 Mata Pelajaran: ${subject || 'Umum'}
 Topik Pembelajaran: ${topic || 'Misi Belajar'}
-Tujuan Pembelajaran: ${learningGoal || 'Membantu siswa memahami konsep dasar secara mandiri dan kritis.'}
 Gaya Komunikasi: ${style}
-Konteks Tambahan: ${context || 'Siswa sedang belajar dan mengeksplorasi materi di platform PRIMA.'}
-
-ATURAN UTAMA & SCAFFOLDING PEDAGOGIK:
+Konteks: ${context || 'Siswa sedang belajar.'}
+ATURAN PEDAGOGIK:
 ${customRules}
-1. JANGAN PERNAH LANGSUNG MEMBERIKAN JAWABAN AKHIR jika siswa meminta kunci jawaban atau hasil akhir.
-2. Berikan tanggapan yang terstruktur:
-   - Apresiasi usaha atau pertanyaan siswa dengan hangat.
-   - Berikan petunjuk konseptual, perumpamaan sehari-hari, atau logika sederhana.
-   - Akhiri dengan pertanyaan pemandu yang mengajak siswa mencoba memikirkannya sendiri.
-3. Gunakan bahasa Indonesia yang santun, ramah, dan mudah dipahami siswa SD (gunakan emotikon ceria secara terukur ✨, 💡, 🚀, 🌟, 🌾).
-4. Buat respon ringkas, padat (2-4 kalimat/paragraf pendek) agar siswa nyaman membaca.
+JANGAN berikan jawaban akhir secara langsung. Berikan apresiasi, petunjuk atau analogi, dan pertanyaan pemandu. Gunakan bahasa Indonesia santun dan emotikon ceria (✨, 💡, 🚀).
 `;
-
-    const userPrompt = `Siswa bertanya / menjawab: "${message || studentQuestion}"`;
-    const fullPrompt = `${systemInstruction}\n\n${userPrompt}`;
-
-    const replyText = await callGeminiAPI(fullPrompt, apiKey);
-    res.json({ success: true, reply: replyText });
+    const fullPrompt = `${systemInstruction}\n\nSiswa bertanya: "${message}"`;
+    const reply = await callGemini(fullPrompt);
+    res.json({ success: true, reply });
   } catch (error: any) {
-    console.error('Error in /api/ai/tutor:', error);
-    res.json({
-      success: true,
-      reply: 'Halo Petualang! Mari kita ingat kembali materi dan petunjuk pada langkah sebelumnya. Apa hal paling menarik yang kamu pelajari? 🚀',
-    });
+    console.error('API /api/ai/tutor error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Gemini API failed' });
   }
 });
 
-// Reflection Evaluation Endpoint
-app.post('/api/ai/reflection', async (req, res) => {
+app.post('/api/ai/reflection', async (req: Request, res: Response) => {
   try {
-    const { reflectionText, topic, subject } = req.body;
-
-    const systemInstruction = `
-Kamu adalah PRIMA AI, evaluator refleksi belajar siswa SD yang empatik dan suportif.
-Tugasmu adalah membaca catatan refleksi siswa mengenai topik "${topic || 'Umum'}" (${subject || 'Umum'}).
-
-Berikan apresiasi hangat (2-3 kalimat) yang spesifik terhadap hal yang dipelajari atau kesulitan yang diceritakan siswa.
-Puji usahanya dalam berpikir kritis dan sertakan satu kalimat dorongan semangat belajar ke depan.
-Gunakan bahasa Indonesia ramah anak SD.
-`;
-
-    const fullPrompt = `${systemInstruction}\n\nSiswa menulis refleksi: "${reflectionText}"`;
-    const feedbackText = await callGeminiAPI(fullPrompt, apiKey);
-
-    res.json({
-      success: true,
-      feedback: feedbackText,
-    });
+    const { reflectionText, topic, subject } = req.body || {};
+    const prompt = `Kamu adalah PRIMA AI, evaluator refleksi siswa SD. Topik: ${topic} (${subject}). Berikan apresiasi hangat (2-3 kalimat) atas refleksi: "${reflectionText}"`;
+    const feedback = await callGemini(prompt);
+    res.json({ success: true, feedback });
   } catch (error: any) {
-    console.error('Error in /api/ai/reflection:', error);
-    res.json({
-      success: true,
-      feedback: 'Refleksi yang sangat bagus! Kamu sudah belajar dengan tekun hari ini. Tingkatkan terus semangat eksplorasimu! 🌟',
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Teacher AI Consultant Endpoint
-app.post('/api/ai/teacher-consultant', async (req, res) => {
+app.post('/api/ai/teacher-consultant', async (req: Request, res: Response) => {
   try {
-    const { message, history } = req.body;
-
-    const systemInstruction = `
-Kamu adalah "PRIMA Teacher AI Assistant", asisten profesional cerdas untuk guru sekolah dasar (SD).
-Tugasmu adalah membantu guru dalam:
-1. Menyusun kurikulum pembelajaran (Kurikulum Merdeka), tujuan pembelajaran (TP), dan kriteria ketercapaian tujuan pembelajaran (KKTP).
-2. Memberikan ide aktivitas interaktif, matching game, atau simulasi laboratorium untuk siswa SD Kelas 4-6.
-3. Memberikan solusi konsultasi teknis seputar penggunaan platform PRIMA, manajemen kelas, dan diferensiasi pembelajaran.
-4. Menjawab pertanyaan pedagogik dan asesmen formatif dengan ramah, profesional, dan solutif.
-
-Gunakan bahasa Indonesia yang profesional, ramah, dan mendukung pengajar.
-`;
-
-    const chatHistory = Array.isArray(history) ? history.map((h: any) => `${h.role === 'user' ? 'Guru' : 'AI'}: ${h.text}`).join('\n') : '';
-    const prompt = `${chatHistory}\nGuru: ${message}`;
-    const fullPrompt = `${systemInstruction}\n\n${prompt}`;
-
-    const replyText = await callGeminiAPI(fullPrompt, apiKey);
-    res.json({ success: true, reply: replyText });
+    const { message, history } = req.body || {};
+    const prompt = `Kamu adalah PRIMA Teacher AI Assistant untuk guru SD. Pertanyaan guru: "${message}"`;
+    const reply = await callGemini(prompt);
+    res.json({ success: true, reply });
   } catch (error: any) {
-    console.error('Error in /api/ai/teacher-consultant:', error);
-    res.json({
-      success: true,
-      reply: 'Halo Guru! Pastikan tujuan pembelajaran selaras dengan KKTP dan libatkan aktivitas interaktif yang menyenangkan bagi siswa! 💡',
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
