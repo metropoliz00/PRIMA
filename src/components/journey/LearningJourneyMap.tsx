@@ -68,8 +68,10 @@ export const LearningJourneyMap: React.FC<LearningJourneyMapProps> = ({
           {topic.steps.map((step, idx) => {
             const IconComponent = STEP_ICONS[step.type] || HelpCircle;
             const isActive = idx === activeStepIndex;
-            const isCompleted = step.isCompleted;
-            const isUnlocked = step.isUnlocked || idx === 0 || topic.steps[idx - 1]?.isCompleted;
+            
+            // To ensure 100% strict sequential unlocking, a step is unlocked only if ALL preceding steps are completed!
+            const isUnlocked = idx === 0 || topic.steps.slice(0, idx).every(s => Boolean(s.isCompleted));
+            const isCompleted = isUnlocked && Boolean(step.isCompleted);
 
             return (
               <div
@@ -80,20 +82,21 @@ export const LearningJourneyMap: React.FC<LearningJourneyMapProps> = ({
                   } else {
                     const firstIncompleteIdx = topic.steps.findIndex((s) => !s.isCompleted);
                     const targetIdx = firstIncompleteIdx !== -1 ? firstIncompleteIdx : 0;
-                    const targetStepTitle = topic.steps[targetIdx]?.title || 'Misi';
+                    const targetStepTitle = topic.steps[targetIdx]?.title || `Tahap ${targetIdx + 1}`;
                     const targetStepSubtitle = topic.steps[targetIdx]?.subtitle || '';
                     
                     toast.error(
-                      `Misi ini terkunci! 🔒 Selesaikan "${targetStepTitle}: ${targetStepSubtitle}" terlebih dahulu!`,
+                      `Misi ini Terkunci! 🔒 Wajib selesaikan secara berurutan. Selesaikan "${targetStepTitle}${targetStepSubtitle ? `: ${targetStepSubtitle}` : ''}" terlebih dahulu!`,
                       {
-                        duration: 3500,
+                        duration: 4000,
                         icon: '🔒',
                         style: {
                           borderRadius: '16px',
-                          background: '#1e293b',
-                          color: '#fff',
+                          background: '#0f172a',
+                          color: '#f8fafc',
                           fontWeight: 'bold',
-                          fontSize: '12px'
+                          fontSize: '12px',
+                          border: '1px solid #334155',
                         }
                       }
                     );
@@ -102,39 +105,40 @@ export const LearningJourneyMap: React.FC<LearningJourneyMapProps> = ({
                     onSelectStep(targetIdx);
                   }
                 }}
-                className={`relative z-10 flex flex-col items-center group shrink-0`}
+                className={`relative z-10 flex flex-col items-center group shrink-0 ${!isUnlocked ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
               >
                 {/* Node Circle */}
                 <div
                   className={`w-16 h-16 rounded-3xl flex items-center justify-center font-heading font-black text-lg transition-all duration-300 shadow-xl ${
                     isActive
                       ? 'bg-gradient-to-tr from-yellow-300 via-amber-400 to-orange-500 text-white scale-125 ring-4 ring-white shadow-amber-500/50'
-                      : isCompleted
+                      : isCompleted || isUnlocked
                       ? 'bg-gradient-to-tr from-emerald-400 to-cyan-500 text-white hover:scale-110 shadow-emerald-500/30'
-                      : isUnlocked
-                      ? 'bg-white text-indigo-600 border-4 border-white hover:border-indigo-100 shadow-lg'
-                      : 'bg-slate-200 text-slate-400'
+                      : 'bg-slate-200 text-slate-500 border-4 border-slate-300/80 shadow-xs'
                   }`}
                 >
-                  {isCompleted ? (
+                  {isCompleted || isUnlocked ? (
                     <Check className="w-8 h-8 stroke-[4]" />
-                  ) : !isUnlocked ? (
-                    <Lock className="w-6 h-6 text-slate-500" />
                   ) : (
-                    <IconComponent className="w-7 h-7" />
+                    <Lock className="w-6 h-6 text-slate-600" />
                   )}
                 </div>
 
                 {/* Step Title Label below */}
                 <div className="mt-4 text-center max-w-[100px]">
                   <p
-                    className={`text-[10px] font-black uppercase tracking-widest leading-tight transition-colors px-3 py-1 rounded-full ${
+                    className={`text-[10px] font-black uppercase tracking-widest leading-tight transition-colors px-3 py-1 rounded-full flex items-center justify-center gap-1 ${
                       isActive
                         ? 'bg-indigo-600 text-white shadow-md'
-                        : 'text-slate-700 bg-white/50'
+                        : isCompleted
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : isUnlocked
+                        ? 'text-slate-700 bg-white/70 border border-slate-200'
+                        : 'text-slate-400 bg-slate-200/80'
                     }`}
                   >
-                    {step.title}
+                    {!isUnlocked && <Lock className="w-3 h-3 text-slate-500" />}
+                    <span>{step.title}</span>
                   </p>
                 </div>
 

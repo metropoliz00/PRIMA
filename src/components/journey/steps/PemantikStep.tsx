@@ -72,14 +72,22 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({ content, onNext }) =
           </button>
         ) : (
           <div className="space-y-4">
-            <div className={`p-4 rounded-2xl border ${isCorrect ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+            <div className={`p-4 rounded-2xl border ${isCorrect ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-950'}`}>
               <div className="flex items-center gap-2 font-bold text-sm mb-1">
-                <Lightbulb className="w-5 h-5 text-amber-500 animate-bounce" />
-                <span>{isCorrect ? 'Luar biasa! Pemikiran yang tajam! 🌟' : 'Ide bagus! Mari kita pelajari bersama.'}</span>
+                <Lightbulb className={`w-5 h-5 ${isCorrect ? 'text-amber-500 animate-bounce' : 'text-rose-500'}`} />
+                <span>{isCorrect ? 'Luar biasa! Pemikiran yang tajam! 🌟' : 'Jawabanmu kurang tepat! ❌'}</span>
               </div>
               <p className="text-xs font-medium leading-relaxed mt-1">
-                {content.explanation}
+                {isCorrect ? content.explanation : 'Mari kita lihat penjelasan yang benar di bawah ini.'}
               </p>
+              <div className={`mt-3 pt-3 border-t text-xs ${isCorrect ? 'border-emerald-200 text-emerald-800' : 'border-rose-200 text-rose-900'}`}>
+                <span className="font-extrabold">Penjelasan:</span> <span className="font-medium">{content.explanation}</span>
+              </div>
+              {!isCorrect && (
+                <div className="mt-2 pt-2 border-t border-rose-200 text-rose-900 text-xs">
+                  <span className="font-extrabold">Jawaban yang benar:</span> <span className="font-bold underline text-emerald-700">{content.options?.[content.correctAnswer]}</span>
+                </div>
+              )}
             </div>
 
             <button

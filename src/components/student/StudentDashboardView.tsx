@@ -128,54 +128,8 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
         ))}
       </div>
 
-      {/* Ongoing Subjects */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-heading text-xl font-bold text-slate-900">
-              📚 Pilih Mata Pelajaran & Misi Belajar
-            </h3>
-            <p className="text-xs text-slate-500 font-medium">Pilih mata pelajaran untuk mengeksplorasi modul materi dan misi yang disiapkan guru.</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {subjects.filter(sub => sub.status !== 'DRAFT').map((sub) => (
-            <div
-              key={sub.id}
-              onClick={() => onSelectSubject(sub.id)}
-              className="glass-card p-5 rounded-2xl hover:shadow-xl transition-all border border-slate-200 cursor-pointer flex flex-col justify-between space-y-4"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl p-2 rounded-2xl bg-slate-100">{sub.icon}</span>
-                  <div>
-                    <h4 className="font-heading font-bold text-base text-slate-900">{sub.name}</h4>
-                    <p className="text-xs text-slate-500 font-medium">Kelas {sub.grade} SD</p>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed font-medium">
-                {sub.description}
-              </p>
-
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-500">
-                  {sub.topics.length > 0 ? `${sub.topics.length} Misi Siap Dijalankan` : 'Materi Belum Tersedia'}
-                </span>
-                <span className="text-xs font-bold text-indigo-600 flex items-center gap-1">
-                  <Play className="w-3.5 h-3.5 fill-indigo-600" />
-                  Mulai Misi
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Published Materials from Teacher */}
-      {publishedMaterials.length > 0 && (
+      {publishedMaterials.length > 0 ? (
         <div className="space-y-4 pt-2">
           <div className="flex items-center justify-between">
             <div>
@@ -225,6 +179,14 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
               );
             })}
           </div>
+        </div>
+      ) : (
+        <div className="glass-panel p-8 rounded-3xl text-center space-y-3 border border-slate-200">
+          <span className="text-4xl">📚</span>
+          <h3 className="font-heading text-lg font-bold text-slate-800">Misi Belajar Belum Tersedia</h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            Guru belum menerbitkan modul pembelajaran aktif di database. Silakan masuk ke panel guru untuk menambahkan mata pelajaran dan modul materi terlebih dahulu.
+          </p>
         </div>
       )}
 
