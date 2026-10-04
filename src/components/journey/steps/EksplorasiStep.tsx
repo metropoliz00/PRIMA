@@ -13,6 +13,7 @@ import {
   HelpCircle,
   Lightbulb
 } from 'lucide-react';
+import { sendAiTutorMessage } from '../../../services/aiService';
 
 interface EksplorasiStepProps {
   content: any;
@@ -131,28 +132,9 @@ export const EksplorasiStep: React.FC<EksplorasiStepProps> = ({
     setIsAiLoading(true);
 
     try {
-      const res = await fetch('/api/ai/tutor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: studentMessage,
-          topic: topicTitle,
-          subject: subjectName,
-          context: `Siswa sedang membaca Situasi Nyata di Eksplorasi: "${extra.realSituationTitle}" (${extra.realSituationText}), ringkasan materi: ${extra.summaryTitle} (${extra.summaryPoints.join('; ')}), dan detail kartu konsep: ${content.cards?.map((c: any) => c.title).join(', ')}.`,
-          tutorName: 'PRIMA AI',
-          communicationStyle: 'Ramah, sabar, memotivasi, ceria, menggunakan analogi ramah anak SD Kelas 4-6.'
-        })
-      });
-
-      const data = await res.json();
-      if (data && data.reply) {
-        setChatMessages((prev) => [...prev, { sender: 'bot', text: data.reply }]);
-      } else {
-        setChatMessages((prev) => [
-          ...prev, 
-          { sender: 'bot', text: 'Koneksiku agak lambat, tapi tenang! Yuk kita bahas lebih lanjut mengenai konsep di atas. Apa bagian yang paling menarik bagimu? 🌟' }
-        ]);
-      }
+      const contextStr = `Siswa sedang membaca Situasi Nyata di Eksplorasi: "${extra.realSituationTitle}" (${extra.realSituationText}), ringkasan materi: ${extra.summaryTitle} (${extra.summaryPoints.join('; ')}), dan detail kartu konsep: ${content.cards?.map((c: any) => c.title).join(', ')}.`;
+      const replyText = await sendAiTutorMessage(studentMessage, topicTitle, subjectName, contextStr);
+      setChatMessages((prev) => [...prev, { sender: 'bot', text: replyText }]);
     } catch (err) {
       console.error('Error contacting AI Tutor:', err);
       setChatMessages((prev) => [

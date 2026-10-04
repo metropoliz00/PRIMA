@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Bot, Send, Sparkles, ArrowRight, User } from 'lucide-react';
+import { sendAiTutorMessage } from '../../../services/aiService';
 
 interface Message {
   id: string;
@@ -50,21 +51,11 @@ export const AITutorStep: React.FC<AITutorStepProps> = ({
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/ai/tutor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMsgText,
-          topic: topicTitle,
-          subject: subjectName,
-        }),
-      });
-
-      const data = await res.json();
+      const replyText = await sendAiTutorMessage(userMsgText, topicTitle, subjectName);
       const aiReply: Message = {
         id: `ai-${Date.now()}`,
         sender: 'ai',
-        text: data.reply || 'Mari kita cari tahu petunjuknya bersama-sama! 💡',
+        text: replyText,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, aiReply]);
