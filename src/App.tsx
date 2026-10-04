@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/layout/Navbar';
@@ -65,6 +65,12 @@ import {
   getStoredCodingChallenges,
   saveCodingChallenges,
   CodingChallengeItem,
+  getStoredMaterials,
+  saveMaterials,
+  syncMaterialsWithSubjects,
+  getStoredActivities,
+  saveActivities,
+  InteractiveActivity,
 } from './data/learningData';
 import {
   INITIAL_CLASSES,
@@ -91,13 +97,14 @@ function MainAppContent() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [progress, setProgress] = useState<StudentProgress>(getStoredStudentProgress());
   const [classesList] = useState<ClassRoom[]>(INITIAL_CLASSES);
-  const [materialsList] = useState<Material[]>(INITIAL_MATERIALS);
+  const [materialsList, setMaterialsList] = useState<Material[]>(getStoredMaterials());
   const [questionBankList, setQuestionBankList] = useState<QuestionBankItem[]>(getStoredQuestionBank());
   const [assessmentsList, setAssessmentsList] = useState<Assessment[]>(getStoredAssessments());
   const [announcementsList] = useState<Announcement[]>(INITIAL_ANNOUNCEMENTS);
   const [reflectionsList] = useState<ReflectionEntry[]>(INITIAL_REFLECTIONS);
   const [aiConfigsList] = useState<AITutorConfig[]>(INITIAL_AI_CONFIGS);
   const [codingChallengesList, setCodingChallengesList] = useState<CodingChallengeItem[]>(getStoredCodingChallenges());
+  const [activitiesList, setActivitiesList] = useState<InteractiveActivity[]>(getStoredActivities());
 
   // Selected Active Learning State
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
@@ -106,19 +113,23 @@ function MainAppContent() {
 
   useEffect(() => {
     const loadedSubs = getStoredSubjects();
-    setSubjects(loadedSubs);
-    if (loadedSubs.length > 0) {
-      setSelectedSubject(loadedSubs[0]);
-      if (loadedSubs[0].topics.length > 0) {
-        setSelectedTopic(loadedSubs[0].topics[0]);
+    const loadedMats = getStoredMaterials();
+    setMaterialsList(loadedMats);
+    const syncedSubs = syncMaterialsWithSubjects(loadedSubs, loadedMats);
+    setSubjects(syncedSubs);
+    if (syncedSubs.length > 0) {
+      setSelectedSubject(syncedSubs[0]);
+      if (syncedSubs[0].topics.length > 0) {
+        setSelectedTopic(syncedSubs[0].topics[0]);
       }
     }
 
     // Synchronize with Google Apps Script Sheets DB
     syncSubjectsWithGAS().then((synced) => {
-      setSubjects(synced);
-      if (synced.length > 0 && !selectedSubject) {
-        setSelectedSubject(synced[0]);
+      const mergedWithMats = syncMaterialsWithSubjects(synced, loadedMats);
+      setSubjects(mergedWithMats);
+      if (mergedWithMats.length > 0 && !selectedSubject) {
+        setSelectedSubject(mergedWithMats[0]);
       }
     });
   }, []);
@@ -169,23 +180,38 @@ function MainAppContent() {
     setCurrentView(targetView);
   };
 
-  const handleAddSubject = (newSubject: Subject) => {
-    const updated = [...subjects, newSubject];
-    setSubjects(updated);
-    saveSubjects(updated);
-  };
+  const handleAddSubject = useCallback((newSubject: Subject) => {
+    setSubjects((prev) => {
+      const updated = [...prev, newSubject];
+      saveSubjects(updated);
+      return updated;
+    });
+  }, []);
 
-  const handleSelectSubject = (subjectId: string) => {
-    const found = subjects.find((s) => s.id === subjectId) || subjects[0];
-    setSelectedSubject(found);
+  const handleUpdateMaterials = useCallback((newMaterials: Material[]) => {
+    setMaterialsList(newMaterials);
+    saveMaterials(newMaterials);
+    setSubjects((prevSubs) => {
+      const updated = syncMaterialsWithSubjects(prevSubs, newMaterials);
+      saveSubjects(updated);
+      return updated;
+    });
+  }, []);
+
+  const handleSelectSubject = useCallback((subjectId: string) => {
+    setSubjects((prevSubs) => {
+      const found = prevSubs.find((s) => s.id === subjectId) || prevSubs[0];
+      setSelectedSubject(found);
+      return prevSubs;
+    });
     setCurrentView('topic-selector');
-  };
+  }, []);
 
-  const handleSelectTopic = (topic: Topic) => {
+  const handleSelectTopic = useCallback((topic: Topic) => {
     setSelectedTopic(topic);
     setActiveStepIndex(0);
     setCurrentView('learning-journey');
-  };
+  }, []);
 
   // Dynamic Step Advance Handler for Student
   const handleAdvanceStep = (completedIndex: number) => {
@@ -289,17 +315,20 @@ function MainAppContent() {
     setCurrentView('student-dashboard');
   };
 
-  const handleRewardXp = (points: number, title: string) => {
-    const newXp = progress.xp + points;
-    const updatedProg: StudentProgress = {
-      ...progress,
-      xp: newXp,
-      level: Math.floor(newXp / 100) + 1,
-    };
-    persistProgress(updatedProg);
-  };
+  const handleRewardXp = useCallback((points: number) => {
+    setProgress((prev) => {
+      const newXp = prev.xp + points;
+      const updatedProg: StudentProgress = {
+        ...prev,
+        xp: newXp,
+        level: Math.floor(newXp / 100) + 1,
+      };
+      persistProgress(updatedProg);
+      return updatedProg;
+    });
+  }, []);
 
-  const handleQuickMenuSelect = (menuId: string) => {
+  const handleQuickMenuSelect = useCallback((menuId: string) => {
     if (menuId === 'subject-selector') {
       setCurrentView('subject-selector');
     } else if (menuId === 'simulation-menu') {
@@ -315,7 +344,7 @@ function MainAppContent() {
     } else {
       setCurrentView('student-activities');
     }
-  };
+  }, [selectedTopic]);
 
   const currentStep = selectedTopic?.steps[activeStepIndex];
 
@@ -403,12 +432,15 @@ function MainAppContent() {
             reflectionsList={reflectionsList}
             aiConfigsList={aiConfigsList}
             codingChallengesList={codingChallengesList}
+            activitiesList={activitiesList}
             onAddSubject={handleAddSubject}
             onRefreshData={refreshUsers}
             onRequestLogout={() => setShowLogoutModal(true)}
             onUpdateQuestionBank={setQuestionBankList}
             onUpdateAssessments={setAssessmentsList}
             onUpdateCodingChallenges={setCodingChallengesList}
+            onUpdateMaterials={handleUpdateMaterials}
+            onUpdateActivities={setActivitiesList}
           />
         )}
 
@@ -418,6 +450,7 @@ function MainAppContent() {
             currentUser={user}
             progress={progress}
             subjects={subjects}
+            materials={materialsList}
             onSelectMenu={handleQuickMenuSelect}
             onSelectSubject={handleSelectSubject}
             onRequestLogout={() => setShowLogoutModal(true)}
@@ -535,6 +568,7 @@ function MainAppContent() {
         {currentView === 'student-activities' && (
           <StudentActivitiesView
             subjects={subjects}
+            activitiesList={activitiesList}
             onBack={() => setCurrentView('student-dashboard')}
             onRewardXp={handleRewardXp}
           />

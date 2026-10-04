@@ -1,7 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Video, Play, Pause, ArrowRight, CheckCircle2, HelpCircle, Database, AlertCircle } from 'lucide-react';
-import { VideoCheckpoint } from '../../../types/learning';
-import { getStoredVideos } from '../../../data/learningData';
+import {
+  Video, Play, Pause, ArrowRight, CheckCircle2, HelpCircle, Database, AlertCircle, Settings, Plus, Trash2, Clock, Check, X, Sparkles, Save
+} from 'lucide-react';
+import { VideoCheckpoint, InteractiveVideo } from '../../../types/learning';
+import { getStoredVideos, saveVideos } from '../../../data/learningData';
+import toast from 'react-hot-toast';
 
 interface VideoPlayerStepProps {
   content: any;
@@ -38,7 +41,7 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
   // Check stored videos from database
   const storedVideos = getStoredVideos();
   const matchedDbVideo = subjectId
-    ? storedVideos.find((v) => v.subjectId === subjectId) || storedVideos[0]
+    ? storedVideos.find((v) => v.subjectId?.toLowerCase() === subjectId.toLowerCase()) || storedVideos[0]
     : storedVideos[0];
 
   const videoUrlFromContent = content?.videoUrl && content.videoUrl.trim() !== '' ? content.videoUrl : '';
@@ -53,18 +56,44 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(120);
 
-  // Checkpoint State
-  const checkpoints: VideoCheckpoint[] = content?.checkpoints || [];
+  // Initial Checkpoints resolution
+  const initialCheckpoints: VideoCheckpoint[] =
+    matchedDbVideo && matchedDbVideo.checkpoints && matchedDbVideo.checkpoints.length > 0
+      ? matchedDbVideo.checkpoints
+      : content?.checkpoints || [];
 
+  const [localCheckpoints, setLocalCheckpoints] = useState<VideoCheckpoint[]>(initialCheckpoints);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+
+  // Active playing checkpoint state
   const [activeCheckpoint, setActiveCheckpoint] = useState<VideoCheckpoint | null>(null);
   const [answeredCheckpoints, setAnsweredCheckpoints] = useState<Record<string, number>>({});
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
 
+  // Single Checkpoint Form State for Teacher Configuration Panel
+  const [cpForm, setCpForm] = useState({
+    timeInSeconds: 15,
+    question: '',
+    optionA: '',
+    optionB: '',
+    optionC: '',
+    optionD: '',
+    correctAnswer: 0,
+    explanation: '',
+  });
+
+  // Sync checkpoints if matched video changes
+  useEffect(() => {
+    if (matchedDbVideo && matchedDbVideo.checkpoints) {
+      setLocalCheckpoints(matchedDbVideo.checkpoints);
+    }
+  }, [matchedDbVideo?.id]);
+
   // Virtual Timer for YouTube / Drive Embed Checkpoints
   useEffect(() => {
     let timer: any;
-    if (isPlaying && checkpoints.length > 0) {
+    if (isPlaying && localCheckpoints.length > 0) {
       timer = setInterval(() => {
         setCurrentTime((prev) => {
           const next = prev + 1;
@@ -74,7 +103,7 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
           }
 
           // Check for checkpoints
-          checkpoints.forEach((cp) => {
+          localCheckpoints.forEach((cp) => {
             if (
               Math.abs(next - cp.timeInSeconds) < 1 &&
               answeredCheckpoints[cp.id] === undefined &&
@@ -90,7 +119,7 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [isPlaying, duration, checkpoints, answeredCheckpoints, activeCheckpoint]);
+  }, [isPlaying, duration, localCheckpoints, answeredCheckpoints, activeCheckpoint]);
 
   const handleAnswerSubmit = () => {
     if (!activeCheckpoint || selectedOption === null) return;
@@ -107,6 +136,69 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
     setIsPlaying(true);
   };
 
+  // Teacher Add Checkpoint Handler
+  const handleAddCheckpoint = () => {
+    if (!cpForm.question.trim() || !cpForm.optionA.trim() || !cpForm.optionB.trim()) {
+      toast.error('Mohon lengkapi teks pertanyaan kuis dan minimal Pilihan A dan B!');
+      return;
+    }
+
+    const options = [cpForm.optionA, cpForm.optionB];
+    if (cpForm.optionC.trim()) options.push(cpForm.optionC);
+    if (cpForm.optionD.trim()) options.push(cpForm.optionD);
+
+    const newCp: VideoCheckpoint = {
+      id: `cp-${Date.now()}`,
+      timeInSeconds: Number(cpForm.timeInSeconds) || 15,
+      question: cpForm.question,
+      type: 'mc',
+      options: options,
+      correctAnswer: Number(cpForm.correctAnswer) || 0,
+      explanation: cpForm.explanation || 'Jawaban Anda telah dicatat dengan benar.',
+    };
+
+    const updated = [...localCheckpoints, newCp].sort((a, b) => a.timeInSeconds - b.timeInSeconds);
+    setLocalCheckpoints(updated);
+
+    // Save to database
+    if (matchedDbVideo) {
+      const allVideos = getStoredVideos();
+      const updatedVideos = allVideos.map((v) =>
+        v.id === matchedDbVideo.id ? { ...v, checkpoints: updated, checkpointsCount: updated.length } : v
+      );
+      saveVideos(updatedVideos);
+    }
+
+    setCpForm({
+      timeInSeconds: (Number(cpForm.timeInSeconds) || 15) + 30,
+      question: '',
+      optionA: '',
+      optionB: '',
+      optionC: '',
+      optionD: '',
+      correctAnswer: 0,
+      explanation: '',
+    });
+
+    toast.success(`📍 Checkpoint kuis pada detik ke-${newCp.timeInSeconds} berhasil ditambahkan!`);
+  };
+
+  // Teacher Remove Checkpoint Handler
+  const handleRemoveCheckpoint = (cpId: string) => {
+    const updated = localCheckpoints.filter((c) => c.id !== cpId);
+    setLocalCheckpoints(updated);
+
+    if (matchedDbVideo) {
+      const allVideos = getStoredVideos();
+      const updatedVideos = allVideos.map((v) =>
+        v.id === matchedDbVideo.id ? { ...v, checkpoints: updated, checkpointsCount: updated.length } : v
+      );
+      saveVideos(updatedVideos);
+    }
+
+    toast.success('Checkpoint berhasil dihapus.');
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -115,14 +207,15 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
 
   return (
     <div className="glass-card p-6 sm:p-8 rounded-3xl space-y-6 border border-slate-200/80 shadow-lg font-sans">
+      
       {/* Step Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-indigo-100 text-indigo-700 rounded-2xl">
+          <div className="p-3 bg-indigo-100 text-indigo-700 rounded-2xl shadow-xs">
             <Video className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Langkah 4: Video Interaktif</span>
               {hasVideo ? (
                 <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
@@ -136,18 +229,218 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
                 </span>
               )}
             </div>
-            <h3 className="font-heading text-xl font-bold text-slate-900">{videoTitle}</h3>
+            <h3 className="font-heading text-xl font-bold text-slate-900 mt-0.5">{videoTitle}</h3>
           </div>
         </div>
 
-        <button
-          onClick={onNext}
-          className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md flex items-center gap-2 cursor-pointer shrink-0"
-        >
-          <span>Selesai Video → PRIMA AI</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Toggle Teacher Checkpoint Config UI */}
+          <button
+            onClick={() => setIsConfigOpen(!isConfigOpen)}
+            className="px-3.5 py-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-extrabold text-xs border border-amber-300 flex items-center gap-1.5 cursor-pointer shadow-xs transition-all hover:scale-102"
+            title="Kelola Checkpoint & Soal Interaktif"
+          >
+            <Settings className="w-4 h-4 text-amber-700" />
+            <span>{isConfigOpen ? 'Tutup Pengaturan' : '⚙️ Atur Checkpoint Kuis Guru'}</span>
+          </button>
+
+          <button
+            onClick={onNext}
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md flex items-center gap-2 cursor-pointer shrink-0 transition-all hover:scale-102"
+          >
+            <span>Lanjut → PRIMA AI</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
+
+      {/* TEACHER CHECKPOINT CONFIGURATION PANEL */}
+      {isConfigOpen && (
+        <div className="p-6 rounded-3xl bg-amber-50/90 border border-amber-300 space-y-5 animate-fadeIn shadow-inner">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="p-2 bg-amber-200 text-amber-900 rounded-xl font-bold text-sm">📍</span>
+              <div>
+                <h4 className="font-heading font-black text-slate-900 text-base">
+                  Pengaturan Checkpoint & Soal Pilihan Ganda (Otomatis Pausa Video)
+                </h4>
+                <p className="text-xs text-amber-900">
+                  Tentukan detik tertentu saat video diputar di mana pemutar video akan <strong>otomatis PAUSE</strong> untuk menampilkan kuis buatan Anda.
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-black text-amber-900 bg-amber-200 px-3 py-1 rounded-full border border-amber-300 shrink-0">
+              {localCheckpoints.length} Checkpoint Aktif
+            </span>
+          </div>
+
+          {/* Form to Add New Checkpoint */}
+          <div className="bg-white p-4 rounded-2xl border border-amber-200 space-y-3 shadow-xs">
+            <p className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+              <Plus className="w-4 h-4 text-amber-600" />
+              <span>Tambah Checkpoint Kuis Baru pada Video Ini:</span>
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="font-bold text-slate-700 text-xs">Waktu Pausa (Detik)</label>
+                  <button
+                    type="button"
+                    onClick={() => setCpForm({ ...cpForm, timeInSeconds: Math.max(1, currentTime) })}
+                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded cursor-pointer"
+                  >
+                    ⏱️ Gunakan Waktu Saat Ini ({currentTime}s)
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  min={1}
+                  max={3600}
+                  value={cpForm.timeInSeconds}
+                  onChange={(e) => setCpForm({ ...cpForm, timeInSeconds: Number(e.target.value) })}
+                  placeholder="Contoh: 15"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 font-mono font-bold text-slate-900 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 text-xs block mb-1">Kunci Jawaban Benar</label>
+                <select
+                  value={cpForm.correctAnswer}
+                  onChange={(e) => setCpForm({ ...cpForm, correctAnswer: Number(e.target.value) })}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs bg-white"
+                >
+                  <option value={0}>A (Pilihan 1)</option>
+                  <option value={1}>B (Pilihan 2)</option>
+                  <option value={2}>C (Pilihan 3)</option>
+                  <option value={3}>D (Pilihan 4)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="font-bold text-slate-700 text-xs block mb-1">Teks Pertanyaan Kuis</label>
+              <input
+                type="text"
+                value={cpForm.question}
+                onChange={(e) => setCpForm({ ...cpForm, question: e.target.value })}
+                placeholder="Contoh: Apakah fungsi utama tanaman padi dalam rantai makanan sawah?"
+                className="w-full p-2.5 rounded-xl border border-slate-300 font-semibold text-slate-900 text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label className="font-bold text-slate-600 text-[11px] block mb-0.5">Pilihan A *</label>
+                <input
+                  type="text"
+                  value={cpForm.optionA}
+                  onChange={(e) => setCpForm({ ...cpForm, optionA: e.target.value })}
+                  placeholder="Contoh: Produsen (Penghasil Makanan)"
+                  className="w-full p-2 rounded-xl border border-slate-300 text-xs text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-600 text-[11px] block mb-0.5">Pilihan B *</label>
+                <input
+                  type="text"
+                  value={cpForm.optionB}
+                  onChange={(e) => setCpForm({ ...cpForm, optionB: e.target.value })}
+                  placeholder="Contoh: Konsumen I (Herbivora)"
+                  className="w-full p-2 rounded-xl border border-slate-300 text-xs text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-600 text-[11px] block mb-0.5">Pilihan C (Opsional)</label>
+                <input
+                  type="text"
+                  value={cpForm.optionC}
+                  onChange={(e) => setCpForm({ ...cpForm, optionC: e.target.value })}
+                  placeholder="Contoh: Konsumen II (Karnivora)"
+                  className="w-full p-2 rounded-xl border border-slate-300 text-xs text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-600 text-[11px] block mb-0.5">Pilihan D (Opsional)</label>
+                <input
+                  type="text"
+                  value={cpForm.optionD}
+                  onChange={(e) => setCpForm({ ...cpForm, optionD: e.target.value })}
+                  placeholder="Contoh: Dekomposer (Pengurai)"
+                  className="w-full p-2 rounded-xl border border-slate-300 text-xs text-slate-800"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="font-bold text-slate-600 text-[11px] block mb-0.5">Penjelasan & Pembahasan Kuis</label>
+              <input
+                type="text"
+                value={cpForm.explanation}
+                onChange={(e) => setCpForm({ ...cpForm, explanation: e.target.value })}
+                placeholder="Penjelasan ringkas yang muncul setelah siswa menjawab..."
+                className="w-full p-2 rounded-xl border border-slate-300 text-xs text-slate-800"
+              />
+            </div>
+
+            <button
+              onClick={handleAddCheckpoint}
+              className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-extrabold text-xs shadow-md cursor-pointer transition-all hover:scale-101 flex items-center justify-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Simpan Checkpoint Ini Ke Video</span>
+            </button>
+          </div>
+
+          {/* List of Configured Checkpoints */}
+          {localCheckpoints.length > 0 && (
+            <div className="space-y-2">
+              <h5 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+                📌 Daftar Checkpoint Pausa Terpasang:
+              </h5>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {localCheckpoints.map((cp, idx) => (
+                  <div
+                    key={cp.id}
+                    className="p-3.5 bg-white rounded-2xl border border-amber-200 flex items-start justify-between gap-3 shadow-xs"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-mono font-extrabold text-[10px] border border-amber-300">
+                          ⏱️ Detik ke-{cp.timeInSeconds} ({formatTime(cp.timeInSeconds)})
+                        </span>
+                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                          Jawaban Benar: Opsi #{cp.correctAnswer + 1}
+                        </span>
+                      </div>
+                      <p className="font-bold text-slate-800 text-xs">
+                        {idx + 1}. {cp.question}
+                      </p>
+                      <p className="text-[10px] text-slate-500 italic">
+                        Pilihan: {cp.options.join(' | ')}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleRemoveCheckpoint(cp.id)}
+                      className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer shrink-0"
+                      title="Hapus Checkpoint"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
 
       {/* Video Player or Empty State */}
       {!hasVideo ? (
@@ -206,7 +499,7 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
           )}
 
           {/* Custom Interactive Checkpoints Control Overlay if checkpoints available */}
-          {checkpoints.length > 0 && (
+          {localCheckpoints.length > 0 && (
             <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-slate-950/90 via-slate-950/60 to-transparent flex flex-col gap-2 z-20">
               {/* Progress Bar with Checkpoint Markers */}
               <div className="relative w-full h-2.5 bg-slate-700/80 rounded-full cursor-pointer overflow-visible">
@@ -215,14 +508,14 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
                   style={{ width: `${(currentTime / Math.max(1, duration)) * 100}%` }}
                 />
 
-                {checkpoints.map((cp) => {
+                {localCheckpoints.map((cp) => {
                   const posPercent = (cp.timeInSeconds / Math.max(1, duration)) * 100;
                   const isDone = answeredCheckpoints[cp.id] !== undefined;
 
                   return (
                     <div
                       key={cp.id}
-                      title={`Checkpoint: ${cp.question}`}
+                      title={`Checkpoint (${cp.timeInSeconds}s): ${cp.question}`}
                       className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-white shadow-md z-20 cursor-pointer ${
                         isDone ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'
                       }`}
@@ -239,14 +532,14 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
                     className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow"
                   >
                     {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-white" />}
-                    <span>{isPlaying ? 'Pause Checkpoint' : 'Mulai Checkpoint'}</span>
+                    <span>{isPlaying ? 'Pause' : 'Mulai Simulasi Player'}</span>
                   </button>
                   <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded bg-amber-400 text-amber-950">
-                    {checkpoints.length} Checkpoints Terpasang
+                    📍 {localCheckpoints.length} Checkpoints Terpasang
                   </span>
                 </div>
               </div>

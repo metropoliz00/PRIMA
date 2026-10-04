@@ -61,7 +61,7 @@ export const CodingChallengeStep: React.FC<CodingChallengeStepProps> = ({ conten
       setTestResult(null);
       setExecutionLog([]);
     }
-  }, [activeChallengeIndex, currentChallenge]);
+  }, [activeChallengeIndex, currentChallenge?.id]);
 
   const handleAddBlock = (block: CodingBlock) => {
     // Unrestricted block limit so students can always reach the target!

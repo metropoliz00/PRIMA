@@ -1,5 +1,5 @@
-import { Subject, StudentProgress, Badge, TeacherAnalytics, CodingBlock, InteractiveVideo, QuestionBankItem, Assessment } from '../types/learning';
-import { INITIAL_QUESTION_BANK, INITIAL_ASSESSMENTS } from './initialData';
+import { Subject, StudentProgress, Badge, TeacherAnalytics, CodingBlock, InteractiveVideo, QuestionBankItem, Assessment, Material, Topic } from '../types/learning';
+import { INITIAL_QUESTION_BANK, INITIAL_ASSESSMENTS, INITIAL_MATERIALS } from './initialData';
 import { getRemoteSubjects, createRemoteSubject, updateRemoteSubject, getRemoteVideos, createRemoteVideo, updateRemoteVideo, pushAppData } from '../services/appscript';
 
 export const INITIAL_BADGES: Badge[] = [
@@ -565,17 +565,74 @@ export async function syncSubjectsWithGAS(): Promise<Subject[]> {
   return getStoredSubjects();
 }
 
+export const INITIAL_VIDEOS: InteractiveVideo[] = [
+  {
+    id: 'vid-ipas-1',
+    title: 'Petualangan Ekosistem Rantai Makanan Sawah',
+    subjectId: 'ipas',
+    videoUrl: 'https://www.youtube.com/watch?v=kYJ_f_Y_vS4',
+    grade: 5,
+    checkpointsCount: 2,
+    checkpoints: [
+      {
+        id: 'cp-1',
+        timeInSeconds: 15,
+        question: 'Komponen apakah yang bertindak sebagai Produsen utama dalam ekosistem sawah?',
+        type: 'mc',
+        options: ['Tanaman Padi 🌾', 'Belalang Sawah 🦗', 'Katak 🐸', 'Ular 🐍'],
+        correctAnswer: 0,
+        explanation: 'Tanaman padi adalah produsen karena mampu membuat makanan sendiri melalui fotosintesis dengan bantuan sinar matahari.',
+      },
+      {
+        id: 'cp-2',
+        timeInSeconds: 45,
+        question: 'Apa yang terjadi jika populasi katak menurun secara drastis di sawah?',
+        type: 'mc',
+        options: [
+          'Populasi belalang melesat tak terkendali dan merusak padi 🌾',
+          'Padi tumbuh semakin lebat tanpa gangguan',
+          'Ular menjadi bertambah banyak',
+          'Sawah tergenang air lebih banyak',
+        ],
+        correctAnswer: 0,
+        explanation: 'Katak adalah pemangsa alami belalang. Jika katak berkurang, belalang (hama) akan meledak dan menghabiskan tanaman padi.',
+      },
+    ],
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'vid-mat-1',
+    title: 'Eksplorasi KPK dan FPB dengan Metode Visual',
+    subjectId: 'matematika',
+    videoUrl: 'https://www.youtube.com/watch?v=344M7R9L730',
+    grade: 5,
+    checkpointsCount: 1,
+    checkpoints: [
+      {
+        id: 'cp-mat-1',
+        timeInSeconds: 20,
+        question: 'Berapakah Nilai Kelipatan Persekutuan Terkecil (KPK) dari angka 4 dan 6?',
+        type: 'mc',
+        options: ['12', '24', '8', '2'],
+        correctAnswer: 0,
+        explanation: 'Kelipatan 4: 4, 8, 12, 16... dan Kelipatan 6: 6, 12, 18... Kelipatan persekutuan terkecil yang sama adalah 12.',
+      },
+    ],
+    createdAt: new Date().toISOString(),
+  },
+];
+
 export function getStoredVideos(): InteractiveVideo[] {
   try {
     const data = localStorage.getItem('prima_interactive_videos');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (e) {
     console.error('Error reading videos from localStorage', e);
   }
-  return [];
+  return INITIAL_VIDEOS;
 }
 
 export function saveVideos(videos: InteractiveVideo[]): void {
@@ -919,4 +976,276 @@ export function saveAssessments(assessments: Assessment[]): void {
   } catch (e) {
     console.error('Error saving assessments', e);
   }
+}
+
+export function getStoredMaterials(): Material[] {
+  try {
+    const data = localStorage.getItem('prima_materials');
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Error reading materials from localStorage', e);
+  }
+  return INITIAL_MATERIALS;
+}
+
+export function saveMaterials(materials: Material[]): void {
+  try {
+    localStorage.setItem('prima_materials', JSON.stringify(materials));
+    materials.forEach((mat) => {
+      const payload = {
+        id: mat.id,
+        subjectId: mat.subjectId,
+        grade: mat.grade || 5,
+        topicTitle: mat.topicTitle,
+        learningObjectives: mat.learningObjectives,
+        description: mat.description,
+        contentBody: mat.contentBody || '',
+        mediaType: mat.mediaType || 'DOCUMENT',
+        mediaUrl: mat.mediaUrl || '',
+        status: mat.status || 'TERBIT',
+      };
+      pushAppData('Materials', 'create', payload).catch((e) =>
+        console.warn('[GAS Sync] Materials sync failed:', e)
+      );
+    });
+  } catch (e) {
+    console.error('Error saving materials to localStorage', e);
+  }
+}
+
+export function createTopicFromMaterial(mat: Material, subjectGrade: number = 5): Topic {
+  return {
+    id: `top-${mat.id}`,
+    subjectId: mat.subjectId,
+    title: mat.topicTitle,
+    description: mat.description || mat.learningObjectives,
+    grade: mat.grade || subjectGrade,
+    estimatedMinutes: 25,
+    steps: [
+      {
+        id: `step-1-${mat.id}`,
+        stepNumber: 1,
+        type: 'pemantik',
+        title: 'PEMANTIK',
+        subtitle: `Eksplorasi Awal: ${mat.topicTitle}`,
+        isCompleted: false,
+        isUnlocked: true,
+        content: {
+          question: `Dalam topik "${mat.topicTitle}", manakah yang paling sesuai dengan tujuan pembelajaran: "${mat.learningObjectives}"?`,
+          options: [
+            `Memahami dan menguasai konsep: ${mat.learningObjectives}`,
+            'Hanya menghafal tanpa memahami penerapan',
+            'Tidak berkaitan dengan materi pelajaran',
+            'Mengabaikan keterkaitan dengan kehidupan sehari-hari',
+          ],
+          correctAnswer: 0,
+          explanation: `Tepat sekali! Fokus utama kita adalah: ${mat.learningObjectives}`,
+        },
+      },
+      {
+        id: `step-2-${mat.id}`,
+        stepNumber: 2,
+        type: 'eksplorasi',
+        title: 'EKSPLORASI',
+        subtitle: `Konsep Kunci: ${mat.topicTitle}`,
+        isCompleted: false,
+        isUnlocked: false,
+        content: {
+          cards: [
+            {
+              title: 'Tujuan Capaian Pembelajaran',
+              description: mat.learningObjectives,
+              tag: 'Target Belajar',
+              icon: '🎯',
+            },
+            {
+              title: 'Konsep Inti Materi',
+              description: mat.description,
+              tag: 'Materi Pokok',
+              icon: '📖',
+            },
+            {
+              title: 'Uraian & Penjelasan Lengkap',
+              description: mat.contentBody || mat.description,
+              tag: 'Fakta Kunci',
+              icon: '💡',
+            },
+          ],
+        },
+      },
+      {
+        id: `step-3-${mat.id}`,
+        stepNumber: 3,
+        type: 'interaksi',
+        title: 'INTERAKSI',
+        subtitle: `Pencocokan Konsep: ${mat.topicTitle}`,
+        isCompleted: false,
+        isUnlocked: false,
+        content: {
+          title: `Pencocokan Konsep ${mat.topicTitle}`,
+          description: 'Pasangkan konsep dengan penjelasannya secara tepat!',
+          pairs: [
+            { left: 'Topik Utama', right: mat.topicTitle },
+            {
+              left: 'Tujuan Belajar',
+              right:
+                mat.learningObjectives.length > 40
+                  ? mat.learningObjectives.substring(0, 40) + '...'
+                  : mat.learningObjectives,
+            },
+          ],
+        },
+      },
+      {
+        id: `step-4-${mat.id}`,
+        stepNumber: 4,
+        type: 'video',
+        title: 'VIDEO INTERAKTIF',
+        subtitle: `Video Edukasi: ${mat.topicTitle}`,
+        isCompleted: false,
+        isUnlocked: false,
+        content: {
+          videoUrl: mat.mediaUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          title: `Video Pembelajaran: ${mat.topicTitle}`,
+        },
+      },
+      {
+        id: `step-5-${mat.id}`,
+        stepNumber: 5,
+        type: 'ai_tutor',
+        title: 'PRIMA AI',
+        subtitle: `Bimbingan AI: ${mat.topicTitle}`,
+        isCompleted: false,
+        isUnlocked: false,
+        content: {
+          initialPrompt: `Halo Petualang Cilik! Kita sedang mempelajari "${mat.topicTitle}". Apa yang ingin kamu ketahui atau tanyakan tentang "${mat.learningObjectives}"?`,
+        },
+      },
+      {
+        id: `step-6-${mat.id}`,
+        stepNumber: 6,
+        type: 'simulasi',
+        title: 'SIMULASI',
+        subtitle: `Laboratorium Interaktif: ${mat.topicTitle}`,
+        isCompleted: false,
+        isUnlocked: false,
+        content: {
+          type: 'ecosystem',
+          title: `Laboratorium Simulasi: ${mat.topicTitle}`,
+          description: mat.description,
+        },
+      },
+      {
+        id: `step-7-${mat.id}`,
+        stepNumber: 7,
+        type: 'coding',
+        title: 'CODING CHALLENGE',
+        subtitle: `Logika Algoritma: ${mat.topicTitle}`,
+        isCompleted: false,
+        isUnlocked: false,
+        content: {
+          goal: `Susun urutan balok logika algoritma untuk menerapkan konsep ${mat.topicTitle}!`,
+        },
+      },
+      {
+        id: `step-8-${mat.id}`,
+        stepNumber: 8,
+        type: 'hots',
+        title: 'HOTS CHALLENGE',
+        subtitle: `Tantangan Bernalar Kritis: ${mat.topicTitle}`,
+        isCompleted: false,
+        isUnlocked: false,
+        content: {
+          scenario: `Bagaimana cara terbaik menerapkan pemahaman tentang "${mat.topicTitle}" dalam kehidupan sehari-hari?`,
+          options: [
+            'Menerapkannya secara kritis, bijak, dan bertanggung jawab di lingkungan sekitar',
+            'Hanya menghafal saat ujian lalu melupakannya',
+            'Mengabaikannya karena tidak penting',
+          ],
+          correctAnswer: 0,
+          explanation:
+            'Luar biasa! Pembelajaran yang bermakna adalah yang diterapkan secara positif dalam kehidupan nyata.',
+        },
+      },
+      {
+        id: `step-9-${mat.id}`,
+        stepNumber: 9,
+        type: 'asesmen',
+        title: 'ASESMEN',
+        subtitle: `Uji Pemahaman: ${mat.topicTitle}`,
+        isCompleted: false,
+        isUnlocked: false,
+        content: {
+          questions: [
+            {
+              id: `q-${mat.id}-1`,
+              type: 'mc',
+              question: `Berdasarkan materi "${mat.topicTitle}", manakah kesimpulan yang paling tepat mengenai capaian belajar?`,
+              options: [
+                mat.learningObjectives,
+                'Pembelajaran tidak menghasilkan pemahaman baru',
+                'Hanya materi hafalan tanpa makna',
+              ],
+              correctAnswer: 0,
+              hint: 'Ingat kembali ringkasan materi dan eksplorasi!',
+              explanation: `Tepat sekali! Kesimpulan materi adalah: ${mat.learningObjectives}`,
+            },
+          ],
+        },
+      },
+      {
+        id: `step-10-${mat.id}`,
+        stepNumber: 10,
+        type: 'refleksi',
+        title: 'REFLEKSI',
+        subtitle: `Jurnal Refleksi: ${mat.topicTitle}`,
+        isCompleted: false,
+        isUnlocked: false,
+        content: {
+          prompt: `Tuliskan hal paling menarik dan bermakna yang kamu pelajari dari materi "${mat.topicTitle}"!`,
+        },
+      },
+    ],
+  };
+}
+
+export function syncMaterialsWithSubjects(subjects: Subject[], materials: Material[]): Subject[] {
+  const publishedMaterials = materials.filter((m) => m.status === 'TERBIT');
+
+  return subjects.map((sub) => {
+    const subMaterials = publishedMaterials.filter(
+      (m) => m.subjectId?.toLowerCase() === sub.id?.toLowerCase()
+    );
+
+    // Keep existing comprehensive topics
+    const existingTopics = [...sub.topics];
+
+    subMaterials.forEach((mat) => {
+      const existingIdx = existingTopics.findIndex(
+        (t) =>
+          t.id === `top-${mat.id}` ||
+          t.title.toLowerCase() === mat.topicTitle.toLowerCase()
+      );
+
+      if (existingIdx >= 0) {
+        // Update existing topic description
+        existingTopics[existingIdx] = {
+          ...existingTopics[existingIdx],
+          title: mat.topicTitle,
+          description: mat.description || mat.learningObjectives,
+        };
+      } else {
+        // Add new dynamic topic from teacher's published material
+        const newTopic = createTopicFromMaterial(mat, sub.grade);
+        existingTopics.push(newTopic);
+      }
+    });
+
+    return {
+      ...sub,
+      topics: existingTopics,
+    };
+  });
 }

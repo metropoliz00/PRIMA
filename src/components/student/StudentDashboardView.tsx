@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import {
-  LayoutDashboard, BookOpen, Video, Gamepad2, Bot, Code, Brain, Trophy, BarChart3, User, Sparkles, Flame, Play, MessageSquare
+  LayoutDashboard, BookOpen, Video, Gamepad2, Bot, Code, Brain, Trophy, BarChart3, User, Sparkles, Flame, Play, MessageSquare, FileText, ArrowRight
 } from 'lucide-react';
-import { StudentProgress, Subject } from '../../types/learning';
+import { StudentProgress, Subject, Material } from '../../types/learning';
 import { User as UserType } from '../../types/auth';
 
 interface StudentDashboardViewProps {
   currentUser: UserType;
   progress: StudentProgress;
   subjects: Subject[];
+  materials?: Material[];
   onSelectMenu: (menuId: string) => void;
   onSelectSubject: (subjectId: string) => void;
   onRequestLogout: () => void;
@@ -18,6 +19,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   currentUser,
   progress,
   subjects,
+  materials = [],
   onSelectMenu,
   onSelectSubject,
   onRequestLogout,
@@ -26,6 +28,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
   const totalTopics = subjects.reduce((acc, sub) => acc + sub.topics.length, 0);
   const progressPercent = totalTopics > 0 ? Math.min(100, Math.round((progress.completedTopicsCount / totalTopics) * 100)) : 0;
+  const publishedMaterials = materials.filter(m => m.status === 'TERBIT');
 
   const studentMenus = [
     { id: 'beranda', label: '🏠 Beranda', icon: LayoutDashboard },
@@ -127,9 +130,14 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
       {/* Ongoing Subjects */}
       <div className="space-y-4">
-        <h3 className="font-heading text-xl font-bold text-slate-900">
-          Pilih Mata Pelajaran
-        </h3>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-heading text-xl font-bold text-slate-900">
+              📚 Pilih Mata Pelajaran & Misi Belajar
+            </h3>
+            <p className="text-xs text-slate-500 font-medium">Pilih mata pelajaran untuk mengeksplorasi modul materi dan misi yang disiapkan guru.</p>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {subjects.filter(sub => sub.status !== 'DRAFT').map((sub) => (
@@ -154,7 +162,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-500">
-                  {sub.topics.length} Misi Topik
+                  {sub.topics.length > 0 ? `${sub.topics.length} Misi Siap Dijalankan` : 'Materi Belum Tersedia'}
                 </span>
                 <span className="text-xs font-bold text-indigo-600 flex items-center gap-1">
                   <Play className="w-3.5 h-3.5 fill-indigo-600" />
@@ -165,6 +173,60 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Published Materials from Teacher */}
+      {publishedMaterials.length > 0 && (
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-heading text-xl font-bold text-slate-900">
+                📖 Modul Pembelajaran Aktif dari Guru
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">Daftar modul materi yang diterbitkan oleh guru sesuai kurikulum.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {publishedMaterials.map((mat) => {
+              const sub = subjects.find((s) => s.id?.toLowerCase() === mat.subjectId?.toLowerCase());
+              return (
+                <div
+                  key={mat.id}
+                  onClick={() => onSelectSubject(mat.subjectId)}
+                  className="glass-card p-5 rounded-2xl border border-slate-200 hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between space-y-3 group"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                        {sub ? `${sub.icon} ${sub.name}` : mat.subjectId.toUpperCase()}
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                        ✓ Misi Aktif
+                      </span>
+                    </div>
+                    <h4 className="font-heading font-bold text-base text-slate-900 group-hover:text-indigo-600 transition-colors">
+                      {mat.topicTitle}
+                    </h4>
+                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed font-medium">
+                      🎯 {mat.learningObjectives}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-500">
+                      10 Tahap Petualangan Belajar
+                    </span>
+                    <span className="text-xs font-bold text-indigo-600 group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                      <span>Jalankan Misi</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -4,11 +4,12 @@ import {
   LayoutDashboard, Users, User, School, BookOpen, FileText, Video, Gamepad2, Bot, Code, Brain, Database, BarChart2, Award, MessageSquare, Megaphone, Settings, LogOut, Plus, Search, Edit3, Trash2, KeyRound, CheckCircle2, ChevronRight, Sparkles, AlertCircle, Play, Sliders, ShieldCheck, Download, RefreshCw, Layers, Check, HelpCircle, X, ExternalLink, Send, Star, Zap, Eye, Save, ToggleLeft, ToggleRight, MessageCircle, FileSpreadsheet, Cpu, GraduationCap
 } from 'lucide-react';
 import { User as UserType } from '../../types/auth';
-import { Subject, ClassRoom, Material, QuestionBankItem, Assessment, Announcement, ReflectionEntry, AITutorConfig, InteractiveVideo } from '../../types/learning';
+import { Subject, ClassRoom, Material, QuestionBankItem, Assessment, Announcement, ReflectionEntry, AITutorConfig, InteractiveVideo, VideoCheckpoint } from '../../types/learning';
 import { createUser, updateUser, deleteUser } from '../../services/authService';
-import { saveSubjects, getStoredCodingChallenges, saveCodingChallenges, CodingChallengeItem, getStoredVideos, saveVideos, syncVideosWithGAS, getStoredActivities, saveActivities, InteractiveActivity, getAllStudentsProgress, getStudentProgressForId } from '../../data/learningData';
+import { saveSubjects, getStoredCodingChallenges, saveCodingChallenges, CodingChallengeItem, getStoredVideos, saveVideos, syncVideosWithGAS, getStoredActivities, saveActivities, InteractiveActivity, getAllStudentsProgress, getStudentProgressForId, getStoredMaterials, saveMaterials, saveQuestionBank, saveAssessments } from '../../data/learningData';
 import { parseEmbedUrl } from '../journey/steps/VideoPlayerStep';
 import { pushAppData } from '../../services/appscript';
+import { DatabaseSchemaDocs } from './DatabaseSchemaDocs';
 
 interface TeacherDashboardProps {
   currentUser: UserType;
@@ -22,12 +23,15 @@ interface TeacherDashboardProps {
   reflectionsList: ReflectionEntry[];
   aiConfigsList: AITutorConfig[];
   codingChallengesList?: CodingChallengeItem[];
+  activitiesList?: InteractiveActivity[];
   onAddSubject: (newSubject: Subject) => void;
   onRefreshData: () => void;
   onRequestLogout: () => void;
   onUpdateQuestionBank?: (updated: QuestionBankItem[]) => void;
   onUpdateAssessments?: (updated: Assessment[]) => void;
   onUpdateCodingChallenges?: (updated: CodingChallengeItem[]) => void;
+  onUpdateMaterials?: (updated: Material[]) => void;
+  onUpdateActivities?: (updated: InteractiveActivity[]) => void;
 }
 
 export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
@@ -42,18 +46,22 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   reflectionsList,
   aiConfigsList,
   codingChallengesList,
+  activitiesList,
   onAddSubject,
   onRefreshData,
   onRequestLogout,
   onUpdateQuestionBank,
   onUpdateAssessments,
   onUpdateCodingChallenges,
+  onUpdateMaterials,
+  onUpdateActivities,
 }) => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Dynamic States for 17 Menus
-  const [localMaterials, setLocalMaterials] = useState<Material[]>(materialsList);
+  const [localMaterials, setLocalMaterials] = useState<Material[]>(materialsList || getStoredMaterials());
+  const [localActivities, setLocalActivities] = useState<InteractiveActivity[]>(activitiesList || getStoredActivities());
   const [localQuestionBank, setLocalQuestionBank] = useState<QuestionBankItem[]>(questionBankList);
   const [localAssessments, setLocalAssessments] = useState<Assessment[]>(assessmentsList);
   const [localAnnouncements, setLocalAnnouncements] = useState<Announcement[]>(announcementsList);
@@ -62,28 +70,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [localClasses, setLocalClasses] = useState<ClassRoom[]>(classesList);
   const [localSubjects, setLocalSubjects] = useState<Subject[]>(subjectsList);
   const [localCodingChallenges, setLocalCodingChallenges] = useState<CodingChallengeItem[]>(codingChallengesList || getStoredCodingChallenges());
-
-  useEffect(() => {
-    localStorage.setItem('prima_coding_challenges', JSON.stringify(localCodingChallenges));
-    if (onUpdateCodingChallenges) {
-      onUpdateCodingChallenges(localCodingChallenges);
-    }
-  }, [localCodingChallenges, onUpdateCodingChallenges]);
-
-  // Synchronize local states with global localStorage and call parent update callbacks automatically
-  useEffect(() => {
-    localStorage.setItem('prima_question_bank', JSON.stringify(localQuestionBank));
-    if (onUpdateQuestionBank) {
-      onUpdateQuestionBank(localQuestionBank);
-    }
-  }, [localQuestionBank, onUpdateQuestionBank]);
-
-  useEffect(() => {
-    localStorage.setItem('prima_assessments', JSON.stringify(localAssessments));
-    if (onUpdateAssessments) {
-      onUpdateAssessments(localAssessments);
-    }
-  }, [localAssessments, onUpdateAssessments]);
 
   // Ambil grade pengampuan murni sesuai database (currentUser.grade) tanpa hardcode
   const teacherGrade = useMemo(() => {
@@ -143,7 +129,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   // Interactive Activities State
-  const [localActivities, setLocalActivities] = useState<InteractiveActivity[]>(getStoredActivities());
+  // localActivities is managed at top of component
 
   // Coding Challenges State (Persisted for Student Dashboard)
   // localCodingChallenges is managed at top of component
@@ -257,17 +243,28 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   // Interactive Video Form
-  const [videoForm, setVideoForm] = useState({
+  const [videoForm, setVideoForm] = useState<{
+    title: string;
+    subjectId: string;
+    videoUrl: string;
+    checkpoints: VideoCheckpoint[];
+  }>({
     title: '',
     subjectId: 'ipas',
     videoUrl: '',
-    cpTimeSeconds: 30,
-    cpQuestion: '',
-    cpOptionA: '',
-    cpOptionB: '',
-    cpOptionC: '',
-    cpOptionD: '',
-    cpCorrectIdx: 0,
+    checkpoints: [],
+  });
+
+  // Single Checkpoint Form State for Video Modal
+  const [cpForm, setCpForm] = useState({
+    timeInSeconds: 30,
+    question: '',
+    optionA: '',
+    optionB: '',
+    optionC: '',
+    optionD: '',
+    correctAnswer: 0,
+    explanation: '',
   });
 
   // Rich Question Form State
@@ -292,6 +289,30 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   });
 
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+
+  // Subject Grouping & Filter States for Asesmen & Bank Soal
+  const [selectedAssessmentSubject, setSelectedAssessmentSubject] = useState<string>('ALL');
+  const [selectedQuestionBankSubject, setSelectedQuestionBankSubject] = useState<string>('ALL');
+  const [selectedQuestionBankType, setSelectedQuestionBankType] = useState<string>('ALL');
+  const [selectedQuestionBankLevel, setSelectedQuestionBankLevel] = useState<string>('ALL');
+
+  const filteredAssessments = useMemo(() => {
+    if (selectedAssessmentSubject === 'ALL') return localAssessments;
+    return localAssessments.filter(
+      (a) => a.subjectId.toLowerCase() === selectedAssessmentSubject.toLowerCase()
+    );
+  }, [localAssessments, selectedAssessmentSubject]);
+
+  const filteredQuestionBank = useMemo(() => {
+    return localQuestionBank.filter((q) => {
+      const matchSubject =
+        selectedQuestionBankSubject === 'ALL' ||
+        q.subjectId.toLowerCase() === selectedQuestionBankSubject.toLowerCase();
+      const matchType = selectedQuestionBankType === 'ALL' || q.type === selectedQuestionBankType;
+      const matchLevel = selectedQuestionBankLevel === 'ALL' || q.level === selectedQuestionBankLevel;
+      return matchSubject && matchType && matchLevel;
+    });
+  }, [localQuestionBank, selectedQuestionBankSubject, selectedQuestionBankType, selectedQuestionBankLevel]);
 
   // Teacher feedback for student reflections
   const [teacherFeedbackMap, setTeacherFeedbackMap] = useState<Record<string, string>>({});
@@ -407,7 +428,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const handleStartEditMaterial = (mat: Material) => {
     setEditingMaterial(mat);
     setMaterialForm({
-      subjectId: mat.subjectId,
+      subjectId: mat.subjectId || localSubjects[0]?.id || 'ipas',
       topicTitle: mat.topicTitle,
       learningObjectives: mat.learningObjectives,
       description: mat.description,
@@ -419,8 +440,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
   const handleSaveMaterial = (e: React.FormEvent) => {
     e.preventDefault();
+    let updated: Material[];
     if (editingMaterial) {
-      const updated = localMaterials.map((m) =>
+      updated = localMaterials.map((m) =>
         m.id === editingMaterial.id
           ? {
               ...m,
@@ -429,13 +451,12 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               description: materialForm.description,
               contentBody: materialForm.contentBody,
               subjectId: materialForm.subjectId,
+              status: materialForm.status || 'TERBIT',
             }
           : m
       );
-      setLocalMaterials(updated);
       setEditingMaterial(null);
-      setShowAddMaterialModal(false);
-      toast.success('Materi pembelajaran berhasil diperbarui!');
+      toast.success('Materi pembelajaran berhasil diperbarui dan disinkronkan ke misi murid!');
     } else {
       const newMat: Material = {
         id: `mat-${Date.now()}`,
@@ -447,17 +468,21 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         contentBody: materialForm.contentBody,
         mediaType: 'DOCUMENT',
         mediaUrl: '',
-        status: 'TERBIT',
+        status: materialForm.status || 'TERBIT',
         createdAt: 'Hari ini',
       };
-      setLocalMaterials([newMat, ...localMaterials]);
-      setShowAddMaterialModal(false);
-      toast.success('Materi pembelajaran baru berhasil disimpan!');
+      updated = [newMat, ...localMaterials];
+      toast.success('Materi pembelajaran baru berhasil disimpan dan misi siap dijalankan murid!');
     }
+    setLocalMaterials(updated);
+    saveMaterials(updated);
+    setShowAddMaterialModal(false);
   };
 
   const handleDeleteMaterial = (id: string) => {
-    setLocalMaterials(localMaterials.filter((m) => m.id !== id));
+    const updated = localMaterials.filter((m) => m.id !== id);
+    setLocalMaterials(updated);
+    saveMaterials(updated);
     toast.success('Materi pembelajaran berhasil dihapus.');
   };
 
@@ -468,15 +493,66 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       title: vid.title,
       subjectId: vid.subjectId || localSubjects[0]?.id || 'ipas',
       videoUrl: vid.videoUrl,
-      cpTimeSeconds: 30,
-      cpQuestion: '',
-      cpOptionA: '',
-      cpOptionB: '',
-      cpOptionC: '',
-      cpOptionD: '',
-      cpCorrectIdx: 0,
+      checkpoints: vid.checkpoints ? [...vid.checkpoints] : [],
+    });
+    setCpForm({
+      timeInSeconds: 30,
+      question: '',
+      optionA: '',
+      optionB: '',
+      optionC: '',
+      optionD: '',
+      correctAnswer: 0,
+      explanation: '',
     });
     setShowAddVideoModal(true);
+  };
+
+  const handleAddCheckpointToVideo = () => {
+    if (!cpForm.question.trim() || !cpForm.optionA.trim() || !cpForm.optionB.trim()) {
+      toast.error('Mohon lengkapi teks pertanyaan dan minimal pilihan A dan B!');
+      return;
+    }
+
+    const options = [cpForm.optionA, cpForm.optionB];
+    if (cpForm.optionC.trim()) options.push(cpForm.optionC);
+    if (cpForm.optionD.trim()) options.push(cpForm.optionD);
+
+    const newCp: VideoCheckpoint = {
+      id: `cp-${Date.now()}`,
+      timeInSeconds: Number(cpForm.timeInSeconds) || 30,
+      question: cpForm.question,
+      type: 'mc',
+      options: options,
+      correctAnswer: Number(cpForm.correctAnswer) || 0,
+      explanation: cpForm.explanation || 'Jawaban Anda telah tercatat.',
+    };
+
+    setVideoForm((prev) => ({
+      ...prev,
+      checkpoints: [...prev.checkpoints, newCp].sort((a, b) => a.timeInSeconds - b.timeInSeconds),
+    }));
+
+    setCpForm({
+      timeInSeconds: (Number(cpForm.timeInSeconds) || 30) + 30,
+      question: '',
+      optionA: '',
+      optionB: '',
+      optionC: '',
+      optionD: '',
+      correctAnswer: 0,
+      explanation: '',
+    });
+
+    toast.success('📍 Checkpoint kuis berhasil ditambahkan ke video ini!');
+  };
+
+  const handleRemoveCheckpointFromVideo = (cpId: string) => {
+    setVideoForm((prev) => ({
+      ...prev,
+      checkpoints: prev.checkpoints.filter((c) => c.id !== cpId),
+    }));
+    toast.success('Checkpoint berhasil dihapus dari video ini.');
   };
 
   const handleSaveVideo = (e: React.FormEvent) => {
@@ -490,11 +566,13 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               title: videoForm.title,
               subjectId: videoForm.subjectId,
               videoUrl: videoForm.videoUrl,
+              checkpointsCount: videoForm.checkpoints.length,
+              checkpoints: videoForm.checkpoints,
             }
           : v
       );
       setEditingVideo(null);
-      toast.success('Video interaktif berhasil diperbarui & disimpan ke Database!');
+      toast.success('Video interaktif & seluruh checkpoint berhasil diperbarui!');
     } else {
       const newVid: InteractiveVideo = {
         id: `vid-${Date.now()}`,
@@ -502,11 +580,12 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         subjectId: videoForm.subjectId,
         videoUrl: videoForm.videoUrl,
         grade: teacherGrade || 5,
-        checkpointsCount: 1,
+        checkpointsCount: videoForm.checkpoints.length,
+        checkpoints: videoForm.checkpoints,
         createdAt: new Date().toISOString(),
       };
       updated = [newVid, ...localInteractiveVideos];
-      toast.success('Berhasil menambahkan Video Interaktif ke Database!');
+      toast.success('Berhasil menambahkan Video Interaktif + Checkpoint Kuis ke Database!');
     }
     setLocalInteractiveVideos(updated);
     saveVideos(updated);
@@ -569,6 +648,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     }
     setLocalActivities(updated);
     saveActivities(updated);
+    onUpdateActivities?.(updated);
     setShowAddActivityModal(false);
   };
 
@@ -576,6 +656,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const updated = localActivities.filter((a) => a.id !== id);
     setLocalActivities(updated);
     saveActivities(updated);
+    onUpdateActivities?.(updated);
     toast.success('Aktivitas interaktif berhasil dihapus dari Database.');
   };
 
@@ -748,6 +829,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     }
     setLocalCodingChallenges(updated);
     saveCodingChallenges(updated);
+    onUpdateCodingChallenges?.(updated);
     setShowAddCodingModal(false);
   };
 
@@ -755,6 +837,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const updated = localCodingChallenges.filter((c) => c.id !== id);
     setLocalCodingChallenges(updated);
     saveCodingChallenges(updated);
+    onUpdateCodingChallenges?.(updated);
     toast.success('Tantangan Coding berhasil dihapus.');
   };
 
@@ -841,6 +924,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       assessmentForm.selectedQuestionIds.includes(q.id)
     );
 
+    let updatedList: Assessment[];
     if (editingAssessment) {
       const updatedAss = {
         ...editingAssessment,
@@ -852,11 +936,12 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         questions: pickedQuestions,
       };
 
-      setLocalAssessments(
-        localAssessments.map((a) =>
-          a.id === editingAssessment.id ? updatedAss : a
-        )
+      updatedList = localAssessments.map((a) =>
+        a.id === editingAssessment.id ? updatedAss : a
       );
+      setLocalAssessments(updatedList);
+      saveAssessments(updatedList);
+      onUpdateAssessments?.(updatedList);
 
       // Sync edited assessment to Google Sheets Assessments sheet
       const payload = {
@@ -892,7 +977,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         status: 'AKTIF',
         questions: pickedQuestions,
       };
-      setLocalAssessments([newAss, ...localAssessments]);
+      updatedList = [newAss, ...localAssessments];
+      setLocalAssessments(updatedList);
+      saveAssessments(updatedList);
+      onUpdateAssessments?.(updatedList);
 
       // Sync new assessment to Google Sheets Assessments sheet
       const payload = {
@@ -914,27 +1002,31 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleDeleteAssessment = (id: string) => {
-    setLocalAssessments(localAssessments.filter((a) => a.id !== id));
+    const updatedList = localAssessments.filter((a) => a.id !== id);
+    setLocalAssessments(updatedList);
+    saveAssessments(updatedList);
+    onUpdateAssessments?.(updatedList);
     toast.success('Asesmen berhasil dihapus.');
   };
 
   // Toggle question attachment to assessment
   const handleToggleQuestionInAssessment = (assessmentId: string, question: QuestionBankItem) => {
-    setLocalAssessments(
-      localAssessments.map((ass) => {
-        if (ass.id !== assessmentId) return ass;
-        const currentQuestions = ass.questions || [];
-        const exists = currentQuestions.some((q) => q.id === question.id);
-        const updatedQuestions = exists
-          ? currentQuestions.filter((q) => q.id !== question.id)
-          : [...currentQuestions, question];
-        return {
-          ...ass,
-          totalQuestions: updatedQuestions.length,
-          questions: updatedQuestions,
-        };
-      })
-    );
+    const updatedList = localAssessments.map((ass) => {
+      if (ass.id !== assessmentId) return ass;
+      const currentQuestions = ass.questions || [];
+      const exists = currentQuestions.some((q) => q.id === question.id);
+      const updatedQuestions = exists
+        ? currentQuestions.filter((q) => q.id !== question.id)
+        : [...currentQuestions, question];
+      return {
+        ...ass,
+        questions: updatedQuestions,
+        totalQuestions: updatedQuestions.length,
+      };
+    });
+    setLocalAssessments(updatedList);
+    saveAssessments(updatedList);
+    onUpdateAssessments?.(updatedList);
     toast.success('Daftar soal dalam asesmen berhasil diperbarui!');
   };
 
@@ -986,17 +1078,24 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       };
     }
 
+    let updatedBank: QuestionBankItem[];
+    let updatedAssessmentsList = localAssessments;
+
     if (editingQuestionId) {
       const updatedQ = { ...newQ, id: editingQuestionId };
-      setLocalQuestionBank(localQuestionBank.map((q) => (q.id === editingQuestionId ? updatedQ : q)));
+      updatedBank = localQuestionBank.map((q) => (q.id === editingQuestionId ? updatedQ : q));
+      setLocalQuestionBank(updatedBank);
+      saveQuestionBank(updatedBank);
+      onUpdateQuestionBank?.(updatedBank);
       
       // Update question inside all assessments
-      setLocalAssessments(
-        localAssessments.map((ass) => ({
-          ...ass,
-          questions: (ass.questions || []).map((q) => (q.id === editingQuestionId ? updatedQ : q)),
-        }))
-      );
+      updatedAssessmentsList = localAssessments.map((ass) => ({
+        ...ass,
+        questions: (ass.questions || []).map((q) => (q.id === editingQuestionId ? updatedQ : q)),
+      }));
+      setLocalAssessments(updatedAssessmentsList);
+      saveAssessments(updatedAssessmentsList);
+      onUpdateAssessments?.(updatedAssessmentsList);
 
       // Sync edited question to Google Sheets Questions sheet
       const payload = {
@@ -1018,7 +1117,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       setEditingQuestionId(null);
       toast.success('Soal berhasil diperbarui di Bank Soal & Asesmen!');
     } else {
-      setLocalQuestionBank([newQ, ...localQuestionBank]);
+      updatedBank = [newQ, ...localQuestionBank];
+      setLocalQuestionBank(updatedBank);
+      saveQuestionBank(updatedBank);
+      onUpdateQuestionBank?.(updatedBank);
 
       // Sync new question to Google Sheets Questions sheet
       const payload = {
@@ -1038,15 +1140,16 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       pushAppData('Questions', 'create', payload).catch(e => console.warn('[GAS Sync] Questions create sync failed:', e));
 
       if (targetAssessmentIdForNewQuestion) {
-        setLocalAssessments(
-          localAssessments.map((ass) => {
-            if (ass.id === targetAssessmentIdForNewQuestion) {
-              const updated = [...(ass.questions || []), newQ];
-              return { ...ass, totalQuestions: updated.length, questions: updated };
-            }
-            return ass;
-          })
-        );
+        updatedAssessmentsList = localAssessments.map((ass) => {
+          if (ass.id === targetAssessmentIdForNewQuestion) {
+            const updated = [...(ass.questions || []), newQ];
+            return { ...ass, totalQuestions: updated.length, questions: updated };
+          }
+          return ass;
+        });
+        setLocalAssessments(updatedAssessmentsList);
+        saveAssessments(updatedAssessmentsList);
+        onUpdateAssessments?.(updatedAssessmentsList);
         toast.success('Soal baru berhasil ditambahkan ke Bank Soal & Asesmen!');
         setTargetAssessmentIdForNewQuestion(null);
       } else {
@@ -1081,17 +1184,23 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleDeleteQuestion = (id: string) => {
-    setLocalQuestionBank(localQuestionBank.filter((q) => q.id !== id));
-    setLocalAssessments(
-      localAssessments.map((ass) => {
-        const remaining = (ass.questions || []).filter((q) => q.id !== id);
-        return {
-          ...ass,
-          questions: remaining,
-          totalQuestions: remaining.length,
-        };
-      })
-    );
+    const updatedBank = localQuestionBank.filter((q) => q.id !== id);
+    setLocalQuestionBank(updatedBank);
+    saveQuestionBank(updatedBank);
+    onUpdateQuestionBank?.(updatedBank);
+
+    const updatedAss = localAssessments.map((ass) => {
+      const remaining = (ass.questions || []).filter((q) => q.id !== id);
+      return {
+        ...ass,
+        questions: remaining,
+        totalQuestions: remaining.length,
+      };
+    });
+    setLocalAssessments(updatedAss);
+    saveAssessments(updatedAss);
+    onUpdateAssessments?.(updatedAss);
+
     toast.success('Soal berhasil dihapus dari Bank Soal & Seluruh Asesmen.');
   };
 
@@ -1181,6 +1290,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     { id: 'refleksi', label: 'Refleksi Murid', icon: MessageSquare, badge: localReflections.length },
     { id: 'pengumuman', label: 'Pengumuman', icon: Megaphone, badge: localAnnouncements.length },
     { id: 'pengaturan', label: 'Pengaturan Portal', icon: Settings },
+    { id: 'database-schema', label: '📊 Panduan Google Sheets', icon: FileSpreadsheet },
   ];
 
   return (
@@ -1487,24 +1597,75 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         {/* 6. MATERI PEMBELAJARAN */}
         {activeTab === 'materi' && (
           <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <div><h3 className="font-heading text-xl font-bold text-slate-900">📖 Modul & Materi Pembelajaran</h3><p className="text-xs text-slate-500">Kelola dokumen, materi, dan tujuan pembelajaran.</p></div>
-              <button onClick={() => setShowAddMaterialModal(true)} className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer"><Plus className="w-4 h-4" /><span>+ Buat Modul Baru</span></button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-heading text-xl font-bold text-slate-900">📖 Modul & Materi Pembelajaran</h3>
+                <p className="text-xs text-slate-500">Kelola dokumen materi kurikulum yang otomatis tersinkronisasi menjadi Misi Belajar siswa.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingMaterial(null);
+                  setMaterialForm({
+                    subjectId: localSubjects[0]?.id || 'ipas',
+                    topicTitle: '',
+                    learningObjectives: '',
+                    description: '',
+                    contentBody: '',
+                    status: 'TERBIT',
+                  });
+                  setShowAddMaterialModal(true);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Buat Modul Baru</span>
+              </button>
             </div>
             <div className="space-y-4">
-              {localMaterials.map((mat) => (
-                <div key={mat.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-indigo-600 uppercase">{mat.topicTitle}</span>
-                    <div className="flex gap-1">
-                      <button onClick={() => handleStartEditMaterial(mat)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit Materi"><Edit3 className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => handleDeleteMaterial(mat.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Materi"><Trash2 className="w-3.5 h-3.5" /></button>
+              {localMaterials.map((mat) => {
+                const sub = localSubjects.find((s) => s.id === mat.subjectId);
+                return (
+                  <div key={mat.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 hover:shadow-sm transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                          {sub ? `${sub.icon} ${sub.name}` : (mat.subjectId?.toUpperCase() || 'UMUM')}
+                        </span>
+                        <span className="text-xs font-bold text-indigo-600 uppercase">
+                          {mat.topicTitle}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${mat.status === 'TERBIT' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                          {mat.status === 'TERBIT' ? '● TERBIT (Aktif di Misi Murid)' : '○ DRAFT'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            const newStatus = mat.status === 'TERBIT' ? 'DRAFT' : 'TERBIT';
+                            const updated = localMaterials.map((m) => (m.id === mat.id ? { ...m, status: newStatus as any } : m));
+                            setLocalMaterials(updated);
+                            saveMaterials(updated);
+                            toast.success(`Status materi ${mat.topicTitle} diubah menjadi ${newStatus}.`);
+                          }}
+                          className="cursor-pointer mr-2"
+                          title="Ubah Status Publikasi"
+                        >
+                          {mat.status === 'TERBIT' ? <ToggleRight className="w-7 h-7 text-emerald-500" /> : <ToggleLeft className="w-7 h-7 text-slate-400" />}
+                        </button>
+                        <button onClick={() => handleStartEditMaterial(mat)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit Materi"><Edit3 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDeleteMaterial(mat.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Materi"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
                     </div>
+                    <h4 className="font-heading font-bold text-base text-slate-900">{mat.learningObjectives}</h4>
+                    <p className="text-xs text-slate-600 leading-relaxed">{mat.description}</p>
+                    {mat.contentBody && (
+                      <div className="p-3 bg-white rounded-xl border text-xs text-slate-700 font-mono line-clamp-2">
+                        {mat.contentBody}
+                      </div>
+                    )}
                   </div>
-                  <h4 className="font-heading font-bold text-base text-slate-900">{mat.learningObjectives}</h4>
-                  <p className="text-xs text-slate-600">{mat.description}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -1550,13 +1711,17 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       title: '',
                       subjectId: localSubjects[0]?.id || 'ipas',
                       videoUrl: '',
-                      cpTimeSeconds: 30,
-                      cpQuestion: '',
-                      cpOptionA: '',
-                      cpOptionB: '',
-                      cpOptionC: '',
-                      cpOptionD: '',
-                      cpCorrectIdx: 0,
+                      checkpoints: [],
+                    });
+                    setCpForm({
+                      timeInSeconds: 30,
+                      question: '',
+                      optionA: '',
+                      optionB: '',
+                      optionC: '',
+                      optionD: '',
+                      correctAnswer: 0,
+                      explanation: '',
                     });
                     setShowAddVideoModal(true);
                   }}
@@ -1640,13 +1805,17 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                         title: '',
                         subjectId: localSubjects[0]?.id || 'ipas',
                         videoUrl: '',
-                        cpTimeSeconds: 30,
-                        cpQuestion: '',
-                        cpOptionA: '',
-                        cpOptionB: '',
-                        cpOptionC: '',
-                        cpOptionD: '',
-                        cpCorrectIdx: 0,
+                        checkpoints: [],
+                      });
+                      setCpForm({
+                        timeInSeconds: 30,
+                        question: '',
+                        optionA: '',
+                        optionB: '',
+                        optionC: '',
+                        optionD: '',
+                        correctAnswer: 0,
+                        explanation: '',
                       });
                       setShowAddVideoModal(true);
                     }}
@@ -1663,6 +1832,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   const { embedUrl, type: vType } = parseEmbedUrl(vid.videoUrl);
                   const sub = localSubjects.find((s) => s.id === vid.subjectId);
                   const subName = sub ? `${sub.icon || '📚'} ${sub.name}` : vid.subjectId.toUpperCase();
+                  const cpCount = vid.checkpoints?.length || vid.checkpointsCount || 0;
 
                   return (
                     <div key={vid.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm relative group hover:shadow-md transition-all">
@@ -1674,7 +1844,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                           <button
                             onClick={() => handleStartEditVideo(vid)}
                             className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer transition-colors"
-                            title="Edit Video"
+                            title="Edit Video & Checkpoints"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
@@ -1688,16 +1858,39 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${vType === 'youtube' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
-                          {vType === 'youtube' ? 'YouTube' : 'Google Drive'}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${vType === 'youtube' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                            {vType === 'youtube' ? 'YouTube' : 'Google Drive'}
+                          </span>
+                          <h4 className="font-heading font-extrabold text-slate-900 text-sm line-clamp-1">{vid.title}</h4>
+                        </div>
+                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+                          📍 {cpCount} Checkpoint
                         </span>
-                        <h4 className="font-heading font-extrabold text-slate-900 text-sm line-clamp-1">{vid.title}</h4>
                       </div>
 
                       <div className="rounded-2xl overflow-hidden aspect-video bg-slate-950 border border-slate-800 shadow">
                         <iframe src={embedUrl} title={vid.title} className="w-full h-full border-0" allowFullScreen />
                       </div>
+
+                      {/* Attached Checkpoints Summary */}
+                      {vid.checkpoints && vid.checkpoints.length > 0 && (
+                        <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-[11px] space-y-1">
+                          <p className="font-extrabold text-amber-900 flex items-center gap-1">
+                            <span>📍</span>
+                            <span>Daftar Checkpoint Otomatis Pausa:</span>
+                          </p>
+                          <div className="space-y-1 max-h-24 overflow-y-auto">
+                            {vid.checkpoints.map((cp, i) => (
+                              <div key={cp.id || i} className="text-[10px] text-amber-950 flex items-center justify-between gap-1 font-medium bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
+                                <span className="font-mono font-extrabold text-amber-800">⏱️ Detik ke-{cp.timeInSeconds}:</span>
+                                <span className="truncate flex-1 font-semibold">{cp.question}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="pt-1 text-[11px] text-slate-500 font-mono truncate bg-white p-2 rounded-xl border border-slate-200 flex items-center justify-between">
                         <span className="truncate">{vid.videoUrl}</span>
@@ -1974,7 +2167,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h3 className="font-heading text-xl font-bold text-slate-900">🧠 Asesmen & Kuis Pembelajaran</h3>
-                <p className="text-xs text-slate-500">Asesmen terhubung langsung dengan Bank Soal. Kelola durasi, KKTP target, dan susunan soal.</p>
+                <p className="text-xs text-slate-500">Asesmen terhubung langsung dengan Bank Soal. Kelola durasi, KKTP target, dan susunan soal per mata pelajaran.</p>
               </div>
               <button
                 onClick={() => {
@@ -1995,32 +2188,86 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               </button>
             </div>
 
-            <div className="space-y-4">
-              {localAssessments.map((ass) => {
-                const subName = localSubjects.find((s) => s.id === ass.subjectId)?.name || ass.subjectId.toUpperCase();
-                const isExpanded = expandedAssessmentId === ass.id;
-                const questionsList = ass.questions || [];
+            {/* SUBJECT GROUPING & FILTER BAR FOR ASESMEN */}
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-slate-700 mr-1 flex items-center gap-1">
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Kelompokkan Mapel:</span>
+                </span>
+                <button
+                  onClick={() => setSelectedAssessmentSubject('ALL')}
+                  className={`px-3 py-1.5 rounded-xl font-extrabold text-xs cursor-pointer transition-all ${
+                    selectedAssessmentSubject === 'ALL'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                  }`}
+                >
+                  Semua Mapel ({localAssessments.length})
+                </button>
+                {localSubjects.map((sub) => {
+                  const count = localAssessments.filter(
+                    (a) => a.subjectId.toLowerCase() === sub.id.toLowerCase()
+                  ).length;
+                  const isSel = selectedAssessmentSubject.toLowerCase() === sub.id.toLowerCase();
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => setSelectedAssessmentSubject(sub.id)}
+                      className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all ${
+                        isSel
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}
+                    >
+                      <span>{sub.icon || '📚'}</span>
+                      <span>{sub.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${isSel ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-                return (
-                  <div key={ass.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm hover:border-slate-300 transition-all">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
-                            {subName}
-                          </span>
-                          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                            {questionsList.length} Soal Terhubung
-                          </span>
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">
-                            {ass.status}
-                          </span>
+            <div className="space-y-4">
+              {filteredAssessments.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-2">
+                  <Brain className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p className="font-bold text-slate-700 text-xs">Belum Ada Asesmen untuk Mata Pelajaran Ini</p>
+                  <p className="text-[11px] text-slate-500">
+                    Pilih filter mapel lain atau klik tombol <strong>"+ Terbitkan Asesmen Baru"</strong> di atas.
+                  </p>
+                </div>
+              ) : (
+                filteredAssessments.map((ass) => {
+                  const subObj = localSubjects.find((s) => s.id.toLowerCase() === ass.subjectId.toLowerCase());
+                  const subName = subObj ? `${subObj.icon || '📚'} ${subObj.name} (Kelas ${subObj.grade || 5})` : ass.subjectId.toUpperCase();
+                  const isExpanded = expandedAssessmentId === ass.id;
+                  const questionsList = ass.questions || [];
+
+                  return (
+                    <div key={ass.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm hover:border-slate-300 transition-all">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-black px-3 py-1 rounded-full bg-indigo-100 text-indigo-900 border border-indigo-200 flex items-center gap-1.5 shadow-2xs">
+                              <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>Identitas Mapel: {subName}</span>
+                            </span>
+                            <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                              {questionsList.length} Soal Terhubung
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">
+                              {ass.status}
+                            </span>
+                          </div>
+                          <h4 className="font-heading font-extrabold text-slate-900 text-base">{ass.title}</h4>
+                          <p className="text-xs text-slate-500">
+                            ⏱️ Durasi: <strong>{ass.durationMinutes} Menit</strong> | 🎯 KKTP Target: <strong>{ass.kktpTarget} Point</strong> | 🔄 Percobaan: Maks {ass.maxAttempts}x
+                          </p>
                         </div>
-                        <h4 className="font-heading font-extrabold text-slate-900 text-base">{ass.title}</h4>
-                        <p className="text-xs text-slate-500">
-                          ⏱️ Durasi: <strong>{ass.durationMinutes} Menit</strong> | 🎯 KKTP Target: <strong>{ass.kktpTarget} Point</strong> | 🔄 Percobaan: Maks {ass.maxAttempts}x
-                        </p>
-                      </div>
 
                       <div className="flex flex-wrap items-center gap-2 shrink-0">
                         <button
@@ -2126,7 +2373,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                     <span>Lepas Soal</span>
                                   </button>
                                 </div>
-                                {q.stimulus && <p className="italic text-slate-600 bg-slate-50 p-2 rounded-lg border">{q.stimulus}</p>}
+                                 {q.stimulus && <p className="italic text-slate-600 bg-slate-50 p-2 rounded-lg border">{q.stimulus}</p>}
                                 <p className="font-bold text-slate-900">{q.questionText}</p>
                               </div>
                             ))}
@@ -2136,7 +2383,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                     )}
                   </div>
                 );
-              })}
+              }))}
             </div>
           </div>
         )}
@@ -2147,13 +2394,13 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h3 className="font-heading text-xl font-bold text-slate-900">📝 Bank Soal Berbasis Stimulus (AKM SD)</h3>
-                <p className="text-xs text-slate-500">Mendukung 3 Jenis Soal: PG (Pilihan Ganda), PGK (Kompleks), dan BS (Benar/Salah).</p>
+                <p className="text-xs text-slate-500">Mendukung 3 Jenis Soal: PG (Pilihan Ganda), PGK (Kompleks), dan BS (Benar/Salah) terkelompok per mata pelajaran.</p>
               </div>
               <button
                 onClick={() => {
                   setEditingQuestionId(null);
                   setQuestionForm({
-                    subjectId: 'ipas',
+                    subjectId: localSubjects[0]?.id || 'ipas',
                     type: 'PG',
                     level: 'HOTS',
                     stimulus: '',
@@ -2179,29 +2426,115 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 <span>+ Buat Soal Stimulus Baru</span>
               </button>
             </div>
-            <div className="space-y-6">
-              {localQuestionBank.map((qb, idx) => {
-                const linkedAssessments = localAssessments.filter((a) =>
-                  (a.questions || []).some((q) => q.id === qb.id)
-                );
 
-                return (
-                  <div key={qb.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm hover:border-slate-300 transition-all">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-purple-600 text-white font-black text-xs flex items-center justify-center">
-                          {idx + 1}
-                        </span>
-                        <span className="text-xs font-bold text-purple-900 bg-purple-100 px-3 py-0.5 rounded-full uppercase">
-                          {qb.type === 'PGK' ? 'PGK (Pilihan Ganda Kompleks)' : qb.type === 'BS' ? 'BS (Benar / Salah)' : 'PG (Pilihan Ganda)'}
-                        </span>
-                        <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
-                          Level {qb.level}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
-                          Mapel: {qb.subjectId.toUpperCase()}
-                        </span>
-                      </div>
+            {/* SUBJECT GROUPING & FILTER BAR FOR BANK SOAL */}
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-slate-700 mr-1 flex items-center gap-1">
+                  <BookOpen className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Kelompokkan Mapel:</span>
+                </span>
+                <button
+                  onClick={() => setSelectedQuestionBankSubject('ALL')}
+                  className={`px-3 py-1.5 rounded-xl font-extrabold text-xs cursor-pointer transition-all ${
+                    selectedQuestionBankSubject === 'ALL'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                  }`}
+                >
+                  Semua Mapel ({localQuestionBank.length})
+                </button>
+                {localSubjects.map((sub) => {
+                  const count = localQuestionBank.filter(
+                    (q) => q.subjectId.toLowerCase() === sub.id.toLowerCase()
+                  ).length;
+                  const isSel = selectedQuestionBankSubject.toLowerCase() === sub.id.toLowerCase();
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => setSelectedQuestionBankSubject(sub.id)}
+                      className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all ${
+                        isSel
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}
+                    >
+                      <span>{sub.icon || '📚'}</span>
+                      <span>{sub.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${isSel ? 'bg-purple-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-200 text-xs font-bold text-slate-700">
+                <div className="flex items-center gap-2">
+                  <span>Filter Tipe Soal:</span>
+                  <select
+                    value={selectedQuestionBankType}
+                    onChange={(e) => setSelectedQuestionBankType(e.target.value)}
+                    className="p-1.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800"
+                  >
+                    <option value="ALL">Semua Tipe Soal</option>
+                    <option value="PG">PG (Pilihan Ganda)</option>
+                    <option value="PGK">PGK (Pilihan Ganda Kompleks)</option>
+                    <option value="BS">BS (Benar / Salah)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span>Tingkat Kognitif:</span>
+                  <select
+                    value={selectedQuestionBankLevel}
+                    onChange={(e) => setSelectedQuestionBankLevel(e.target.value)}
+                    className="p-1.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800"
+                  >
+                    <option value="ALL">Semua Level</option>
+                    <option value="LOTS">LOTS</option>
+                    <option value="MOTS">MOTS</option>
+                    <option value="HOTS">HOTS</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {filteredQuestionBank.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-2">
+                  <Database className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p className="font-bold text-slate-700 text-xs">Tidak Ada Soal yang Sesuai Filter</p>
+                  <p className="text-[11px] text-slate-500">
+                    Coba ganti filter mapel/tipe soal atau buat soal baru menggunakan tombol di atas.
+                  </p>
+                </div>
+              ) : (
+                filteredQuestionBank.map((qb, idx) => {
+                  const subObj = localSubjects.find((s) => s.id.toLowerCase() === qb.subjectId.toLowerCase());
+                  const subName = subObj ? `${subObj.icon || '📚'} ${subObj.name} (Kelas ${subObj.grade || 5})` : qb.subjectId.toUpperCase();
+                  const linkedAssessments = localAssessments.filter((a) =>
+                    (a.questions || []).some((q) => q.id === qb.id)
+                  );
+
+                  return (
+                    <div key={qb.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm hover:border-slate-300 transition-all">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-purple-600 text-white font-black text-xs flex items-center justify-center">
+                            {idx + 1}
+                          </span>
+                          <span className="text-xs font-black px-3 py-1 rounded-full bg-indigo-100 text-indigo-900 border border-indigo-200 flex items-center gap-1.5 shadow-2xs">
+                            <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Mapel: {subName}</span>
+                          </span>
+                          <span className="text-xs font-bold text-purple-900 bg-purple-100 px-3 py-0.5 rounded-full uppercase">
+                            {qb.type === 'PGK' ? 'PGK (Pilihan Ganda Kompleks)' : qb.type === 'BS' ? 'BS (Benar / Salah)' : 'PG (Pilihan Ganda)'}
+                          </span>
+                          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                            Level {qb.level}
+                          </span>
+                        </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
@@ -2328,7 +2661,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                     )}
                   </div>
                 );
-              })}
+              }))}
             </div>
           </div>
         )}
@@ -2442,6 +2775,11 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           </div>
         )}
 
+        {/* 18. DATABASE GOOGLE SHEETS SCHEMA DOCS */}
+        {activeTab === 'database-schema' && (
+          <DatabaseSchemaDocs />
+        )}
+
       </main>
 
       {/* ALL MODALS */}
@@ -2524,6 +2862,169 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 <p className="text-[10px] text-slate-500 mt-1">
                   Mendukung URL YouTube (termasuk Shorts & Embed) serta link Google Drive Preview.
                 </p>
+              </div>
+
+              {/* CHECKPOINT CONFIGURATION SECTION */}
+              <div className="p-4 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-3">
+                <div className="flex items-center justify-between border-b border-amber-200 pb-2">
+                  <span className="font-extrabold text-amber-900 text-xs flex items-center gap-1.5">
+                    <span>📍</span>
+                    <span>Pengaturan Checkpoint & Soal Interaktif (Video Otomatis Pausa)</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-full">
+                    {videoForm.checkpoints.length} Checkpoint Terpasang
+                  </span>
+                </div>
+
+                <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
+                  Atur detik tertentu saat video diputar di mana video akan <strong>otomatis PAUSE</strong> untuk menampilkan soal kuis buatan Anda kepada siswa.
+                </p>
+
+                {/* List of Current Checkpoints */}
+                {videoForm.checkpoints.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-bold text-amber-900">Daftar Checkpoint Saat Ini:</p>
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {videoForm.checkpoints.map((cp, idx) => (
+                        <div
+                          key={cp.id}
+                          className="p-2.5 bg-white rounded-xl border border-amber-200 flex items-start justify-between gap-2 shadow-xs"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 font-mono">
+                                ⏱️ Detik ke-{cp.timeInSeconds} ({Math.floor(cp.timeInSeconds / 60)}m {cp.timeInSeconds % 60}s)
+                              </span>
+                              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                                Jawaban Benar: Opsi #{cp.correctAnswer + 1}
+                              </span>
+                            </div>
+                            <p className="font-bold text-slate-800 text-[11px] line-clamp-2">
+                              {idx + 1}. {cp.question}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCheckpointFromVideo(cp.id)}
+                            className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shrink-0"
+                            title="Hapus Checkpoint"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add New Checkpoint Form Fields */}
+                <div className="pt-2 border-t border-amber-200 space-y-2.5 bg-white/60 p-3 rounded-xl">
+                  <p className="font-bold text-slate-900 text-xs flex items-center gap-1">
+                    <span>➕</span>
+                    <span>Tambah Checkpoint Kuis Baru</span>
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-0.5">Waktu Pausa (Detik)</label>
+                      <input
+                        type="number"
+                        min={5}
+                        max={3600}
+                        value={cpForm.timeInSeconds}
+                        onChange={(e) => setCpForm({ ...cpForm, timeInSeconds: Number(e.target.value) })}
+                        placeholder="30"
+                        className="w-full p-2 rounded-lg border border-slate-300 bg-white font-mono font-bold text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-0.5">Kunci Jawaban Benar</label>
+                      <select
+                        value={cpForm.correctAnswer}
+                        onChange={(e) => setCpForm({ ...cpForm, correctAnswer: Number(e.target.value) })}
+                        className="w-full p-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-900"
+                      >
+                        <option value={0}>A (Pilihan 1)</option>
+                        <option value={1}>B (Pilihan 2)</option>
+                        <option value={2}>C (Pilihan 3)</option>
+                        <option value={3}>D (Pilihan 4)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-0.5">Teks Pertanyaan Kuis</label>
+                    <input
+                      type="text"
+                      value={cpForm.question}
+                      onChange={(e) => setCpForm({ ...cpForm, question: e.target.value })}
+                      placeholder="Contoh: Apakah fungsi utama tanaman padi pada rantai makanan?"
+                      className="w-full p-2 rounded-lg border border-slate-300 bg-white font-semibold text-slate-900"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-bold text-slate-600 block mb-0.5">Pilihan A</label>
+                      <input
+                        type="text"
+                        value={cpForm.optionA}
+                        onChange={(e) => setCpForm({ ...cpForm, optionA: e.target.value })}
+                        placeholder="Opsi A"
+                        className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-600 block mb-0.5">Pilihan B</label>
+                      <input
+                        type="text"
+                        value={cpForm.optionB}
+                        onChange={(e) => setCpForm({ ...cpForm, optionB: e.target.value })}
+                        placeholder="Opsi B"
+                        className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-600 block mb-0.5">Pilihan C</label>
+                      <input
+                        type="text"
+                        value={cpForm.optionC}
+                        onChange={(e) => setCpForm({ ...cpForm, optionC: e.target.value })}
+                        placeholder="Opsi C (Opsional)"
+                        className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-600 block mb-0.5">Pilihan D</label>
+                      <input
+                        type="text"
+                        value={cpForm.optionD}
+                        onChange={(e) => setCpForm({ ...cpForm, optionD: e.target.value })}
+                        placeholder="Opsi D (Opsional)"
+                        className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-600 block mb-0.5">Penjelasan & Pembahasan Jawaban</label>
+                    <input
+                      type="text"
+                      value={cpForm.explanation}
+                      onChange={(e) => setCpForm({ ...cpForm, explanation: e.target.value })}
+                      placeholder="Pembahasan singkat setelah siswa menjawab..."
+                      className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddCheckpointToVideo}
+                    className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold text-xs shadow-xs cursor-pointer transition-colors"
+                  >
+                    ➕ Tambahkan Checkpoint Ini Ke Video
+                  </button>
+                </div>
               </div>
 
               <div className="p-3 bg-sky-50 rounded-2xl border border-sky-200 text-[11px] text-sky-900 space-y-1">
@@ -3160,6 +3661,23 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               </button>
             </div>
             <form onSubmit={handleCreateQuestion} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Mata Pelajaran <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={questionForm.subjectId}
+                  onChange={(e) => setQuestionForm({ ...questionForm, subjectId: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 bg-white focus:ring-2 focus:ring-purple-500"
+                >
+                  {localSubjects.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.icon || '📚'} {sub.name} (Kelas {sub.grade || 5})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="font-bold text-slate-700">Jenis Soal</label><select value={questionForm.type} onChange={(e) => setQuestionForm({ ...questionForm, type: e.target.value as any })} className="w-full p-2.5 rounded-xl border mt-1 font-bold text-indigo-700"><option value="PG">PG (Pilihan Ganda)</option><option value="PGK">PGK (Pilihan Ganda Kompleks)</option><option value="BS">BS (Benar / Salah)</option></select></div>
                 <div><label className="font-bold text-slate-700">Tingkat Kognitif</label><select value={questionForm.level} onChange={(e) => setQuestionForm({ ...questionForm, level: e.target.value as any })} className="w-full p-2.5 rounded-xl border mt-1 font-bold"><option value="LOTS">LOTS</option><option value="MOTS">MOTS</option><option value="HOTS">HOTS</option></select></div>
@@ -3253,17 +3771,108 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
       {/* Add / Edit Material Modal */}
       {showAddMaterialModal && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-lg w-full space-y-4 border border-slate-200">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-lg w-full space-y-4 border border-slate-200 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="font-heading font-black text-xl text-slate-900">{editingMaterial ? 'Edit Materi Pembelajaran' : 'Buat Materi Pembelajaran Baru'}</h3>
+              <div>
+                <h3 className="font-heading font-black text-xl text-slate-900">
+                  {editingMaterial ? 'Edit Modul Pembelajaran' : 'Buat Modul Pembelajaran Baru'}
+                </h3>
+                <p className="text-xs text-slate-500">Materi yang diterbitkan akan otomatis sinkron menjadi Misi Belajar siswa.</p>
+              </div>
               <button onClick={() => { setShowAddMaterialModal(false); setEditingMaterial(null); }} className="p-1 rounded-full bg-slate-100"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleSaveMaterial} className="space-y-3 text-xs">
-              <div><label className="font-bold text-slate-700">Topik Pembelajaran</label><input type="text" required value={materialForm.topicTitle} onChange={(e) => setMaterialForm({ ...materialForm, topicTitle: e.target.value })} placeholder="Contoh: Operasi Pecahan" className="w-full p-2.5 rounded-xl border mt-1 font-semibold" /></div>
-              <div><label className="font-bold text-slate-700">Tujuan Pembelajaran</label><textarea rows={2} value={materialForm.learningObjectives} onChange={(e) => setMaterialForm({ ...materialForm, learningObjectives: e.target.value })} placeholder="Tujuan capaian..." className="w-full p-2.5 rounded-xl border mt-1" /></div>
-              <div><label className="font-bold text-slate-700">Isi Ringkasan Materi</label><textarea rows={3} value={materialForm.description} onChange={(e) => setMaterialForm({ ...materialForm, description: e.target.value })} placeholder="Ringkasan konsep materi..." className="w-full p-2.5 rounded-xl border mt-1" /></div>
-              <div className="flex items-center gap-3 pt-3"><button type="button" onClick={() => { setShowAddMaterialModal(false); setEditingMaterial(null); }} className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 cursor-pointer">Batal</button><button type="submit" className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold cursor-pointer shadow">Simpan Materi</button></div>
+            <form onSubmit={handleSaveMaterial} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700">Mata Pelajaran</label>
+                  <select
+                    value={materialForm.subjectId}
+                    onChange={(e) => setMaterialForm({ ...materialForm, subjectId: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border mt-1 font-semibold"
+                  >
+                    {localSubjects.map((sub) => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.icon} {sub.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700">Status Publikasi</label>
+                  <select
+                    value={materialForm.status || 'TERBIT'}
+                    onChange={(e) => setMaterialForm({ ...materialForm, status: e.target.value as any })}
+                    className="w-full p-2.5 rounded-xl border mt-1 font-semibold"
+                  >
+                    <option value="TERBIT">● Terbitkan (Muncul di Siswa)</option>
+                    <option value="DRAFT">○ Draf (Disimpan Sementara)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700">Topik / Judul Materi</label>
+                <input
+                  type="text"
+                  required
+                  value={materialForm.topicTitle}
+                  onChange={(e) => setMaterialForm({ ...materialForm, topicTitle: e.target.value })}
+                  placeholder="Contoh: Perkembangbiakan Tumbuhan dan Hewan"
+                  className="w-full p-2.5 rounded-xl border mt-1 font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700">Tujuan Pembelajaran (Learning Objectives)</label>
+                <textarea
+                  rows={2}
+                  required
+                  value={materialForm.learningObjectives}
+                  onChange={(e) => setMaterialForm({ ...materialForm, learningObjectives: e.target.value })}
+                  placeholder="Contoh: Siswa mampu mengidentifikasi cara perkembangbiakan generatif dan vegetatif..."
+                  className="w-full p-2.5 rounded-xl border mt-1 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700">Ringkasan Konsep Kunci</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={materialForm.description}
+                  onChange={(e) => setMaterialForm({ ...materialForm, description: e.target.value })}
+                  placeholder="Ringkasan poin materi yang akan dibaca siswa..."
+                  className="w-full p-2.5 rounded-xl border mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700">Uraian / Isi Detail Modul (Opsional)</label>
+                <textarea
+                  rows={4}
+                  value={materialForm.contentBody}
+                  onChange={(e) => setMaterialForm({ ...materialForm, contentBody: e.target.value })}
+                  placeholder="Teks lengkap materi untuk bahan bacaan eksplorasi siswa..."
+                  className="w-full p-2.5 rounded-xl border mt-1"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowAddMaterialModal(false); setEditingMaterial(null); }}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold cursor-pointer shadow-md"
+                >
+                  Simpan & Sinkronkan ke Murid
+                </button>
+              </div>
             </form>
           </div>
         </div>
