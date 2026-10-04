@@ -23,14 +23,14 @@
 
 /* Custom Background Theme with Generated Image */
 .bg-app-theme {
-  background-image: linear-gradient(to bottom, rgba(248, 250, 252, 0.88), rgba(241, 245, 249, 0.94)), url('/src/assets/images/prima_app_bg_1791034012905.jpg');
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.95)), url('/child_coding_ai_bg.jpg');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
 }
 
 .bg-landing-hero {
-  background-image: radial-gradient(circle at 50% 30%, rgba(15, 23, 42, 0.35) 0%, rgba(15, 23, 42, 0.88) 100%), url('/src/assets/images/prima_app_bg_1791034012905.jpg');
+  background-image: radial-gradient(circle at 50% 30%, rgba(15, 23, 42, 0.35) 0%, rgba(15, 23, 42, 0.82) 100%), url('/child_coding_ai_bg.jpg');
   background-size: cover;
   background-position: center;
 }
