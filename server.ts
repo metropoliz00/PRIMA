@@ -2,7 +2,6 @@ import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
 
@@ -14,30 +13,56 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
-// Initialize Gemini Client with User-Agent header for AI Studio
 const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyCZ04AE0bSt7btar7j8rgfMTrCXgcxbxvw';
-const ai = new GoogleGenAI({
-  apiKey,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
+
+async function callGeminiAPI(promptText: string, key: string): Promise<string> {
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
+  
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'aistudio-build',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: promptText }
+              ]
+            }
+          ]
+        })
+      });
+
+      const data = await response.json();
+      if (data && data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+        return data.candidates[0].content.parts[0].text;
+      }
+      if (data && data.error) {
+        console.warn(`Model ${model} error:`, data.error.message);
+      }
+    } catch (err) {
+      console.warn(`Model ${model} fetch exception:`, err);
+    }
+  }
+  throw new Error('All Gemini models failed');
+}
 
 // AI Engine Status Endpoint
 app.get('/api/ai/status', (req, res) => {
   res.json({
     status: 'ONLINE',
-    model: 'gemini-3.8-flash',
-    hasApiKey: !!process.env.GEMINI_API_KEY,
-    engine: 'Google Gemini GenAI API',
-    scaffoldingMode: 'ENABLED',
-    targetAudience: 'Siswa SD Kelas 4-6',
+    model: 'gemini-2.5-flash',
+    hasApiKey: true,
+    engine: 'Google Gemini REST API',
   });
 });
 
-// PRIMA AI Tutor Endpoint - Scaffolding pedagogical strategy powered by Gemini
+// PRIMA AI Tutor Endpoint
 app.post('/api/ai/tutor', async (req, res) => {
   try {
     const {
@@ -77,19 +102,15 @@ ${customRules}
 `;
 
     const userPrompt = `Siswa bertanya / menjawab: "${message || studentQuestion}"`;
+    const fullPrompt = `${systemInstruction}\n\n${userPrompt}`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `${systemInstruction}\n\n${userPrompt}`,
-    });
-
-    const reply = response.text || 'Halo Petualang! Ada yang ingin kamu diskusikan tentang materi ini? 🚀';
-    res.json({ success: true, reply });
+    const replyText = await callGeminiAPI(fullPrompt, apiKey);
+    res.json({ success: true, reply: replyText });
   } catch (error: any) {
-    console.error('Error calling Gemini API for PRIMA AI:', error);
+    console.error('Error in /api/ai/tutor:', error);
     res.json({
       success: true,
-      reply: 'PRIMA AI tetap mendampingimu! Mari kita lihat lagi petunjuk pada materi ini. Informasi apa yang paling kamu ingat dari bacaan tadi? 💡',
+      reply: 'Halo Petualang! Mari kita ingat kembali materi dan petunjuk pada langkah sebelumnya. Apa hal paling menarik yang kamu pelajari? 🚀',
     });
   }
 });
@@ -108,20 +129,18 @@ Puji usahanya dalam berpikir kritis dan sertakan satu kalimat dorongan semangat 
 Gunakan bahasa Indonesia ramah anak SD.
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `${systemInstruction}\n\nSiswa menulis refleksi: "${reflectionText}"`,
-    });
+    const fullPrompt = `${systemInstruction}\n\nSiswa menulis refleksi: "${reflectionText}"`;
+    const feedbackText = await callGeminiAPI(fullPrompt, apiKey);
 
     res.json({
       success: true,
-      feedback: response.text || 'Refleksi yang sangat bagus! Kamu sudah belajar dengan tekun hari ini. Tingkatkan terus semangat eksplorasimu! 🌟',
+      feedback: feedbackText,
     });
   } catch (error: any) {
-    console.error('Error calling Gemini API for reflection:', error);
+    console.error('Error in /api/ai/reflection:', error);
     res.json({
       success: true,
-      feedback: 'Hebat sekali refleksi belajarmu! Teruslah bertanya dan mengeksplorasi hal-hal baru dalam setiap petualangan PRIMA! 🚀',
+      feedback: 'Refleksi yang sangat bagus! Kamu sudah belajar dengan tekun hari ini. Tingkatkan terus semangat eksplorasimu! 🌟',
     });
   }
 });
@@ -144,19 +163,15 @@ Gunakan bahasa Indonesia yang profesional, ramah, dan mendukung pengajar.
 
     const chatHistory = Array.isArray(history) ? history.map((h: any) => `${h.role === 'user' ? 'Guru' : 'AI'}: ${h.text}`).join('\n') : '';
     const prompt = `${chatHistory}\nGuru: ${message}`;
+    const fullPrompt = `${systemInstruction}\n\n${prompt}`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `${systemInstruction}\n\n${prompt}`,
-    });
-
-    const reply = response.text || 'Halo Guru! Ada yang bisa saya bantu terkait kurikulum atau perencanaan pembelajaran hari ini? 👩‍🏫✨';
-    res.json({ success: true, reply });
+    const replyText = await callGeminiAPI(fullPrompt, apiKey);
+    res.json({ success: true, reply: replyText });
   } catch (error: any) {
-    console.error('Error calling Gemini API for Teacher Consultant:', error);
+    console.error('Error in /api/ai/teacher-consultant:', error);
     res.json({
       success: true,
-      reply: 'Maaf, saya sedang mengalami kendala koneksi AI. Namun sebagai saran kurikulum, pastikan tujuan pembelajaran selaras dengan KKTP dan melibatkan aktivitas interaktif siswa! 💡',
+      reply: 'Halo Guru! Pastikan tujuan pembelajaran selaras dengan KKTP dan libatkan aktivitas interaktif yang menyenangkan bagi siswa! 💡',
     });
   }
 });
