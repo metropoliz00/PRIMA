@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bot, Send, Sparkles, ArrowRight, User, MessageSquare } from 'lucide-react';
 import { sendAiTutorMessage } from '../../../services/aiService';
+import { pushAppData } from '../../../services/appscript';
 
 interface Message {
   id: string;
@@ -84,6 +85,19 @@ export const AITutorStep: React.FC<AITutorStepProps> = ({
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, aiReply]);
+
+      // Push chat interaction log to Google Sheets "AIChatLogs" sheet
+      const chatPayload = {
+        id: `chat-${Date.now()}`,
+        studentId: 'stud-user',
+        studentName: 'Siswa PRIMA',
+        subjectId: subjectName,
+        topicTitle: topicTitle,
+        userMessage: userMsgText,
+        aiResponse: replyText,
+        timestamp: new Date().toISOString(),
+      };
+      pushAppData('AIChatLogs', 'create', chatPayload).catch((e) => console.warn('[GAS Sync] AIChatLogs push failed:', e));
     } catch (err) {
       setMessages((prev) => [
         ...prev,

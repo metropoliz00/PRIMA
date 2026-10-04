@@ -191,6 +191,7 @@ export interface ReflectionEntry {
   content: string;
   createdAt: string;
   aiInsight?: string;
+  teacherFeedback?: string;
 }
 
 export interface TeacherAnalytics {

@@ -96,5 +96,22 @@ export const getRemoteQuestions = () => fetchAppData('Questions');
 export const createRemoteQuestion = (questionData: any) => pushAppData('Questions', 'create', questionData);
 export const updateRemoteQuestion = (questionData: any) => pushAppData('Questions', 'update', questionData);
 
+// Analytics (Analitik Pembelajaran)
+export const getRemoteAnalytics = () => fetchAppData('Analytics');
+export const createRemoteAnalytics = (analyticsData: any) => pushAppData('Analytics', 'create', analyticsData);
+
+// PRIMA AI Tutor Config (Konfigurasi Pedagogis AI Tutor)
+export const getRemoteAITutorConfigs = () => fetchAppData('AITutorConfig');
+export const createRemoteAITutorConfig = (configData: any) => pushAppData('AITutorConfig', 'create', configData);
+export const updateRemoteAITutorConfig = (configData: any) => pushAppData('AITutorConfig', 'update', configData);
+
+// PRIMA AI Chat Logs (Riwayat Chat & Tanya-Jawab AI Tutor)
+export const getRemoteAIChatLogs = () => fetchAppData('AIChatLogs');
+export const createRemoteAIChatLog = (logData: any) => pushAppData('AIChatLogs', 'create', logData);
+
+// Leaderboard & Gamifikasi
+export const getRemoteLeaderboard = () => fetchAppData('Leaderboard');
+export const createRemoteLeaderboard = (leaderboardData: any) => pushAppData('Leaderboard', 'create', leaderboardData);
+
 // Assessments (Asesmen Kuis)
 export const updateRemoteAssessment = (assessmentData: any) => pushAppData('Assessments', 'update', assessmentData);
