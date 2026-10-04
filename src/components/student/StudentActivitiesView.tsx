@@ -31,6 +31,29 @@ const DEFAULT_PUZZLE_ITEMS = [
   { id: 'p5', label: '5. Dekomposer (Jamur 🍄)', rank: 5 },
 ];
 
+const shuffleDerangement = <T,>(array: T[], checkCorrect: (item: T, index: number) => boolean): T[] => {
+  let shuffled = [...array];
+  let attempts = 0;
+  
+  while (attempts < 100) {
+    // Fisher-Yates shuffle
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = shuffled[i];
+      shuffled[i] = shuffled[j];
+      shuffled[j] = temp;
+    }
+    
+    // Ensure no element is in its original index/correct rank
+    const hasCorrectRow = shuffled.some((item, idx) => checkCorrect(item, idx));
+    if (!hasCorrectRow) {
+      return shuffled;
+    }
+    attempts++;
+  }
+  return shuffled;
+};
+
 export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
   subjects,
   activitiesList,
@@ -89,8 +112,8 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
     setSimFrog(20);
     setSimSnake(6);
 
-    // Reset Puzzle State (Shuffled)
-    const shuffled = [...DEFAULT_PUZZLE_ITEMS].sort(() => Math.random() - 0.5);
+    // Reset Puzzle State (Guaranteed Shuffled Derangement - zero lines start in correct position)
+    const shuffled = shuffleDerangement(DEFAULT_PUZZLE_ITEMS, (item, idx) => item.rank === idx + 1);
     setPuzzleItems(shuffled);
     setPuzzleChecked(false);
 

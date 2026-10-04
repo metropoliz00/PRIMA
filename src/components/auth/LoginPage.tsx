@@ -89,13 +89,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onBackToLa
             <h1 className="font-heading text-3xl font-black text-prima-colorful text-prima-glow tracking-tight">
               MASUK
             </h1>
-            <p className="text-xs sm:text-sm font-bold text-slate-100 leading-relaxed">
-              <span className="text-emerald-400 font-black">P</span>embelajaran{' '}
-              <span className="text-cyan-300 font-black">R</span>esponsif{' '}
-              <span className="text-amber-300 font-black">I</span>nteraktif berbasis{' '}
-              <span className="text-rose-400 font-black">M</span>ultimedia dan{' '}
-              <span className="text-indigo-300 font-black">A</span>I
-            </p>
+            <div className="flex justify-center w-full overflow-visible">
+              <p className="text-[9px] min-[360px]:text-[10px] min-[400px]:text-xs sm:text-sm font-bold text-slate-100 leading-relaxed whitespace-nowrap text-center">
+                <span className="text-emerald-400 font-black">P</span>embelajaran{' '}
+                <span className="text-cyan-300 font-black">R</span>esponsif{' '}
+                <span className="text-amber-300 font-black">I</span>nteraktif berbasis{' '}
+                <span className="text-rose-400 font-black">M</span>ultimedia dan{' '}
+                <span className="text-indigo-300 font-black">A</span>I
+              </p>
+            </div>
             <p className="text-xs text-slate-300 italic font-medium">
               “Belajar lebih interaktif. Berpikir lebih kritis. Berkarya bersama AI.”
             </p>

@@ -176,6 +176,85 @@ Gunakan bahasa Indonesia yang profesional, ramah, dan mendukung pengajar.
   }
 });
 
+// AI Question Generator Endpoint for Teachers (PG, PGK, BS)
+app.post('/api/ai/generate-questions', async (req, res) => {
+  try {
+    const { subjectId, topicTitle, grade, numPG, numPGK, numBS } = req.body;
+
+    const systemPrompt = `
+Kamu adalah pakar pembuat soal Asesmen Kompetensi Minimum (AKM) tingkat Sekolah Dasar (Kelas 4-6 SD).
+Tugasmu adalah membuat soal berkualitas tinggi berdasarkan topik: "${topicTitle || 'Umum'}" (Mata Pelajaran: "${subjectId || 'Umum'}", Kelas: ${grade || 5} SD).
+
+Buatlah soal baru dengan konfigurasi jumlah berikut secara presisi:
+- PG (Pilihan Ganda - 1 jawaban benar): ${Number(numPG) || 0} soal
+- PGK (Pilihan Ganda Kompleks - beberapa jawaban benar): ${Number(numPGK) || 0} soal
+- BS (Benar / Salah - 3 baris pernyataan tabel): ${Number(numBS) || 0} soal
+
+Setiap soal HARUS memiliki level berpikir ('LOTS', 'MOTS', atau 'HOTS') dan penjelasan mendalam yang ramah anak SD.
+
+Format keluaran HARUS berupa JSON array murni tanpa pembuka/penutup markdown \`\`\`json atau teks pengantar lainnya. Struktur item harus mengikuti format berikut:
+[
+  {
+    "id": "q-ai-${Math.floor(Math.random() * 100000)}",
+    "subjectId": "${subjectId || 'ipas'}",
+    "grade": ${Number(grade) || 5},
+    "type": "PG",
+    "level": "MOTS",
+    "stimulus": "Teks stimulus wacana singkat terkait materi...",
+    "questionText": "Pertanyaan pilihan ganda...",
+    "options": ["Opsi 1", "Opsi 2", "Opsi 3", "Opsi 4"],
+    "correctAnswer": 0,
+    "explanation": "Penjelasan mengapa benar..."
+  },
+  {
+    "id": "q-ai-${Math.floor(Math.random() * 100000)}",
+    "subjectId": "${subjectId || 'ipas'}",
+    "grade": ${Number(grade) || 5},
+    "type": "PGK",
+    "level": "HOTS",
+    "stimulus": "Stimulus...",
+    "questionText": "Pertanyaan pilihan ganda kompleks...",
+    "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
+    "correctAnswers": [0, 2],
+    "explanation": "Penjelasan..."
+  },
+  {
+    "id": "q-ai-${Math.floor(Math.random() * 100000)}",
+    "subjectId": "${subjectId || 'ipas'}",
+    "grade": ${Number(grade) || 5},
+    "type": "BS",
+    "level": "LOTS",
+    "questionText": "Pernyataan benar-salah tabel...",
+    "statements": [
+      { "id": "s1", "text": "Pernyataan 1", "isTrue": true },
+      { "id": "s2", "text": "Pernyataan 2", "isTrue": false },
+      { "id": "s3", "text": "Pernyataan 3", "isTrue": false }
+    ],
+    "explanation": "Penjelasan..."
+  }
+]
+`;
+
+    const replyText = await callGeminiAPI(systemPrompt, apiKey);
+    let cleaned = replyText.trim();
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.substring(7);
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.substring(3);
+    }
+    if (cleaned.endsWith('```')) {
+      cleaned = cleaned.substring(0, cleaned.length - 3);
+    }
+    cleaned = cleaned.trim();
+
+    const questions = JSON.parse(cleaned);
+    res.json({ success: true, questions });
+  } catch (error: any) {
+    console.error('Error generating AI questions:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Setup Vite Dev Server middlewares in dev mode
 if (process.env.NODE_ENV !== 'production') {
   const { createServer: createViteServer } = await import('vite');

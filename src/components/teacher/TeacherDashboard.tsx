@@ -196,6 +196,18 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   });
   const [assessmentForm, setAssessmentForm] = useState({ title: '', subjectId: 'ipas', durationMinutes: 30, kktpTarget: 75, selectedQuestionIds: [] as string[] });
 
+  // AI Question Generation States
+  const [showAiGenerateModal, setShowAiGenerateModal] = useState(false);
+  const [aiGenSubjectId, setAiGenSubjectId] = useState('ipas');
+  const [aiGenTopic, setAiGenTopic] = useState('');
+  const [aiGenNumPG, setAiGenNumPG] = useState(2);
+  const [aiGenNumPGK, setAiGenNumPGK] = useState(1);
+  const [aiGenNumBS, setAiGenNumBS] = useState(1);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiGenResult, setAiGenResult] = useState<QuestionBankItem[]>([]);
+  const [aiGenError, setAiGenError] = useState<string | null>(null);
+  const [aiGenStepText, setAiGenStepText] = useState('');
+
   // Sandbox AI Chat messages
   const [sandboxMessages, setSandboxMessages] = useState<{ role: 'user' | 'model'; text: string }[]>([
     { role: 'model', text: 'Halo! Saya PRIMA AI Tutor. Silakan ajukan pertanyaan untuk menguji respon dan aturan bimbingan saya! 🌟' }
@@ -1215,6 +1227,102 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     onUpdateAssessments?.(updatedAss);
 
     toast.success('Soal berhasil dihapus dari Bank Soal & Seluruh Asesmen.');
+  };
+
+  const handleAiGenerateQuestions = async () => {
+    if (!aiGenTopic.trim()) {
+      toast.error('Mohon isi topik atau materi pokok untuk rujukan AI!');
+      return;
+    }
+
+    setIsAiGenerating(true);
+    setAiGenError(null);
+    setAiGenResult([]);
+
+    const steps = [
+      '🔍 Menganalisis kurikulum dan standar AKM SD...',
+      '📖 Membaca tujuan pembelajaran topik ' + aiGenTopic + '...',
+      '📝 Menulis teks stimulus wacana mendidik...',
+      '🎯 Merancang butir soal PG, PGK, dan BS...',
+      '🔑 Memformulasikan kunci jawaban konseptual...',
+      '💡 Menyusun penjelasan pedagogik...'
+    ];
+
+    let stepIdx = 0;
+    setAiGenStepText(steps[0]);
+    const stepInterval = setInterval(() => {
+      stepIdx = (stepIdx + 1) % steps.length;
+      setAiGenStepText(steps[stepIdx]);
+    }, 2000);
+
+    try {
+      const response = await fetch('/api/ai/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subjectId: aiGenSubjectId,
+          topicTitle: aiGenTopic,
+          grade: 5,
+          numPG: aiGenNumPG,
+          numPGK: aiGenNumPGK,
+          numBS: aiGenNumBS
+        })
+      });
+
+      clearInterval(stepInterval);
+
+      if (!response.ok) {
+        throw new Error('Server AI mengembalikan status error.');
+      }
+
+      const data = await response.json();
+      if (data.success && Array.isArray(data.questions)) {
+        setAiGenResult(data.questions);
+        toast.success(`Berhasil memformulasikan ${data.questions.length} butir soal AI! ✨`);
+      } else {
+        throw new Error(data.error || 'Gagal memparsing respons soal dari AI.');
+      }
+    } catch (err: any) {
+      clearInterval(stepInterval);
+      console.error(err);
+      setAiGenError(err.message || 'Koneksi AI sedang padat atau format salah. Silakan coba sesaat lagi.');
+      toast.error('Gagal generate soal dengan AI.');
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  const handleSaveAiGeneratedQuestions = () => {
+    if (aiGenResult.length === 0) return;
+
+    const updatedBank = [...aiGenResult, ...localQuestionBank];
+    setLocalQuestionBank(updatedBank);
+    saveQuestionBank(updatedBank);
+    onUpdateQuestionBank?.(updatedBank);
+
+    // Asynchronously push newly generated questions to Google Spreadsheet
+    aiGenResult.forEach((q) => {
+      const payload = {
+        id: q.id,
+        subjectId: q.subjectId,
+        grade: q.grade,
+        type: q.type,
+        level: q.level,
+        stimulus: q.stimulus || '',
+        questionText: q.questionText,
+        options: JSON.stringify(q.options || []),
+        correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : -1,
+        correctAnswers: JSON.stringify(q.correctAnswers || []),
+        statements: JSON.stringify(q.statements || []),
+        explanation: q.explanation || '',
+        lastUpdated: new Date().toISOString()
+      };
+      pushAppData('Questions', 'create', payload).catch(e => console.warn('[GAS Sync] AI Questions create sync failed:', e));
+    });
+
+    toast.success(`Berhasil menyimpan ${aiGenResult.length} butir soal AI ke Bank Soal & Spreadsheet! 💾`);
+    setShowAiGenerateModal(false);
+    setAiGenResult([]);
   };
 
   const handleSendTeacherFeedback = (reflectionId: string) => {
@@ -2409,35 +2517,54 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 <h3 className="font-heading text-xl font-bold text-slate-900">📝 Bank Soal Berbasis Stimulus (AKM SD)</h3>
                 <p className="text-xs text-slate-500">Mendukung 3 Jenis Soal: PG (Pilihan Ganda), PGK (Kompleks), dan BS (Benar/Salah) terkelompok per mata pelajaran.</p>
               </div>
-              <button
-                onClick={() => {
-                  setEditingQuestionId(null);
-                  setQuestionForm({
-                    subjectId: localSubjects[0]?.id || 'ipas',
-                    type: 'PG',
-                    level: 'HOTS',
-                    stimulus: '',
-                    questionText: '',
-                    optionA: '',
-                    optionB: '',
-                    optionC: '',
-                    optionD: '',
-                    correctIdx: 0,
-                    pgkCorrectIndices: [0, 2],
-                    bsStatements: [
-                      { text: 'Pernyataan 1: ...', isTrue: true },
-                      { text: 'Pernyataan 2: ...', isTrue: false },
-                      { text: 'Pernyataan 3: ...', isTrue: true },
-                    ],
-                    explanation: '',
-                  });
-                  setShowAddQuestionModal(true);
-                }}
-                className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow flex items-center gap-1.5 shrink-0 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Buat Soal Stimulus Baru</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => {
+                    setAiGenSubjectId(localSubjects[0]?.id || 'ipas');
+                    setAiGenTopic('');
+                    setAiGenNumPG(2);
+                    setAiGenNumPGK(1);
+                    setAiGenNumBS(1);
+                    setAiGenResult([]);
+                    setAiGenError(null);
+                    setShowAiGenerateModal(true);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold text-xs shadow-md flex items-center gap-1.5 shrink-0 cursor-pointer animate-pulse-subtle"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+                  <span>🪄 Generate Soal dengan AI</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setEditingQuestionId(null);
+                    setQuestionForm({
+                      subjectId: localSubjects[0]?.id || 'ipas',
+                      type: 'PG',
+                      level: 'HOTS',
+                      stimulus: '',
+                      questionText: '',
+                      optionA: '',
+                      optionB: '',
+                      optionC: '',
+                      optionD: '',
+                      correctIdx: 0,
+                      pgkCorrectIndices: [0, 2],
+                      bsStatements: [
+                        { text: 'Pernyataan 1: ...', isTrue: true },
+                        { text: 'Pernyataan 2: ...', isTrue: false },
+                        { text: 'Pernyataan 3: ...', isTrue: true },
+                      ],
+                      explanation: '',
+                    });
+                    setShowAddQuestionModal(true);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow flex items-center gap-1.5 shrink-0 cursor-pointer border border-purple-500"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Buat Manual</span>
+                </button>
+              </div>
             </div>
 
             {/* SUBJECT GROUPING & FILTER BAR FOR BANK SOAL */}
@@ -4046,6 +4173,252 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             >
               Selesai Hubungkan
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI AUTOMATIC QUESTION GENERATOR MODAL */}
+      {showAiGenerateModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-2xl w-full my-8 space-y-4 border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-600 animate-pulse" />
+                <h3 className="font-heading font-black text-lg text-slate-900">
+                  🤖 AI Automatic Question Generator (AKM)
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAiGenerateModal(false);
+                  setAiGenResult([]);
+                  setAiGenError(null);
+                }}
+                disabled={isAiGenerating}
+                className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {aiGenResult.length === 0 ? (
+              <div className="space-y-4 text-xs font-bold text-slate-700">
+                <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
+                  Asisten AI kami akan membaca materi pembelajaran dan secara otomatis merumuskan butir-butir soal Asesmen Kompetensi Minimum (AKM) lengkap dengan stimulus wacana wawasan ilmiah, kunci jawaban, dan penjelasannya!
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Select Subject */}
+                  <div className="space-y-1">
+                    <label className="block text-slate-700 font-extrabold text-[11px]">
+                      Pilih Mata Pelajaran:
+                    </label>
+                    <select
+                      value={aiGenSubjectId}
+                      onChange={(e) => {
+                        setAiGenSubjectId(e.target.value);
+                        setAiGenTopic('');
+                      }}
+                      className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 focus:ring-2 focus:ring-purple-500 font-bold"
+                    >
+                      {localSubjects.map((sub) => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.icon || '📚'} {sub.name} (Kelas {sub.grade || 5})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Select Topic/Material */}
+                  <div className="space-y-1">
+                    <label className="block text-slate-700 font-extrabold text-[11px]">
+                      Pilih dari Materi Aktif (Rujukan AI):
+                    </label>
+                    <select
+                      value={aiGenTopic}
+                      onChange={(e) => setAiGenTopic(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 focus:ring-2 focus:ring-purple-500 font-bold"
+                    >
+                      <option value="">-- Pilih Materi Pokok --</option>
+                      {localMaterials
+                        .filter(m => m.subjectId?.toLowerCase() === aiGenSubjectId.toLowerCase())
+                        .map(m => (
+                          <option key={m.id} value={m.topicTitle}>{m.topicTitle}</option>
+                        ))
+                      }
+                    </select>
+                  </div>
+                </div>
+
+                {/* Custom Topic Input */}
+                <div className="space-y-1">
+                  <label className="block text-slate-700 font-extrabold text-[11px]">
+                    Atau Ketik Topik / Materi Khusus:
+                  </label>
+                  <input
+                    type="text"
+                    value={aiGenTopic}
+                    onChange={(e) => setAiGenTopic(e.target.value)}
+                    placeholder="Contoh: Klasifikasi Rantai Makanan Sawah, Pecahan Desimal..."
+                    className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                {/* Quantities configuration */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                  <span className="text-[11px] font-black text-slate-800 block mb-1">
+                    📊 Konfigurasi Jumlah Soal yang Dihasilkan:
+                  </span>
+                  
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1 text-center bg-white p-2.5 rounded-xl border border-slate-200">
+                      <span className="text-[10px] font-black text-indigo-700 block">Pilihan Ganda (PG)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="5"
+                        value={aiGenNumPG}
+                        onChange={(e) => setAiGenNumPG(Math.min(5, Math.max(0, Number(e.target.value))))}
+                        className="w-16 p-1.5 border border-slate-300 rounded-lg text-center font-bold font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1 text-center bg-white p-2.5 rounded-xl border border-slate-200">
+                      <span className="text-[10px] font-black text-purple-700 block">Pilihan Ganda Kompleks (PGK)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="5"
+                        value={aiGenNumPGK}
+                        onChange={(e) => setAiGenNumPGK(Math.min(5, Math.max(0, Number(e.target.value))))}
+                        className="w-16 p-1.5 border border-slate-300 rounded-lg text-center font-bold font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1 text-center bg-white p-2.5 rounded-xl border border-slate-200">
+                      <span className="text-[10px] font-black text-amber-700 block">Benar / Salah (BS)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="5"
+                        value={aiGenNumBS}
+                        onChange={(e) => setAiGenNumBS(Math.min(5, Math.max(0, Number(e.target.value))))}
+                        className="w-16 p-1.5 border border-slate-300 rounded-lg text-center font-bold font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {aiGenError && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl font-bold text-center">
+                    ⚠️ {aiGenError}
+                  </div>
+                )}
+
+                {isAiGenerating ? (
+                  <div className="p-8 text-center space-y-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 animate-pulse">
+                    <Sparkles className="w-8 h-8 text-indigo-600 mx-auto animate-spin" />
+                    <p className="font-heading font-black text-indigo-900 text-xs">{aiGenStepText}</p>
+                    <p className="text-[10px] text-slate-400 font-semibold">Proses ini membutuhkan waktu sekitar 10-15 detik...</p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleAiGenerateQuestions}
+                    className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <span>🪄 Mulai Formulasi Soal AI</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              // AI Preview & Save Screen
+              <div className="space-y-4">
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-950 rounded-xl text-xs font-bold flex items-center justify-between">
+                  <span>✨ Berhasil memformulasikan {aiGenResult.length} butir soal AKM!</span>
+                  <span className="text-[10px] text-emerald-700 font-semibold">Tinjau & Simpan</span>
+                </div>
+
+                <div className="space-y-4 max-h-[50vh] overflow-y-auto p-1 text-xs">
+                  {aiGenResult.map((q, idx) => (
+                    <div key={q.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <span className="bg-indigo-600 text-white px-2 py-0.5 rounded text-[9px] font-black">AI Soal {idx + 1}</span>
+                        <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-[9px] uppercase font-bold">{q.type}</span>
+                        <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[9px] font-bold">Level {q.level}</span>
+                      </div>
+                      
+                      {q.stimulus && (
+                        <p className="p-2.5 bg-white border border-slate-200 rounded-lg text-slate-600 font-medium italic text-[11px]">
+                          <strong>Stimulus:</strong> {q.stimulus}
+                        </p>
+                      )}
+                      
+                      <p className="font-bold text-slate-800">{q.questionText}</p>
+
+                      {q.type === 'PG' && q.options && (
+                        <div className="grid grid-cols-2 gap-2 pl-2">
+                          {q.options.map((opt, oIdx) => (
+                            <div key={oIdx} className={`p-1.5 rounded border text-[11px] font-semibold ${q.correctAnswer === oIdx ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-white border-slate-200 text-slate-600'}`}>
+                              {String.fromCharCode(65 + oIdx)}. {opt} {q.correctAnswer === oIdx && '✔️'}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {q.type === 'PGK' && q.options && q.correctAnswers && (
+                        <div className="grid grid-cols-2 gap-2 pl-2">
+                          {q.options.map((opt, oIdx) => {
+                            const isCorrect = q.correctAnswers?.includes(oIdx);
+                            return (
+                              <div key={oIdx} className={`p-1.5 rounded border text-[11px] font-semibold ${isCorrect ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-white border-slate-200 text-slate-600'}`}>
+                                [] {opt} {isCorrect && '✔️'}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {q.type === 'BS' && q.statements && (
+                        <div className="space-y-1 pl-2">
+                          {q.statements.map((stmt, sIdx) => (
+                            <div key={sIdx} className="flex items-center justify-between p-1.5 bg-white border border-slate-200 rounded text-[11px] font-medium">
+                              <span>▸ {stmt.text}</span>
+                              <span className={`px-2 py-0.2 rounded font-extrabold text-[9px] ${stmt.isTrue ? 'bg-emerald-100 text-emerald-950' : 'bg-rose-100 text-rose-950'}`}>
+                                {stmt.isTrue ? 'Benar' : 'Salah'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <p className="text-[10px] text-indigo-700 bg-indigo-50/50 p-2 rounded-xl font-semibold leading-relaxed border border-indigo-100/50">
+                        💡 <strong>Pembahasan Pedagogis:</strong> {q.explanation}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2 justify-end border-t pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setAiGenResult([])}
+                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                  >
+                    ↩️ Atur Ulang Topik
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveAiGeneratedQuestions}
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow flex items-center gap-1.5 cursor-pointer animate-bounce-subtle"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>💾 Simpan Semua ke Bank Soal</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
