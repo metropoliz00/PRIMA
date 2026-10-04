@@ -381,7 +381,7 @@ function MainAppContent() {
       <MetaWhatsAppModal isOpen={isMetaModalOpen} onClose={() => setIsMetaModalOpen(false)} />
 
       {/* Router Content */}
-      <main className="flex-1">
+      <main className="flex-1 relative z-10">
         
         {/* LANDING PAGE */}
         {currentView === 'landing' && (
