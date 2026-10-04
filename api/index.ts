@@ -4,7 +4,7 @@ import type { Request, Response } from 'express';
 const app = express();
 app.use(express.json());
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyCZ04AE0bSt7btar7j8rgfMTrCXgcxbxvw';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 async function callGemini(promptText: string): Promise<string> {
   const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
