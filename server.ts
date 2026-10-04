@@ -80,11 +80,7 @@ ${customRules}
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: userPrompt,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-      },
+      contents: `${systemInstruction}\n\n${userPrompt}`,
     });
 
     const reply = response.text || 'Halo Petualang! Ada yang ingin kamu diskusikan tentang materi ini? 🚀';
@@ -114,11 +110,7 @@ Gunakan bahasa Indonesia ramah anak SD.
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: `Siswa menulis refleksi: "${reflectionText}"`,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-      },
+      contents: `${systemInstruction}\n\nSiswa menulis refleksi: "${reflectionText}"`,
     });
 
     res.json({
@@ -155,11 +147,7 @@ Gunakan bahasa Indonesia yang profesional, ramah, dan mendukung pengajar.
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-      },
+      contents: `${systemInstruction}\n\n${prompt}`,
     });
 
     const reply = response.text || 'Halo Guru! Ada yang bisa saya bantu terkait kurikulum atau perencanaan pembelajaran hari ini? 👩‍🏫✨';
