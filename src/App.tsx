@@ -62,6 +62,9 @@ import {
   saveQuestionBank,
   getStoredAssessments,
   saveAssessments,
+  getStoredCodingChallenges,
+  saveCodingChallenges,
+  CodingChallengeItem,
 } from './data/learningData';
 import {
   INITIAL_CLASSES,
@@ -94,6 +97,7 @@ function MainAppContent() {
   const [announcementsList] = useState<Announcement[]>(INITIAL_ANNOUNCEMENTS);
   const [reflectionsList] = useState<ReflectionEntry[]>(INITIAL_REFLECTIONS);
   const [aiConfigsList] = useState<AITutorConfig[]>(INITIAL_AI_CONFIGS);
+  const [codingChallengesList, setCodingChallengesList] = useState<CodingChallengeItem[]>(getStoredCodingChallenges());
 
   // Selected Active Learning State
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
@@ -398,11 +402,13 @@ function MainAppContent() {
             announcementsList={announcementsList}
             reflectionsList={reflectionsList}
             aiConfigsList={aiConfigsList}
+            codingChallengesList={codingChallengesList}
             onAddSubject={handleAddSubject}
             onRefreshData={refreshUsers}
             onRequestLogout={() => setShowLogoutModal(true)}
             onUpdateQuestionBank={setQuestionBankList}
             onUpdateAssessments={setAssessmentsList}
+            onUpdateCodingChallenges={setCodingChallengesList}
           />
         )}
 
@@ -489,6 +495,7 @@ function MainAppContent() {
                   <CodingChallengeStep 
                     content={currentStep.content} 
                     subjectId={selectedSubject?.id}
+                    challengesList={codingChallengesList}
                     onNext={() => handleAdvanceStep(6)} 
                   />
                 )}

@@ -32,7 +32,7 @@ export const DEMO_USERS: User[] = [
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
     email: 'metropoliz00@gmail.com',
     nip: '198905202020121006',
-    subjectsHandled: ['ipas', 'matematika', 'bahasa_indonesia'],
+    subjectsHandled: ['ipas', 'matematika'],
     classesHandled: ['cls-5a', 'cls-5b'],
     createdAt: '2026-01-02T00:00:00Z',
     updatedAt: '2026-01-02T00:00:00Z',

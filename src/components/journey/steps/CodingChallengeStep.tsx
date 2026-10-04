@@ -6,23 +6,24 @@ import { getStoredCodingChallenges, CodingChallengeItem } from '../../../data/le
 interface CodingChallengeStepProps {
   content: any;
   subjectId?: string;
+  challengesList?: CodingChallengeItem[];
   onNext: () => void;
 }
 
-export const CodingChallengeStep: React.FC<CodingChallengeStepProps> = ({ content, subjectId, onNext }) => {
+export const CodingChallengeStep: React.FC<CodingChallengeStepProps> = ({ content, subjectId, challengesList, onNext }) => {
   // Load coding challenges configured by teacher
   const [allChallenges, setAllChallenges] = useState<CodingChallengeItem[]>([]);
   const [activeChallengeIndex, setActiveChallengeIndex] = useState<number>(0);
 
   useEffect(() => {
-    const loaded = getStoredCodingChallenges();
+    const loaded = challengesList && challengesList.length > 0 ? challengesList : getStoredCodingChallenges();
     const filtered = loaded.filter(ch => {
       if (!subjectId) return true;
       return ch.subjectId?.toLowerCase() === subjectId.toLowerCase();
     });
     setAllChallenges(filtered.length > 0 ? filtered : loaded);
     setActiveChallengeIndex(0);
-  }, [subjectId]);
+  }, [subjectId, challengesList]);
 
   const currentChallenge = allChallenges[activeChallengeIndex];
 

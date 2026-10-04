@@ -438,33 +438,7 @@ export const INITIAL_SUBJECTS: Subject[] = [
     bgGradient: 'from-amber-500 to-orange-600',
     description: 'Mengasah literasi, analisis iklan, struktur teks, dan kemampuan berkomunikasi efektif.',
     grade: 5,
-    topics: [
-      {
-        id: 'bi-iklan',
-        subjectId: 'bahasa_indonesia',
-        title: 'Iklan dan Informasi Media',
-        description: 'Menganalisis unsur-unsur iklan cetak dan elektronik: kata kunci, gambar naratif, pesan persuasi, dan sasaran iklan.',
-        grade: 5,
-        estimatedMinutes: 20,
-        steps: [
-          {
-            id: 'bstep-1',
-            stepNumber: 1,
-            type: 'pemantik',
-            title: 'PEMANTIK',
-            subtitle: 'Apa Kata Kunci Iklan Ini?',
-            isCompleted: false,
-            isUnlocked: true,
-            content: {
-              question: 'Sebuah poster menampilkan slogan "Minum Susu Segar, Tubuh Sehat dan Kuat Setiap Hari!". Manakah yang merupakan kata kunci utama iklan tersebut?',
-              options: ['Minum dan Hari', 'Susu Segar & Tubuh Sehat', 'Setiap Hari', 'Iklan Bagus'],
-              correctAnswer: 1,
-              explanation: 'Tepat sekali! Kata kunci menggambarkan pesan inti dari produk yang ditawarkan dalam iklan.'
-            }
-          }
-        ]
-      }
-    ]
+    topics: []
   },
   {
     id: 'pendidikan_pancasila',
@@ -512,7 +486,13 @@ export function getStoredSubjects(): Subject[] {
   try {
     const data = localStorage.getItem('prima_subjects');
     if (data) {
-      return JSON.parse(data);
+      const parsed: Subject[] = JSON.parse(data);
+      return parsed.map((s) => {
+        if (s.id === 'bahasa_indonesia' && s.topics?.some((t) => t.id === 'bi-iklan')) {
+          return { ...s, topics: [] };
+        }
+        return s;
+      });
     }
   } catch (e) {
     console.error('Error reading subjects from localStorage', e);

@@ -21,11 +21,13 @@ interface TeacherDashboardProps {
   announcementsList: Announcement[];
   reflectionsList: ReflectionEntry[];
   aiConfigsList: AITutorConfig[];
+  codingChallengesList?: CodingChallengeItem[];
   onAddSubject: (newSubject: Subject) => void;
   onRefreshData: () => void;
   onRequestLogout: () => void;
   onUpdateQuestionBank?: (updated: QuestionBankItem[]) => void;
   onUpdateAssessments?: (updated: Assessment[]) => void;
+  onUpdateCodingChallenges?: (updated: CodingChallengeItem[]) => void;
 }
 
 export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
@@ -39,11 +41,13 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   announcementsList,
   reflectionsList,
   aiConfigsList,
+  codingChallengesList,
   onAddSubject,
   onRefreshData,
   onRequestLogout,
   onUpdateQuestionBank,
   onUpdateAssessments,
+  onUpdateCodingChallenges,
 }) => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
@@ -57,6 +61,14 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [localReflections, setLocalReflections] = useState<ReflectionEntry[]>(reflectionsList);
   const [localClasses, setLocalClasses] = useState<ClassRoom[]>(classesList);
   const [localSubjects, setLocalSubjects] = useState<Subject[]>(subjectsList);
+  const [localCodingChallenges, setLocalCodingChallenges] = useState<CodingChallengeItem[]>(codingChallengesList || getStoredCodingChallenges());
+
+  useEffect(() => {
+    localStorage.setItem('prima_coding_challenges', JSON.stringify(localCodingChallenges));
+    if (onUpdateCodingChallenges) {
+      onUpdateCodingChallenges(localCodingChallenges);
+    }
+  }, [localCodingChallenges, onUpdateCodingChallenges]);
 
   // Synchronize local states with global localStorage and call parent update callbacks automatically
   useEffect(() => {
@@ -134,7 +146,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [localActivities, setLocalActivities] = useState<InteractiveActivity[]>(getStoredActivities());
 
   // Coding Challenges State (Persisted for Student Dashboard)
-  const [localCodingChallenges, setLocalCodingChallenges] = useState<CodingChallengeItem[]>(getStoredCodingChallenges());
+  // localCodingChallenges is managed at top of component
 
   // Modals state
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
@@ -187,7 +199,14 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     communicationStyle: 'Ramah, sabar, ceria, santun, dan memotivasi untuk siswa SD Kelas 5',
     rulesAndScaffolding: 'Jangan berikan jawaban langsung. Berikan analogi ramah anak, petunjuk singkat, dan pertanyaan pemandu.',
   });
-  const [codingForm, setCodingForm] = useState({ title: '', subjectId: 'ipas', allowedBlocksCount: 5, targetGoal: '' });
+  const [codingForm, setCodingForm] = useState({
+    title: '',
+    subjectId: 'ipas',
+    allowedBlocksCount: 5,
+    targetGoal: '',
+    characterIcon: '🤖',
+    gridSize: 4,
+  });
   const [assessmentForm, setAssessmentForm] = useState({ title: '', subjectId: 'ipas', durationMinutes: 30, kktpTarget: 75, selectedQuestionIds: [] as string[] });
 
   // Sandbox AI Chat messages
@@ -670,10 +689,12 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const handleStartEditCoding = (cod: any) => {
     setEditingCoding(cod);
     setCodingForm({
-      title: cod.title,
-      subjectId: cod.subjectId || 'ipas',
+      title: cod.title || '',
+      subjectId: cod.subjectId || localSubjects[0]?.id || 'ipas',
       allowedBlocksCount: cod.allowedBlocksCount || 5,
       targetGoal: cod.targetGoal || '',
+      characterIcon: cod.characterIcon || '🤖',
+      gridSize: cod.gridSize || 4,
     });
     setShowAddCodingModal(true);
   };
@@ -681,6 +702,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const handleSaveCoding = (e: React.FormEvent) => {
     e.preventDefault();
     let updated: CodingChallengeItem[];
+    const parsedGridSize = Number(codingForm.gridSize) || 4;
+    const parsedBlocks = Number(codingForm.allowedBlocksCount) || 5;
+
     if (editingCoding) {
       updated = localCodingChallenges.map((c) =>
         c.id === editingCoding.id
@@ -688,8 +712,11 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               ...c,
               title: codingForm.title,
               subjectId: codingForm.subjectId,
-              allowedBlocksCount: Number(codingForm.allowedBlocksCount),
+              allowedBlocksCount: parsedBlocks,
               targetGoal: codingForm.targetGoal,
+              characterIcon: codingForm.characterIcon || c.characterIcon || '🤖',
+              gridSize: parsedGridSize,
+              targetPos: { x: parsedGridSize - 1, y: parsedGridSize - 1 },
             }
           : c
       );
@@ -700,18 +727,18 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         id: `cod-${Date.now()}`,
         title: codingForm.title,
         subjectId: codingForm.subjectId,
-        allowedBlocksCount: Number(codingForm.allowedBlocksCount),
-        characterIcon: codingForm.subjectId === 'matematika' ? '🧮' : '🤖',
-        gridSize: 4,
+        allowedBlocksCount: parsedBlocks,
+        characterIcon: codingForm.characterIcon || (codingForm.subjectId === 'matematika' ? '🧮' : '🤖'),
+        gridSize: parsedGridSize,
         startPos: { x: 0, y: 0 },
-        targetPos: { x: 3, y: 3 },
+        targetPos: { x: parsedGridSize - 1, y: parsedGridSize - 1 },
         obstacles: [{ x: 1, y: 1 }],
         targetGoal: codingForm.targetGoal,
         availableBlocks: [
-          { id: 'b-maju', text: '🤖 Maju 1 Langkah', category: 'action', snippet: 'step()', color: 'bg-emerald-600' },
+          { id: 'b-maju', text: `${codingForm.characterIcon || '🤖'} Maju 1 Langkah`, category: 'action', snippet: 'step()', color: 'bg-emerald-600' },
           { id: 'b-kanan', text: '↪️ Belok Kanan', category: 'action', snippet: 'turnRight()', color: 'bg-blue-600' },
           { id: 'b-kiri', text: '↩️ Belok Kiri', category: 'action', snippet: 'turnLeft()', color: 'bg-indigo-600' },
-          { id: 'b-act', text: '💧 Siram / Ambil Target', category: 'action', snippet: 'action()', color: 'bg-sky-500' },
+          { id: 'b-act', text: '🎯 Aksi / Capai Target', category: 'action', snippet: 'action()', color: 'bg-sky-500' },
           { id: 'b-loop', text: '🔄 Ulangi 3 Kali', category: 'control', snippet: 'repeat(3)', color: 'bg-purple-600' },
         ],
         expectedSequence: ['b-maju', 'b-kanan', 'b-maju', 'b-act'],
@@ -1881,24 +1908,62 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         )}
         {activeTab === 'coding' && (
           <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <div><h3 className="font-heading text-xl font-bold text-slate-900">💻 Block-Based Coding Challenges</h3><p className="text-xs text-slate-500">Kelola tantangan logika coding visual berbasis balok instruksi Scratch-style.</p></div>
-              <button onClick={() => { setEditingCoding(null); setCodingForm({ title: '', subjectId: 'ipas', allowedBlocksCount: 5, targetGoal: '' }); setShowAddCodingModal(true); }} className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer"><Plus className="w-4 h-4" /><span>+ Buat Challenge Coding</span></button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-heading text-xl font-bold text-slate-900">💻 Block-Based Coding Challenges</h3>
+                <p className="text-xs text-slate-500">Kelola tantangan computational thinking & algoritma visual berbasis balok instruksi untuk siswa.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingCoding(null);
+                  setCodingForm({
+                    title: '',
+                    subjectId: localSubjects[0]?.id || 'ipas',
+                    allowedBlocksCount: 5,
+                    targetGoal: '',
+                    characterIcon: '🤖',
+                    gridSize: 4,
+                  });
+                  setShowAddCodingModal(true);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Buat Challenge Coding</span>
+              </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {localCodingChallenges.map((cod) => (
-                <div key={cod.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-3 relative group hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">Batas Balok: {cod.allowedBlocksCount} Block</span>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => handleStartEditCoding(cod)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit Challenge"><Edit3 className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => handleDeleteCoding(cod.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Challenge"><Trash2 className="w-3.5 h-3.5" /></button>
+              {localCodingChallenges.map((cod) => {
+                const sub = localSubjects.find((s) => s.id === cod.subjectId);
+                return (
+                  <div key={cod.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-3 relative group hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl p-2 bg-white rounded-xl border shadow-xs">{cod.characterIcon || '🤖'}</span>
+                        <div>
+                          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                            {sub ? `${sub.icon} ${sub.name}` : (cod.subjectId?.toUpperCase() || 'UMUM')}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500 ml-2">
+                            Grid {cod.gridSize || 4}x{cod.gridSize || 4}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                          Maks {cod.allowedBlocksCount} Balok
+                        </span>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                          <button onClick={() => handleStartEditCoding(cod)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit Challenge"><Edit3 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => handleDeleteCoding(cod.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Challenge"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
+                      </div>
                     </div>
+                    <h4 className="font-heading font-bold text-slate-900 text-base">{cod.title}</h4>
+                    <p className="text-xs text-slate-600 leading-relaxed">{cod.targetGoal}</p>
                   </div>
-                  <h4 className="font-heading font-bold text-slate-900 text-base">{cod.title}</h4>
-                  <p className="text-xs text-slate-600">{cod.targetGoal}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -2716,17 +2781,119 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
       {/* Add / Edit Coding Modal */}
       {showAddCodingModal && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full space-y-4 border border-slate-200">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-lg w-full space-y-4 border border-slate-200 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="font-heading font-black text-xl text-slate-900">{editingCoding ? 'Edit Challenge Coding' : 'Buat Challenge Coding Baru'}</h3>
+              <div>
+                <h3 className="font-heading font-black text-xl text-slate-900">
+                  {editingCoding ? 'Edit Tantangan Coding' : 'Buat Tantangan Coding Baru'}
+                </h3>
+                <p className="text-xs text-slate-500">Tantangan visual plug coding yang langsung muncul di ruang belajar siswa.</p>
+              </div>
               <button onClick={() => { setShowAddCodingModal(false); setEditingCoding(null); }} className="p-1 rounded-full bg-slate-100"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleSaveCoding} className="space-y-3 text-xs">
-              <div><label className="font-bold text-slate-700">Judul Challenge</label><input type="text" required value={codingForm.title} onChange={(e) => setCodingForm({ ...codingForm, title: e.target.value })} placeholder="Judul challenge..." className="w-full p-2.5 rounded-xl border mt-1 font-semibold" /></div>
-              <div><label className="font-bold text-slate-700">Target Tujuan Coding</label><textarea rows={2} value={codingForm.targetGoal} onChange={(e) => setCodingForm({ ...codingForm, targetGoal: e.target.value })} placeholder="Tujuan yang harus dicapai balok coding..." className="w-full p-2.5 rounded-xl border mt-1" /></div>
-              <div><label className="font-bold text-slate-700">Batas Maksimal Balok</label><input type="number" min="1" max="20" value={codingForm.allowedBlocksCount} onChange={(e) => setCodingForm({ ...codingForm, allowedBlocksCount: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border mt-1" /></div>
-              <div className="flex items-center gap-3 pt-3"><button type="button" onClick={() => { setShowAddCodingModal(false); setEditingCoding(null); }} className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 cursor-pointer">Batal</button><button type="submit" className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold cursor-pointer shadow">Simpan Challenge</button></div>
+            <form onSubmit={handleSaveCoding} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700">Mata Pelajaran</label>
+                  <select
+                    value={codingForm.subjectId}
+                    onChange={(e) => setCodingForm({ ...codingForm, subjectId: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border mt-1 font-semibold"
+                  >
+                    {localSubjects.map((sub) => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.icon} {sub.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700">Karakter Ikon Simulator</label>
+                  <select
+                    value={codingForm.characterIcon}
+                    onChange={(e) => setCodingForm({ ...codingForm, characterIcon: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border mt-1 font-semibold"
+                  >
+                    <option value="🤖">🤖 Robot Pintar</option>
+                    <option value="🦗">🦗 Belalang Sawah</option>
+                    <option value="🌾">🌾 Petani Padi</option>
+                    <option value="🧮">🧮 Sempoa Matematika</option>
+                    <option value="🐸">🐸 Katak Ekosistem</option>
+                    <option value="🚗">🚗 Mobil Robot</option>
+                    <option value="🚀">🚀 Roket Angkasa</option>
+                    <option value="🍄">🍄 Jamur Dekomposer</option>
+                    <option value="🌻">🌻 Bunga Matahari</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700">Judul Challenge / Algoritma</label>
+                <input
+                  type="text"
+                  required
+                  value={codingForm.title}
+                  onChange={(e) => setCodingForm({ ...codingForm, title: e.target.value })}
+                  placeholder="Contoh: 🤖 Algoritma Robot Penyiram Padi Sawah"
+                  className="w-full p-2.5 rounded-xl border mt-1 font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700">Target & Instruksi Misi Coding</label>
+                <textarea
+                  rows={2}
+                  required
+                  value={codingForm.targetGoal}
+                  onChange={(e) => setCodingForm({ ...codingForm, targetGoal: e.target.value })}
+                  placeholder="Jelaskan misi yang harus diselesaikan siswa menggunakan balok algoritma..."
+                  className="w-full p-2.5 rounded-xl border mt-1"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700">Batas Maksimal Balok</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={codingForm.allowedBlocksCount}
+                    onChange={(e) => setCodingForm({ ...codingForm, allowedBlocksCount: Number(e.target.value) })}
+                    className="w-full p-2.5 rounded-xl border mt-1 font-bold"
+                  />
+                  <span className="text-[10px] text-slate-500">Jumlah balok ideal untuk menyelesaikan target</span>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700">Ukuran Arena Simulator Grid</label>
+                  <select
+                    value={codingForm.gridSize}
+                    onChange={(e) => setCodingForm({ ...codingForm, gridSize: Number(e.target.value) })}
+                    className="w-full p-2.5 rounded-xl border mt-1 font-semibold"
+                  >
+                    <option value={3}>Grid 3 x 3 (Mudah / Pemula)</option>
+                    <option value={4}>Grid 4 x 4 (Standar SD)</option>
+                    <option value={5}>Grid 5 x 5 (Tantangan Logika)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowAddCodingModal(false); setEditingCoding(null); }}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold cursor-pointer shadow-md"
+                >
+                  Simpan & Sinkronkan ke Murid
+                </button>
+              </div>
             </form>
           </div>
         </div>
