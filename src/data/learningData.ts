@@ -1,6 +1,6 @@
 import { Subject, StudentProgress, Badge, TeacherAnalytics, CodingBlock, InteractiveVideo, QuestionBankItem, Assessment, Material, Topic } from '../types/learning';
 import { INITIAL_QUESTION_BANK, INITIAL_ASSESSMENTS, INITIAL_MATERIALS } from './initialData';
-import { getRemoteSubjects, createRemoteSubject, updateRemoteSubject, getRemoteVideos, createRemoteVideo, updateRemoteVideo, pushAppData } from '../services/appscript';
+import { getRemoteSubjects, createRemoteSubject, updateRemoteSubject, getRemoteVideos, createRemoteVideo, updateRemoteVideo, pushAppData, fetchAppData } from '../services/appscript';
 
 export const INITIAL_BADGES: Badge[] = [
   {
@@ -708,19 +708,49 @@ export function getStudentProgressForId(studentId: string, studentName: string, 
   if (all[studentId]) {
     return all[studentId];
   }
-  // Initialize default for this student with some realistic starting XP for leaderboard realism if demo
+  // Initialize default for this student (clean starting values, starting at 0 XP, level 1, streak 1, 0 completed topics)
   const def: StudentProgress = {
     ...DEFAULT_STUDENT_PROGRESS,
     studentName: studentName || 'Petualang',
     avatarUrl: avatarUrl || DEFAULT_STUDENT_PROGRESS.avatarUrl,
-    xp: Math.floor(Math.random() * 500) + 200,
-    level: Math.floor(Math.random() * 3) + 1,
-    streakDays: Math.floor(Math.random() * 7) + 1,
-    completedTopicsCount: Math.floor(Math.random() * 4) + 1,
+    xp: 0,
+    level: 1,
+    streakDays: 1,
+    completedTopicsCount: 0,
   };
   all[studentId] = def;
   saveAllStudentsProgress(all);
   return def;
+}
+
+export async function syncProgressWithGAS(studentId: string, studentName: string, avatarUrl?: string): Promise<StudentProgress> {
+  try {
+    const remoteProgress = await fetchAppData<any>('Progress');
+    if (remoteProgress && Array.isArray(remoteProgress) && remoteProgress.length > 0) {
+      const matched = remoteProgress.find(p => String(p.id) === String(studentId));
+      if (matched) {
+        const syncedProg: StudentProgress = {
+          studentName: matched.studentName || studentName,
+          avatarUrl: avatarUrl || matched.avatarUrl || DEFAULT_STUDENT_PROGRESS.avatarUrl,
+          xp: Number(matched.xp) || 0,
+          level: Number(matched.level) || 1,
+          streakDays: Number(matched.streakDays) || 1,
+          completedTopicsCount: Number(matched.completedTopicsCount) || 0,
+          badges: DEFAULT_STUDENT_PROGRESS.badges, // maintain local badges
+          topicScores: DEFAULT_STUDENT_PROGRESS.topicScores,
+        };
+        // Save to local storage for persistence
+        const all = getAllStudentsProgress();
+        all[studentId] = syncedProg;
+        saveAllStudentsProgress(all);
+        localStorage.setItem('prima_student_progress', JSON.stringify(syncedProg));
+        return syncedProg;
+      }
+    }
+  } catch (err) {
+    console.warn('[Sync] Failed to sync progress from Google Sheets:', err);
+  }
+  return getStudentProgressForId(studentId, studentName, avatarUrl);
 }
 
 export function saveStudentProgressForId(studentId: string, progress: StudentProgress): void {

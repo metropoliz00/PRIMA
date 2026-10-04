@@ -57,6 +57,7 @@ import {
   syncSubjectsWithGAS,
   getStudentProgressForId,
   saveStudentProgressForId,
+  syncProgressWithGAS,
   getStoredQuestionBank,
   saveQuestionBank,
   getStoredAssessments,
@@ -136,6 +137,11 @@ function MainAppContent() {
     if (user && user.role === 'MURID') {
       const p = getStudentProgressForId(user.id, user.name, user.avatar);
       setProgress(p);
+
+      // Async sync from Google Sheets database for real XP/Streak/Level/etc
+      syncProgressWithGAS(user.id, user.name, user.avatar).then((synced) => {
+        setProgress(synced);
+      }).catch(() => {});
     }
   }, [user]);
 
