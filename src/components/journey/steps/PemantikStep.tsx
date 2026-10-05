@@ -15,7 +15,12 @@ import {
   ChevronUp,
   AlertCircle
 } from 'lucide-react';
-import { evaluatePemantikAnswer, PemantikEvaluationResult } from '../../../services/aiService';
+import {
+  evaluatePemantikAnswer,
+  PemantikEvaluationResult,
+  generatePemantikQuestion,
+  getClientDynamicPemantikFallback,
+} from '../../../services/aiService';
 import { getStoredTtsSetting } from '../../../data/learningData';
 
 interface PemantikStepProps {
@@ -31,19 +36,74 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({
   subjectName = 'IPAS',
   onNext
 }) => {
+  // Initialize with topic-aware dynamic question immediately so there is no layout jump
+  const [initialData] = useState(() =>
+    getClientDynamicPemantikFallback({
+      topicTitle,
+      subjectName,
+      baseQuestion: content?.question,
+      learningObjectives: content?.learningObjectives || content?.explanation,
+    })
+  );
+
+  const [dynamicQuestion, setDynamicQuestion] = useState(initialData.question);
+  const [dynamicClue, setDynamicClue] = useState(initialData.clue);
+  const [dynamicIdealAnswer, setDynamicIdealAnswer] = useState(initialData.idealAnswer);
+  const [dynamicExplanation, setDynamicExplanation] = useState(initialData.explanation);
+  const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false);
+  const [isAiGenerated, setIsAiGenerated] = useState(false);
+  const [questionSeed, setQuestionSeed] = useState(1);
+  const [changeCount, setChangeCount] = useState<number>(0);
+
   const [studentAnswer, setStudentAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [evaluation, setEvaluation] = useState<PemantikEvaluationResult | null>(null);
   const [showClue, setShowClue] = useState(false);
   const evaluationRef = useRef<HTMLDivElement>(null);
 
-  // Extract reference answers and explanations from content
-  const referenceExplanation = content?.explanation || '';
-  const referenceCorrectAnswer =
-    content?.idealAnswer ||
-    (content?.options && typeof content?.correctAnswer === 'number'
-      ? content.options[content.correctAnswer]
-      : '');
+  // Automatically fetch/generate a fresh AI question each time student enters or switches topic/seed
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFreshAiQuestion = async () => {
+      setIsGeneratingQuestion(true);
+      try {
+        const fresh = await generatePemantikQuestion({
+          topicTitle,
+          subjectName,
+          baseQuestion: content?.question,
+          learningObjectives: content?.learningObjectives || content?.explanation,
+        });
+        if (isMounted && fresh?.question) {
+          setDynamicQuestion(fresh.question);
+          setDynamicClue(fresh.clue);
+          setDynamicIdealAnswer(fresh.idealAnswer);
+          setDynamicExplanation(fresh.explanation);
+          setIsAiGenerated(fresh.isAiGenerated);
+        }
+      } catch (err) {
+        console.warn('AI question generation error:', err);
+      } finally {
+        if (isMounted) {
+          setIsGeneratingQuestion(false);
+        }
+      }
+    };
+
+    fetchFreshAiQuestion();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [topicTitle, subjectName, questionSeed]);
+
+  // Handler to manually refresh or randomize question on demand
+  const handleRefreshQuestion = () => {
+    setEvaluation(null);
+    setStudentAnswer('');
+    setShowClue(false);
+    setQuestionSeed((prev) => prev + 1);
+    setChangeCount((prev) => prev + 1);
+  };
 
   // Pre-load voices on mount
   useEffect(() => {
@@ -115,12 +175,12 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({
     setIsSubmitting(true);
     try {
       const result = await evaluatePemantikAnswer({
-        question: content?.question || '',
+        question: dynamicQuestion,
         studentAnswer: trimmed,
         topicTitle,
         subjectName,
-        referenceExplanation,
-        referenceCorrectAnswer,
+        referenceExplanation: dynamicExplanation || content?.explanation || '',
+        referenceCorrectAnswer: dynamicIdealAnswer || content?.idealAnswer || '',
       });
 
       setEvaluation(result);
@@ -149,7 +209,7 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({
 
   return (
     <div className="glass-card p-6 sm:p-8 rounded-3xl space-y-6 border border-slate-200/80 shadow-lg bg-white">
-      {/* 1. Clean Header (No TTS Navigation/Buttons) */}
+      {/* 1. Header Information */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-2xl shadow-md shadow-amber-500/20">
@@ -160,8 +220,9 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({
               <span className="text-[11px] font-black text-amber-700 uppercase tracking-widest bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-300/60">
                 Langkah 1: Pertanyaan Pemantik
               </span>
-              <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
-                ✍️ Isian Mandiri + Koreksi AI
+              <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200 flex items-center gap-1 shadow-2xs">
+                <Sparkles className="w-3 h-3 text-indigo-500" />
+                <span>Otomatis AI Berganti Setiap Masuk</span>
               </span>
             </div>
             <h3 className="font-heading text-xl sm:text-2xl font-black text-slate-900 mt-1">
@@ -177,19 +238,88 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({
         </div>
       </div>
 
-      {/* 2. Stimulus & Question Card (Clean, no TTS button) */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-amber-50/80 via-orange-50/60 to-yellow-50/80 border border-amber-200/90 shadow-inner space-y-3">
-        <div className="flex items-center gap-2 text-xs font-extrabold text-amber-800 uppercase tracking-wider">
-          <HelpCircle className="w-4 h-4 text-amber-600" />
-          <span>Pertanyaan Berpikir Kritis Siswa</span>
+      {/* 2. Stimulus & Dynamic Question Card */}
+      <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-amber-50/80 via-orange-50/60 to-yellow-50/80 border border-amber-200/90 shadow-inner space-y-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/80 pb-2.5">
+          <div className="flex items-center gap-2 text-xs font-extrabold text-amber-900 uppercase tracking-wider">
+            <HelpCircle className="w-4 h-4 text-amber-600" />
+            <span>Pertanyaan Berpikir Kritis Siswa</span>
+            <span className="text-[10px] font-black bg-white/90 text-indigo-700 px-2.5 py-0.5 rounded-full border border-indigo-200 shadow-2xs flex items-center gap-1">
+              <Bot className="w-3 h-3 text-indigo-600" />
+              <span>{isGeneratingQuestion ? 'Merumuskan Pertanyaan Baru...' : isAiGenerated ? 'Generated by Gemini AI ✨' : 'Variasi Dinamis AI 🎯'}</span>
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleRefreshQuestion}
+            disabled={isGeneratingQuestion || isSubmitting}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-amber-100/80 text-amber-900 font-extrabold text-xs border border-amber-300 shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-50 group"
+            title="Klik untuk meminta AI membuatkan variasi pertanyaan pemantik baru tentang materi ini"
+          >
+            <RotateCcw className={`w-3.5 h-3.5 text-amber-700 group-hover:rotate-180 transition-transform ${isGeneratingQuestion ? 'animate-spin' : ''}`} />
+            <span>{isGeneratingQuestion ? 'Memuat Variasi...' : `Ganti Pertanyaan AI 🔄 (${changeCount}/3)`}</span>
+          </button>
         </div>
 
-        <p className="text-base sm:text-lg font-bold text-slate-900 leading-relaxed">
-          {content?.question || 'Bagaimana pendapatmu mengenai konsep pembelajaran ini?'}
-        </p>
+        {/* Progress Tracker: Ganti Pertanyaan Minimal 3x */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/95 border border-amber-200/90 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs font-black text-slate-800">Syarat Lanjut Eksplorasi:</span>
+            <span
+              className={`px-3 py-1 rounded-full font-black text-xs inline-flex items-center gap-1.5 transition-all ${
+                changeCount >= 3
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : 'bg-amber-100 text-amber-900 border border-amber-300'
+              }`}
+            >
+              {changeCount >= 3 ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Syarat Terpenuhi ({changeCount}/3) - Siap Lanjut! 🎉</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Ganti Pertanyaan: {changeCount}/3 Kali</span>
+                </>
+              )}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {[1, 2, 3].map((step) => {
+              const isDone = changeCount >= step;
+              return (
+                <div
+                  key={step}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black transition-all ${
+                    isDone
+                      ? 'bg-emerald-500 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-400 border border-slate-200'
+                  }`}
+                >
+                  <span>{isDone ? '✓' : step}</span>
+                  <span className="text-[10px]">Ganti {step}x</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {isGeneratingQuestion ? (
+          <div className="py-4 flex items-center gap-3 text-amber-900 font-bold text-sm animate-pulse">
+            <Sparkles className="w-5 h-5 text-amber-600 animate-spin" />
+            <span>PRIMA AI sedang menyiapkan pertanyaan pemantik baru untuk topik {topicTitle}...</span>
+          </div>
+        ) : (
+          <p className="text-base sm:text-lg font-bold text-slate-900 leading-relaxed">
+            {dynamicQuestion}
+          </p>
+        )}
 
         {/* Collapsible Clue / Hint */}
-        <div className="pt-2">
+        <div className="pt-1">
           <button
             type="button"
             onClick={() => setShowClue(!showClue)}
@@ -201,9 +331,8 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({
 
           {showClue && (
             <div className="mt-2.5 p-3.5 rounded-xl bg-white border border-amber-200 text-xs text-slate-700 leading-relaxed shadow-sm animate-fadeIn">
-              <strong className="text-amber-800">Petunjuk Guru:</strong> Pikirkan hubungan sebab-akibat
-              yang terjadi antara makhluk hidup atau angka-angka di sekitar kita. Tuliskan apa yang
-              terlintas di pikiranmu secara jujur dan mandiri!
+              <strong className="text-amber-800">Petunjuk Berpikir:</strong>{' '}
+              {dynamicClue || 'Pikirkan hubungan sebab-akibat yang terjadi pada fenomena materi ini. Tuliskan apa yang terlintas di pikiranmu secara jujur dan mandiri!'}
             </div>
           )}
         </div>
@@ -265,6 +394,34 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({
               )}
             </button>
           </div>
+
+          {/* Banner Syarat Lanjut ke Eksplorasi jika sudah ganti 3x */}
+          {changeCount >= 3 ? (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs animate-fadeIn">
+              <div className="flex items-center gap-2.5 text-xs font-black text-emerald-950">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>Target Tercapai! Kamu sudah mengganti dan mengeksplorasi 3 variasi pertanyaan ({changeCount}/3). Tombol lanjut ke Eksplorasi aktif!</span>
+              </div>
+              <button
+                type="button"
+                onClick={onNext}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white font-black text-xs shadow-md shadow-emerald-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+              >
+                <span>Lanjut ke Eksplorasi</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span className="font-semibold flex items-center gap-2">
+                <span>🔒</span>
+                <span>Tombol lanjut ke Eksplorasi Materi akan aktif setelah kamu mengganti pertanyaan sebanyak 3x.</span>
+              </span>
+              <span className="font-black text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-md border border-amber-300 self-start sm:self-auto">
+                Progres: {changeCount}/3x
+              </span>
+            </div>
+          )}
         </div>
       ) : (
         /* 4. AI Evaluation & Feedback Display (Clean, no TTS navigation) */
@@ -374,7 +531,7 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({
                 🎯 Jawaban Ideal / Kunci Jawaban:
               </span>
               <p className="text-xs sm:text-sm font-bold text-slate-900 leading-relaxed">
-                {evaluation.idealAnswer || referenceCorrectAnswer || 'Keterkaitan langsung antara produsen dan konsumen.'}
+                {evaluation.idealAnswer || dynamicIdealAnswer || 'Keterkaitan langsung antara komponen pembelajaran.'}
               </p>
             </div>
 
@@ -384,30 +541,62 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({
                 📖 Penjelasan Konsep Lengkap:
               </span>
               <p className="text-xs sm:text-sm font-medium text-slate-800 leading-relaxed">
-                {evaluation.explanation || referenceExplanation || 'Setiap makhluk hidup dan komponen materi memiliki peran berkesinambungan.'}
+                {evaluation.explanation || dynamicExplanation || 'Setiap konsep memiliki peran berkesinambungan dalam pemahaman materi.'}
               </p>
             </div>
           </div>
 
-          {/* Actions: Re-answer or Next */}
-          <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={handleResetForRevision}
-              className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>✍️ Coba Jawab Ulang / Perbaiki Jawaban</span>
-            </button>
+          {/* Actions: Re-answer, Change Question, or Advance to Exploration */}
+          <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={handleResetForRevision}
+                className="w-full sm:w-auto px-4 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>✍️ Jawab Ulang</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={onNext}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 text-white font-black text-xs sm:text-sm shadow-lg shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>Lanjut ke Eksplorasi Materi</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                onClick={handleRefreshQuestion}
+                disabled={isGeneratingQuestion}
+                className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer group shadow-xs"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 text-amber-700 group-hover:rotate-180 transition-transform ${isGeneratingQuestion ? 'animate-spin' : ''}`} />
+                <span>🔄 Ganti Pertanyaan Baru ({changeCount}/3)</span>
+              </button>
+            </div>
+
+            <div className="w-full sm:w-auto flex flex-col items-center sm:items-end gap-1">
+              <button
+                type="button"
+                onClick={changeCount >= 3 ? onNext : undefined}
+                disabled={changeCount < 3}
+                className={`w-full sm:w-auto px-7 py-3.5 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
+                  changeCount >= 3
+                    ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white shadow-lg shadow-emerald-500/25 hover:scale-[1.02] active:scale-[0.98] cursor-pointer'
+                    : 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-80'
+                }`}
+              >
+                {changeCount >= 3 ? (
+                  <>
+                    <span>Lanjut ke Eksplorasi Materi 🎉</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                ) : (
+                  <>
+                    <span>🔒 Lanjut ke Eksplorasi ({changeCount}/3)</span>
+                  </>
+                )}
+              </button>
+              {changeCount < 3 && (
+                <span className="text-[11px] font-bold text-amber-700 text-center sm:text-right">
+                  ⚠️ Ganti pertanyaan {3 - changeCount}x lagi agar tombol aktif!
+                </span>
+              )}
+            </div>
           </div>
         </div>
       )}

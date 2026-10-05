@@ -204,3 +204,130 @@ export async function evaluatePemantikAnswer(params: EvaluatePemantikParams): Pr
 
   return getSmartPemantikEvaluationFallback(params);
 }
+
+export interface GeneratedPemantik {
+  question: string;
+  clue: string;
+  idealAnswer: string;
+  explanation: string;
+  isAiGenerated: boolean;
+}
+
+export interface GeneratePemantikParams {
+  topicTitle: string;
+  subjectName?: string;
+  baseQuestion?: string;
+  learningObjectives?: string;
+}
+
+export function getClientDynamicPemantikFallback(params: GeneratePemantikParams): GeneratedPemantik {
+  const t = (params.topicTitle || '').toLowerCase();
+  const s = (params.subjectName || '').toLowerCase();
+
+  if (t.includes('ekosistem') || t.includes('rantai') || t.includes('alam') || s.includes('ipas') || s.includes('sains')) {
+    const pool = [
+      {
+        question: 'Jika di sebuah persawahan semua ular sawah ditangkap oleh pemburu liar, apa yang akan terjadi pada populasi tikus dan tanaman padi petani? Mengapa demikian?',
+        clue: 'Pikirkan hubungan pemangsa (ular) dengan mangsanya (tikus), serta makanan tikus di sawah.',
+        idealAnswer: 'Populasi tikus akan melonjak tajam karena tidak ada predator alaminya (ular). Akibatnya, tikus akan memakan habis tanaman padi dan petani mengalami gagal panen.',
+        explanation: 'Dalam rantai makanan, hilangnya predator alami menyebabkan ledakan populasi mangsa yang dapat merusak keseimbangan seluruh ekosistem sawah.',
+      },
+      {
+        question: 'Bayangkan jika seluruh cacing tanah dan jamur pengurai tiba-tiba menghilang dari muka bumi. Bagaimana nasib sampah dedaunan kering dan kesuburan tanah tanaman kita?',
+        clue: 'Ingat peran penting organisme pengurai (dekomposer) dalam mengolah zat sisa menjadi unsur hara.',
+        idealAnswer: 'Sampah dedaunan dan sisa makhluk hidup akan menumpuk tanpa bisa membusuk. Tanah kehilangan zat hara alami sehingga tanaman baru kesulitan tumbuh subur.',
+        explanation: 'Pengurai (dekomposer) bertugas mendaur ulang materi organik menjadi nutrisi tanah. Tanpa mereka, siklus nutrisi dalam ekosistem akan terputus.',
+      },
+      {
+        question: 'Di sebuah danau air tawar, ikan kecil memakan lumut, dan burung bangau memangsa ikan kecil. Jika air danau tercemar limbah pabrik hingga semua lumut mati, bagaimana nasib burung bangau? Jelaskan!',
+        clue: 'Perhatikan perpindahan energi dari produsen (lumut) ke konsumen tingkat berikutnya.',
+        idealAnswer: 'Jika lumut mati, ikan kecil kelaparan dan mati. Akibatnya, burung bangau kehilangan sumber makanannya sehingga harus berpindah tempat atau populasinya berkurang.',
+        explanation: 'Ketiadaan produsen di dasar rantai makanan memberikan efek domino ke seluruh tingkatan konsumen di atasnya hingga predator puncak.',
+      },
+      {
+        question: 'Jika di padang rumput tiba-tiba dimasukkan kawanan serigala asing dalam jumlah sangat banyak, bagaimana pengaruhnya terhadap populasi kelinci dan rumput? Mengapa?',
+        clue: 'Pikirkan dampak bertingkat: pemangsa bertambah -> hewan pemakan rumput berkurang -> kondisi rumput?',
+        idealAnswer: 'Serigala akan memangsa kelinci secara berlebihan sehingga kelinci berkurang drastis. Karena kelinci sedikit, rumput di padang rumput justru dapat tumbuh lebih lebat.',
+        explanation: 'Ini adalah contoh dinamika populasi: perubahan jumlah predator di tingkat atas memengaruhi populasi herbivora dan vegetasi di bawahnya.',
+      },
+    ];
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    return { ...picked, isAiGenerated: false };
+  }
+
+  if (t.includes('kpk') || t.includes('fpb') || t.includes('kelipatan') || t.includes('faktor') || s.includes('matematika')) {
+    const pool = [
+      {
+        question: 'Dua buah bus pariwisata berangkat dari terminal yang sama. Bus Merah berangkat tiap 15 menit, dan Bus Biru berangkat tiap 20 menit. Pada menit keberapa kedua bus tersebut akan berangkat bersamaan kembali? Bagaimana caramu mengetahuinya?',
+        clue: 'Gunakan konsep Kelipatan Persekutuan Terkecil (KPK) dari bilangan 15 dan 20.',
+        idealAnswer: 'Kedua bus akan berangkat bersamaan pada menit ke-60 (1 jam kemudian), karena 60 adalah Kelipatan Persekutuan Terkecil (KPK) dari 15 dan 20.',
+        explanation: 'KPK digunakan untuk mencari titik temu waktu berkala terkecil dari dua jadwal kegiatan yang berbeda kelipatannya.',
+      },
+      {
+        question: 'Ibu memiliki 24 kue bolu dan 36 permen buah. Ibu ingin membagikannya ke dalam beberapa kotak kado dengan jumlah isi kue dan permen sama banyak tanpa sisa. Berapa kotak kado paling banyak yang bisa disiapkan Ibu? Konsep matematika apa yang kamu gunakan?',
+        clue: 'Gunakan Faktor Persekutuan Terbesar (FPB) dari 24 dan 36 untuk membagi benda sama rata.',
+        idealAnswer: 'Kotak kado paling banyak adalah 12 kotak, karena 12 adalah FPB dari 24 dan 36. Setiap kotak berisi 2 kue bolu dan 3 permen buah.',
+        explanation: 'FPB sangat berguna dalam kehidupan nyata untuk membagi berbagai barang ke dalam kelompok-kelompok yang sama banyak dan adil tanpa ada sisa.',
+      },
+      {
+        question: 'Lampu hias taman berkedip secara otomatis. Lampu kuning berkedip tiap 4 detik, dan lampu hijau tiap 6 detik. Jika keduanya menyala bersama pada detik ke-0, pada detik keberapa sajakah mereka menyala serentak lagi? Jelaskan!',
+        clue: 'Tuliskan kelipatan 4 (4, 8, 12, 16...) dan kelipatan 6 (6, 12, 18...). Temukan angka persekutuan terkecilnya!',
+        idealAnswer: 'Mereka menyala serentak pertama kali pada detik ke-12 (KPK dari 4 dan 6), kemudian detik ke-24, ke-36, dan seterusnya setiap kelipatan 12 detik.',
+        explanation: 'Peristiwa berkala yang berulang dengan periode berbeda akan bertemu kembali pada waktu kelipatan persekutuan dari kedua periode tersebut.',
+      },
+    ];
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    return { ...picked, isAiGenerated: false };
+  }
+
+  const pool = [
+    {
+      question: params.baseQuestion || `Menurut pengamatanmu dalam kehidupan sehari-hari, mengapa kita perlu mempelajari materi "${params.topicTitle}"? Apa masalah di sekitarmu yang bisa diselesaikan dengan pemahaman ini?`,
+      clue: `Hubungkan konsep ${params.topicTitle} dengan pengalaman nyata yang sering kamu lihat di rumah atau sekolah.`,
+      idealAnswer: `Pemahaman tentang ${params.topicTitle} melatih penalaran kritis dan membantu kita memahami cara kerja lingkungan sekitar dengan bijak.`,
+      explanation: `Konsep ini dirancang untuk menjawab fenomena dunia nyata dan melatih kita berpikir kritis serta mandiri.`,
+    },
+    {
+      question: `Bayangkan jika kamu seorang detektif sains yang sedang mengamati "${params.topicTitle}". Jika ada satu bagian yang hilang atau berubah drastis, apa dampak pertama yang akan kamu cari tahu? Mengapa?`,
+      clue: 'Fokus pada hubungan sebab dan akibat antara bagian-bagian dalam topik ini.',
+      idealAnswer: 'Mencari tahu bagian mana yang paling terdampak secara langsung, lalu memprediksi dampaknya ke hal-hal lain di sekitarnya.',
+      explanation: 'Berpikir ilmiah berarti menelusuri rantai sebab-akibat dari setiap perubahan fenomena.',
+    }
+  ];
+  const picked = pool[Math.floor(Math.random() * pool.length)];
+  return { ...picked, isAiGenerated: false };
+}
+
+export async function generatePemantikQuestion(params: GeneratePemantikParams): Promise<GeneratedPemantik> {
+  const endpoints = [
+    { url: '/api/ai/generate-pemantik', body: { ...params, variationSeed: Math.random() } },
+    { url: '/.netlify/functions/gemini', body: { action: 'generate-pemantik', ...params, variationSeed: Math.random() } },
+  ];
+
+  for (const { url, body } of endpoints) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.question) {
+          return {
+            question: data.question,
+            clue: data.clue || 'Pikirkan hubungan sebab-akibat dari konsep materi ini.',
+            idealAnswer: data.idealAnswer || '',
+            explanation: data.explanation || '',
+            isAiGenerated: Boolean(data.isAiGenerated ?? true),
+          };
+        }
+      }
+    } catch {
+      // Continue to next endpoint or fallback
+    }
+  }
+
+  return getClientDynamicPemantikFallback(params);
+}

@@ -238,6 +238,167 @@ PEDOMAN PENILAIAN ANAK SD:
   }
 });
 
+// Dynamic fallback question generator if Gemini is offline or rate-limited
+function getDynamicPemantikFallback(topicTitle: string = '', subjectName: string = '', baseQuestion: string = '') {
+  const t = (topicTitle || '').toLowerCase();
+  const s = (subjectName || '').toLowerCase();
+
+  if (t.includes('ekosistem') || t.includes('rantai') || t.includes('alam') || s.includes('ipas') || s.includes('sains')) {
+    const pool = [
+      {
+        question: 'Jika di sebuah persawahan semua ular sawah ditangkap oleh pemburu liar, apa yang akan terjadi pada populasi tikus dan tanaman padi petani? Mengapa demikian?',
+        clue: 'Pikirkan hubungan pemangsa (ular) dengan mangsanya (tikus), serta makanan tikus di sawah.',
+        idealAnswer: 'Populasi tikus akan melonjak tajam karena tidak ada predator alaminya (ular). Akibatnya, tikus akan memakan habis tanaman padi dan petani mengalami gagal panen.',
+        explanation: 'Dalam rantai makanan, hilangnya predator alami menyebabkan ledakan populasi mangsa yang dapat merusak keseimbangan seluruh ekosistem sawah.',
+      },
+      {
+        question: 'Bayangkan jika seluruh cacing tanah dan jamur pengurai tiba-tiba menghilang dari muka bumi. Bagaimana nasib sampah dedaunan kering dan kesuburan tanah tanaman kita?',
+        clue: 'Ingat peran penting organisme pengurai (dekomposer) dalam mengolah zat sisa menjadi unsur hara.',
+        idealAnswer: 'Sampah dedaunan dan sisa makhluk hidup akan menumpuk tanpa bisa membusuk. Tanah kehilangan zat hara alami sehingga tanaman baru kesulitan tumbuh subur.',
+        explanation: 'Pengurai (dekomposer) bertugas mendaur ulang materi organik menjadi nutrisi tanah. Tanpa mereka, siklus nutrisi dalam ekosistem akan terputus.',
+      },
+      {
+        question: 'Di sebuah danau air tawar, ikan kecil memakan lumut, dan burung bangau memangsa ikan kecil. Jika air danau tercemar limbah pabrik hingga semua lumut mati, bagaimana nasib burung bangau? Jelaskan!',
+        clue: 'Perhatikan perpindahan energi dari produsen (lumut) ke konsumen tingkat berikutnya.',
+        idealAnswer: 'Jika lumut mati, ikan kecil kelaparan dan mati. Akibatnya, burung bangau kehilangan sumber makanannya sehingga harus berpindah tempat atau populasinya berkurang.',
+        explanation: 'Ketiadaan produsen di dasar rantai makanan memberikan efek domino ke seluruh tingkatan konsumen di atasnya hingga predator puncak.',
+      },
+      {
+        question: 'Jika di padang rumput tiba-tiba dimasukkan kawanan serigala asing dalam jumlah sangat banyak, bagaimana pengaruhnya terhadap populasi kelinci dan rumput? Mengapa?',
+        clue: 'Pikirkan dampak bertingkat: pemangsa bertambah -> hewan pemakan rumput berkurang -> kondisi rumput?',
+        idealAnswer: 'Serigala akan memangsa kelinci secara berlebihan sehingga kelinci berkurang drastis. Karena kelinci sedikit, rumput di padang rumput justru dapat tumbuh lebih lebat.',
+        explanation: 'Ini adalah contoh dinamika populasi: perubahan jumlah predator di tingkat atas memengaruhi populasi herbivora dan vegetasi di bawahnya.',
+      },
+    ];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  if (t.includes('kpk') || t.includes('fpb') || t.includes('kelipatan') || t.includes('faktor') || s.includes('matematika')) {
+    const pool = [
+      {
+        question: 'Dua buah bus pariwisata berangkat dari terminal yang sama. Bus Merah berangkat tiap 15 menit, dan Bus Biru berangkat tiap 20 menit. Pada menit keberapa kedua bus tersebut akan berangkat bersamaan kembali? Bagaimana caramu mengetahuinya?',
+        clue: 'Gunakan konsep Kelipatan Persekutuan Terkecil (KPK) dari bilangan 15 dan 20.',
+        idealAnswer: 'Kedua bus akan berangkat bersamaan pada menit ke-60 (1 jam kemudian), karena 60 adalah Kelipatan Persekutuan Terkecil (KPK) dari 15 dan 20.',
+        explanation: 'KPK digunakan untuk mencari titik temu waktu berkala terkecil dari dua jadwal kegiatan yang berbeda kelipatannya.',
+      },
+      {
+        question: 'Ibu memiliki 24 kue bolu dan 36 permen buah. Ibu ingin membagikannya ke dalam beberapa kotak kado dengan jumlah isi kue dan permen sama banyak tanpa sisa. Berapa kotak kado paling banyak yang bisa disiapkan Ibu? Konsep matematika apa yang kamu gunakan?',
+        clue: 'Gunakan Faktor Persekutuan Terbesar (FPB) dari 24 dan 36 untuk membagi benda sama rata.',
+        idealAnswer: 'Kotak kado paling banyak adalah 12 kotak, karena 12 adalah FPB dari 24 dan 36. Setiap kotak berisi 2 kue bolu dan 3 permen buah.',
+        explanation: 'FPB sangat berguna dalam kehidupan nyata untuk membagi berbagai barang ke dalam kelompok-kelompok yang sama banyak dan adil tanpa ada sisa.',
+      },
+      {
+        question: 'Lampu hias taman berkedip secara otomatis. Lampu kuning berkedip tiap 4 detik, dan lampu hijau tiap 6 detik. Jika keduanya menyala bersama pada detik ke-0, pada detik keberapa sajakah mereka menyala serentak lagi? Jelaskan!',
+        clue: 'Tuliskan kelipatan 4 (4, 8, 12, 16...) dan kelipatan 6 (6, 12, 18...). Temukan angka persekutuan terkecilnya!',
+        idealAnswer: 'Mereka menyala serentak pertama kali pada detik ke-12 (KPK dari 4 dan 6), kemudian detik ke-24, ke-36, dan seterusnya setiap kelipatan 12 detik.',
+        explanation: 'Peristiwa berkala yang berulang dengan periode berbeda akan bertemu kembali pada waktu kelipatan persekutuan dari kedua periode tersebut.',
+      },
+    ];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  if (t.includes('iklan') || t.includes('media') || s.includes('bahasa indonesia')) {
+    const pool = [
+      {
+        question: 'Ketika kamu melihat poster di kantin sekolah dengan slogan: "Perut Kenyang, Otak Cemerlang: Ayo Makan Buah Segar!". Menurutmu, kata apa yang paling memikat dan mengapa gambar buah yang segar wajib dipasang?',
+        clue: 'Pikirkan unsur kata ajakan (persuasif) dan daya tarik visual dalam sebuah iklan media cetak.',
+        idealAnswer: 'Kata "Ayo" dan rima "Kenyang - Cemerlang" bersifat mengajak. Gambar buah segar menggugah selera dan meyakinkan pembaca bahwa buah itu lezat dan menyehatkan.',
+        explanation: 'Iklan efektif menggabungkan teks persuasif yang membujuk dengan gambar visual yang menarik perhatian sasaran pembacanya.',
+      },
+      {
+        question: 'Jika kamu diminta membuat slogan iklan layanan masyarakat untuk mengajak seluruh siswa menjaga kebersihan toilet sekolah, kalimat ajakan singkat apa yang paling menyentuh dan mudah diingat?',
+        clue: 'Gunakan kalimat pendek bernada positif, mudah dihafal, dan memiliki pesan ajakan yang jelas.',
+        idealAnswer: 'Contoh: "Bersih Toiletku, Sehat Sekolahku! Yuk, siram bersih setelah digunakan!" Kalimat ini bernada positif, berima, dan langsung mengajak bertindak.',
+        explanation: 'Iklan layanan masyarakat bertujuan mengubah perilaku masyarakat ke arah yang lebih baik melalui pesan ajakan yang santun dan mengena.',
+      },
+    ];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // Generic dynamic fallback
+  const pool = [
+    {
+      question: baseQuestion || `Menurut pengamatanmu dalam kehidupan sehari-hari, mengapa kita perlu mempelajari konsep "${topicTitle}"? Apa masalah di sekitarmu yang bisa diselesaikan dengan ilmu ini?`,
+      clue: `Pikirkan hubungan antara materi ${topicTitle} dengan pengalaman nyata yang sering kamu lihat di rumah atau sekolah.`,
+      idealAnswer: `Pemahaman tentang ${topicTitle} membantu kita berpikir runtut, memahami fenomena alam atau sosial, dan mengambil keputusan yang bijak dalam kehidupan nyata.`,
+      explanation: `Setiap konsep pembelajaran dirancang untuk menjawab pertanyaan nyata di dunia sekitar kita dan melatih kemampuan berpikir kritis siswa.`,
+    },
+    {
+      question: `Bayangkan kamu adalah seorang peneliti cilik yang sedang menyelidiki "${topicTitle}". Jika kamu menemukan suatu keanehan atau fenomena tak terduga, langkah pertama apa yang akan kamu lakukan untuk mencari tahu jawabannya?`,
+      clue: 'Gunakan rasa ingin tahu, lakukan pengamatan seksama, dan hubungkan dengan petunjuk materi yang kamu pelajari.',
+      idealAnswer: 'Melakukan pengamatan teliti, mencatat bukti-bukti, mengajukan pertanyaan kritis, dan menguji dugaan awal secara logis.',
+      explanation: 'Sikap ilmiah seorang peneliti dimulai dari rasa ingin tahu, observasi cermat, dan keberanian mengajukan pertanyaan pemantik.',
+    }
+  ];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// AI Generate Dynamic Pemantik Question Endpoint
+app.post('/api/ai/generate-pemantik', async (req, res) => {
+  try {
+    const {
+      topicTitle = 'Misi Belajar',
+      subjectName = 'IPAS',
+      baseQuestion = '',
+      learningObjectives = '',
+      variationSeed = Math.random(),
+    } = req.body;
+
+    const systemPrompt = `
+Kamu adalah "PRIMA AI", perancang pertanyaan pemantik pedagogik Kurikulum Merdeka untuk siswa SD (Sekolah Dasar Kelas 4–6).
+Tugasmu adalah merumuskan SATU (1) pertanyaan pemantik (inquiry trigger question) yang SEGAR, MENARIK, dan BERUBAH-UBAH setiap saat untuk siswa yang baru saja memasuki misi belajar ini.
+
+Informasi Materi:
+- Mata Pelajaran: ${subjectName}
+- Topik Pembelajaran: ${topicTitle}
+- Tujuan / Konteks Pembelajaran: ${learningObjectives || 'Memantik rasa ingin tahu dan penalaran sebab-akibat siswa SD'}
+- Pertanyaan Acuan / Sebelumnya: "${baseQuestion}"
+- Nomor Acak Variasi: ${variationSeed}
+
+KRITERIA PERTANYAAN PEMANTIK ANAK SD:
+1. Hubungkan dengan studi kasus sehari-hari, fenomena alam, atau situasi konkret di sekitar anak SD.
+2. Gunakan gaya bahasa bersahabat, ceria, dan merangsang rasa penasaran ("Bayangkan jika...", "Menurutmu apa yang terjadi jika...", "Mengapa...", "Bagaimana cara...").
+3. BUKAN pertanyaan teoretis/hafalan definisi, melainkan pertanyaan penalaran logis (HOTS ramah anak).
+4. Buat pertanyaan BARU dan BERVARIASI agar berbeda dari pertanyaan dasar sebelumnya.
+5. Format keluaran WAJIB JSON murni tanpa pembungkus markdown (\`\`\`json) dengan struktur:
+{
+  "question": "Kalimat pertanyaan pemantik yang seru dan menantang rasa ingin tahu",
+  "clue": "Petunjuk berpikir ramah anak (1-2 kalimat) yang membimbing penalaran",
+  "idealAnswer": "Kunci poin esensial atau konsep ideal yang diharapkan dipikirkan anak",
+  "explanation": "Penjelasan konsep materi secara menyenangkan dan mudah dimengerti anak SD"
+}
+`;
+
+    let generated: any = null;
+    if (apiKey) {
+      try {
+        const rawResponse = await callGeminiAPI(systemPrompt, apiKey);
+        const cleaned = rawResponse.replace(/```json/gi, '').replace(/```/g, '').trim();
+        generated = JSON.parse(cleaned);
+      } catch (geminiErr) {
+        console.warn('Gemini call or parse failed for pemantik generation, using dynamic fallback:', geminiErr);
+      }
+    }
+
+    if (!generated || !generated.question) {
+      generated = getDynamicPemantikFallback(topicTitle, subjectName, baseQuestion);
+    }
+
+    res.json({
+      success: true,
+      isAiGenerated: Boolean(apiKey && generated),
+      ...generated,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/ai/generate-pemantik:', error);
+    res.json({
+      success: true,
+      isAiGenerated: false,
+      ...getDynamicPemantikFallback(req.body?.topicTitle, req.body?.subjectName, req.body?.baseQuestion),
+    });
+  }
+});
+
 // Teacher AI Consultant Endpoint
 app.post('/api/ai/teacher-consultant', async (req, res) => {
   try {
