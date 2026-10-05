@@ -192,7 +192,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onBackToLa
           </form>
 
           <p className="text-[11px] text-slate-500 font-medium pt-2">
-            Belum memiliki akun? <span className="text-slate-700 font-bold">Hubungi administrator.</span>
+            Belum memiliki akun?{' '}
+            <a
+              href="https://wa.me/6285604431706?text=Halo%20Admin%20PRIMA%2C%20saya%20butuh%20bantuan%20terkait%20akun%20pembelajaran."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-600 hover:text-indigo-800 font-bold underline underline-offset-2 transition-colors cursor-pointer inline-flex items-center gap-1"
+            >
+              Hubungi Admin
+            </a>
           </p>
 
         </div>
@@ -228,12 +236,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onBackToLa
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
               Untuk menjaga keamanan akun, reset password akun dilakukan langsung oleh Administrator atau Guru Pengampu sekolah Anda.
             </p>
-            <button
-              onClick={() => setShowForgotPasswordModal(false)}
-              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs cursor-pointer shadow-md shadow-indigo-500/20"
-            >
-              Mengerti & Tutup
-            </button>
+            <div className="pt-2 flex flex-col gap-2">
+              <a
+                href="https://wa.me/6285604431706?text=Halo%20Admin%20PRIMA%2C%20saya%20lupa%20password%20akun%20pembelajaran%20saya."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 cursor-pointer"
+              >
+                <span>💬 Hubungi Admin via WhatsApp</span>
+              </a>
+              <button
+                onClick={() => setShowForgotPasswordModal(false)}
+                className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}
