@@ -179,32 +179,37 @@ export const INITIAL_SUBJECTS: Subject[] = [
             isCompleted: false,
             isUnlocked: false,
             content: {
-              videoUrl: '',
-              title: 'Harmoni Rantai Makanan & Jaring Ekosistem',
-              durationInSeconds: 120,
+              videoUrl: 'https://www.youtube.com/watch?v=LqgYLUaigYU',
+              title: 'Rantai Makanan dan Jaring-Jaring Makanan Ekosistem',
+              durationInSeconds: 180,
               checkpoints: [
                 {
                   id: 'cp1',
-                  timeInSeconds: 15,
-                  question: 'Apa peran cahaya matahari bagi produsen dalam rantai makanan?',
+                  timeInSeconds: 25,
+                  question: 'Komponen apakah yang berperan sebagai Produsen utama pada rantai makanan di sawah?',
                   type: 'mc',
                   options: [
-                    'Memberikan penerangan malam hari',
-                    'Membantu fotosintesis untuk menghasilkan energi bagi tumbuhan',
-                    'Menghangatkan tubuh herbivora',
-                    'Mengeringkan air di sungai'
+                    'Tanaman Padi 🌾',
+                    'Belalang Sawah 🦗',
+                    'Katak Sawah 🐸',
+                    'Ular Sawah 🐍'
                   ],
-                  correctAnswer: 1,
-                  explanation: 'Tepat sekali! Energi matahari diserap oleh klorofil tumbuhan untuk memasak makanan melalui fotosintesis.'
+                  correctAnswer: 0,
+                  explanation: 'Tepat sekali! Tanaman padi berperan sebagai Produsen karena mampu memproduksi makanan sendiri melalui proses fotosintesis.'
                 },
                 {
                   id: 'cp2',
-                  timeInSeconds: 45,
-                  question: 'Benar atau Salah: Jika populasi ular punah, populasi tikus di sawah akan melonjak tinggi?',
-                  type: 'true_false',
-                  options: ['Benar', 'Salah'],
+                  timeInSeconds: 65,
+                  question: 'Dalam susunan rantai makanan: Padi -> Belalang -> Katak -> Ular, siapakah yang berperan sebagai Konsumen Tingkat II (Konsumen Sekunder)?',
+                  type: 'mc',
+                  options: [
+                    'Katak 🐸',
+                    'Belalang 🦗',
+                    'Tanaman Padi 🌾',
+                    'Jamur / Dekomposer 🍄'
+                  ],
                   correctAnswer: 0,
-                  explanation: 'Benar! Ular adalah predator tikus. Tanpa pemangsa alami, populasi tikus akan tidak terkontrol dan merusak tanaman padi.'
+                  explanation: 'Tepat sekali! Belalang adalah konsumen tingkat 1 (pemakan produsen), sedangkan katak adalah konsumen tingkat 2 yang memangsa belalang.'
                 }
               ]
             }
@@ -697,49 +702,58 @@ export async function syncSubjectsWithGAS(): Promise<Subject[]> {
 export const INITIAL_VIDEOS: InteractiveVideo[] = [
   {
     id: 'vid-ipas-1',
-    title: 'Petualangan Ekosistem Rantai Makanan Sawah',
+    title: 'Rantai Makanan & Jaring-Jaring Makanan Ekosistem Sawah',
     subjectId: 'ipas',
-    videoUrl: 'https://www.youtube.com/watch?v=kYJ_f_Y_vS4',
+    videoUrl: 'https://www.youtube.com/watch?v=LqgYLUaigYU',
     grade: 5,
     checkpointsCount: 2,
     checkpoints: [
       {
         id: 'cp-1',
-        timeInSeconds: 15,
-        question: 'Komponen apakah yang bertindak sebagai Produsen utama dalam ekosistem sawah?',
+        timeInSeconds: 25,
+        question: 'Komponen apakah yang bertindak sebagai Produsen utama dalam rantai makanan ekosistem sawah?',
         type: 'mc',
-        options: ['Tanaman Padi 🌾', 'Belalang Sawah 🦗', 'Katak 🐸', 'Ular 🐍'],
+        options: ['Tanaman Padi 🌾', 'Belalang Sawah 🦗', 'Katak Sawah 🐸', 'Ular Sawah 🐍'],
         correctAnswer: 0,
-        explanation: 'Tanaman padi adalah produsen karena mampu membuat makanan sendiri melalui fotosintesis dengan bantuan sinar matahari.',
+        explanation: 'Tanaman padi adalah produsen karena mampu memproduksi makanan sendiri melalui fotosintesis dengan bantuan sinar matahari.',
       },
       {
         id: 'cp-2',
-        timeInSeconds: 45,
-        question: 'Apa yang terjadi jika populasi katak menurun secara drastis di sawah?',
+        timeInSeconds: 65,
+        question: 'Dalam susunan rantai makanan: Padi -> Belalang -> Katak -> Ular, siapakah yang berperan sebagai Konsumen Tingkat II (Konsumen Sekunder)?',
         type: 'mc',
         options: [
-          'Populasi belalang melesat tak terkendali dan merusak padi 🌾',
-          'Padi tumbuh semakin lebat tanpa gangguan',
-          'Ular menjadi bertambah banyak',
-          'Sawah tergenang air lebih banyak',
+          'Katak Sawah 🐸',
+          'Belalang Sawah 🦗',
+          'Tanaman Padi 🌾',
+          'Jamur / Dekomposer 🍄',
         ],
         correctAnswer: 0,
-        explanation: 'Katak adalah pemangsa alami belalang. Jika katak berkurang, belalang (hama) akan meledak dan menghabiskan tanaman padi.',
+        explanation: 'Katak adalah konsumen tingkat II karena ia memangsa konsumen tingkat I (belalang pemakan padi).',
       },
     ],
     createdAt: new Date().toISOString(),
   },
   {
     id: 'vid-mat-1',
-    title: 'Eksplorasi KPK dan FPB dengan Metode Visual',
+    title: 'Bab 1 KPK dan FPB Kurikulum Merdeka Kelas 5',
     subjectId: 'matematika',
-    videoUrl: 'https://www.youtube.com/watch?v=344M7R9L730',
+    videoUrl: 'https://www.youtube.com/watch?v=4jI9QzXzU5I',
     grade: 5,
-    checkpointsCount: 1,
+    checkpointsCount: 2,
     checkpoints: [
       {
         id: 'cp-mat-1',
         timeInSeconds: 20,
+        question: 'Apa kepanjangan dari KPK dalam konsep matematika?',
+        type: 'mc',
+        options: ['Kelipatan Persekutuan Terkecil', 'Kelompok Pecahan Kecil', 'Komposisi Pola Kunci', 'Kombinasi Pengurangan Kelompok'],
+        correctAnswer: 0,
+        explanation: 'KPK merupakan singkatan dari Kelipatan Persekutuan Terkecil dari dua bilangan atau lebih.',
+      },
+      {
+        id: 'cp-mat-2',
+        timeInSeconds: 60,
         question: 'Berapakah Nilai Kelipatan Persekutuan Terkecil (KPK) dari angka 4 dan 6?',
         type: 'mc',
         options: ['12', '24', '8', '2'],
@@ -749,6 +763,35 @@ export const INITIAL_VIDEOS: InteractiveVideo[] = [
     ],
     createdAt: new Date().toISOString(),
   },
+  {
+    id: 'vid-ipas-2',
+    title: 'Food Chains for Kids: Jaring Makanan & Aliran Energi',
+    subjectId: 'ipas',
+    videoUrl: 'https://www.youtube.com/watch?v=hLq2datPo5M',
+    grade: 5,
+    checkpointsCount: 2,
+    checkpoints: [
+      {
+        id: 'cp-fc-1',
+        timeInSeconds: 30,
+        question: 'Dari manakah tumbuhan hijau (produsen) memperoleh energi utama untuk membuat makanannya sendiri?',
+        type: 'mc',
+        options: ['Sinar Matahari ☀️', 'Angin 💨', 'Bebatuan 🪨', 'Bangkai hewan 🦴'],
+        correctAnswer: 0,
+        explanation: 'Produsen menyerap energi cahaya matahari melalui klorofil daun untuk fotosintesis.',
+      },
+      {
+        id: 'cp-fc-2',
+        timeInSeconds: 90,
+        question: 'Apa peran penting organisme Pengurai (Dekomposer) seperti jamur dan bakteri?',
+        type: 'mc',
+        options: ['Mendaur ulang zat hara ke tanah untuk tumbuhan', 'Memakan tumbuhan secara langsung', 'Menghalangi sinar matahari', 'Menghentikan siklus hidup'],
+        correctAnswer: 0,
+        explanation: 'Pengurai memecah sisa organisme mati menjadi nutrisi penyubur tanah yang diserap kembali oleh tumbuhan.',
+      }
+    ],
+    createdAt: new Date().toISOString(),
+  }
 ];
 
 export function getStoredVideos(): InteractiveVideo[] {
@@ -756,7 +799,29 @@ export function getStoredVideos(): InteractiveVideo[] {
     const data = localStorage.getItem('prima_interactive_videos');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Auto-fix broken old sample URLs in localStorage
+        const needsUpdate = parsed.some(
+          (v: any) =>
+            v.videoUrl?.includes('kYJ_f_Y_vS4') ||
+            v.videoUrl?.includes('344M7R9L730') ||
+            !v.videoUrl
+        );
+        if (needsUpdate) {
+          const updated = parsed.map((v: any) => {
+            if (v.id === 'vid-ipas-1' || v.videoUrl?.includes('kYJ_f_Y_vS4')) {
+              return { ...v, videoUrl: 'https://www.youtube.com/watch?v=LqgYLUaigYU', title: 'Rantai Makanan & Jaring-Jaring Makanan Ekosistem Sawah', checkpoints: INITIAL_VIDEOS[0].checkpoints };
+            }
+            if (v.id === 'vid-mat-1' || v.videoUrl?.includes('344M7R9L730')) {
+              return { ...v, videoUrl: 'https://www.youtube.com/watch?v=4jI9QzXzU5I', title: 'Bab 1 KPK dan FPB Kurikulum Merdeka Kelas 5', checkpoints: INITIAL_VIDEOS[1].checkpoints };
+            }
+            return v;
+          });
+          localStorage.setItem('prima_interactive_videos', JSON.stringify(updated));
+          return updated;
+        }
+        return parsed;
+      }
     }
   } catch (e) {
     console.error('Error reading videos from localStorage', e);
@@ -1281,7 +1346,7 @@ export function createTopicFromMaterial(mat: Material, subjectGrade: number = 5)
         isCompleted: false,
         isUnlocked: false,
         content: {
-          videoUrl: mat.mediaUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          videoUrl: mat.mediaUrl || 'https://www.youtube.com/watch?v=LqgYLUaigYU',
           title: `Video Pembelajaran: ${mat.topicTitle}`,
         },
       },
