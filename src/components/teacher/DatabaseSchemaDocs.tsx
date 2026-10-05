@@ -539,8 +539,55 @@ function doPost(e) {
       sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
       sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#e2e8f0");
     }
+
+    // Helper find ID column case-insensitive
+    var idIndex = -1;
+    for (var h = 0; h < headers.length; h++) {
+      if (String(headers[h]).trim().toLowerCase() === 'id') {
+        idIndex = h;
+        break;
+      }
+    }
     
+    // ACTION: CLEANUP DUPLICATES
+    if (action === 'cleanupDuplicates') {
+      var allData = sheet.getDataRange().getValues();
+      if (allData.length <= 1) return ContentService.createTextOutput("Success");
+      var headRow = allData[0];
+      var seenIds = {};
+      var dedupedRows = [headRow];
+      var checkCol = idIndex !== -1 ? idIndex : 0;
+      
+      for (var r = 1; r < allData.length; r++) {
+        var row = allData[r];
+        var keyVal = String(row[checkCol] || row[1] || '').trim().toLowerCase();
+        if (keyVal && !seenIds[keyVal]) {
+          seenIds[keyVal] = true;
+          dedupedRows.push(row);
+        }
+      }
+      sheet.clearContents();
+      sheet.getRange(1, 1, dedupedRows.length, headRow.length).setValues(dedupedRows);
+      sheet.getRange(1, 1, 1, headRow.length).setFontWeight("bold").setBackground("#4f46e5").setFontColor("#ffffff");
+      return ContentService.createTextOutput("Success: Duplicates Cleaned");
+    }
+    
+    // ACTION: CREATE (dengan proteksi anti-dobel: jika id sudah ada, otomatis update)
     if (action === 'create') {
+      var data = sheet.getDataRange().getValues();
+      if (idIndex !== -1 && payload.id) {
+        for (var r = 1; r < data.length; r++) {
+          if (String(data[r][idIndex]).trim().toLowerCase() === String(payload.id).trim().toLowerCase()) {
+            for (var c = 0; c < headers.length; c++) {
+              if (payload[headers[c]] !== undefined) {
+                sheet.getRange(r + 1, c + 1).setValue(payload[headers[c]]);
+              }
+            }
+            return ContentService.createTextOutput("Success (Updated Existing)");
+          }
+        }
+      }
+
       var rowData = [];
       for (var i = 0; i < headers.length; i++) {
         var val = payload[headers[i]];
@@ -550,12 +597,12 @@ function doPost(e) {
       return ContentService.createTextOutput("Success");
     }
     
+    // ACTION: UPDATE (pencarian ID case-insensitive)
     if (action === 'update') {
       var data = sheet.getDataRange().getValues();
-      var idIndex = headers.indexOf('id');
       if (idIndex !== -1 && payload.id) {
         for (var r = 1; r < data.length; r++) {
-          if (String(data[r][idIndex]) === String(payload.id)) {
+          if (String(data[r][idIndex]).trim().toLowerCase() === String(payload.id).trim().toLowerCase()) {
             for (var c = 0; c < headers.length; c++) {
               if (payload[headers[c]] !== undefined) {
                 sheet.getRange(r + 1, c + 1).setValue(payload[headers[c]]);
@@ -578,7 +625,164 @@ function doPost(e) {
 }
 
 /**
+ * FUNGSI BERSIHKAN DATA DOBEL / GANDA PADA SHEET 'Subjects'
+ * Berjalan 100% aman baik dari Editor Apps Script maupun Menu Spreadsheet
+ */
+function bersihkanDataDobelSubjects() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = null;
+  var sheets = ss.getSheets();
+  for (var s = 0; s < sheets.length; s++) {
+    if (sheets[s].getName().trim().toLowerCase() === "subjects") {
+      sheet = sheets[s];
+      break;
+    }
+  }
+  if (!sheet) {
+    Logger.log("❌ Tab sheet 'Subjects' tidak ditemukan.");
+    return;
+  }
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow <= 1) {
+    Logger.log("ℹ️ Sheet 'Subjects' masih kosong.");
+    return;
+  }
+  var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var headers = data[0];
+  var idCol = 0;
+  for (var h = 0; h < headers.length; h++) {
+    if (String(headers[h]).trim().toLowerCase() === 'id') {
+      idCol = h;
+      break;
+    }
+  }
+  var seen = {};
+  var cleanRows = [headers];
+  var removed = 0;
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var rawId = String(row[idCol] || '').trim().toLowerCase().replace(/_/g, '-');
+    var rawName = String(row[1] || '').trim().toLowerCase();
+    var key = rawId || rawName;
+    if (!key) continue;
+    if (!seen[key]) {
+      seen[key] = row;
+      cleanRows.push(row);
+    } else {
+      removed++;
+      var statusCol = -1;
+      for (var sc = 0; sc < headers.length; sc++) {
+        if (String(headers[sc]).trim().toLowerCase() === "status") {
+          statusCol = sc;
+          break;
+        }
+      }
+      if (statusCol !== -1 && String(row[statusCol]).toUpperCase() === "PUBLISHED") {
+        for (var k = 1; k < cleanRows.length; k++) {
+          var kKey = String(cleanRows[k][idCol] || '').trim().toLowerCase().replace(/_/g, '-');
+          if (kKey === key) {
+            cleanRows[k] = row;
+            break;
+          }
+        }
+      }
+    }
+  }
+  sheet.clear();
+  sheet.getRange(1, 1, cleanRows.length, headers.length).setValues(cleanRows);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#4f46e5").setFontColor("#ffffff");
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, headers.length);
+  var msg = "🎉 Berhasil! " + removed + " data mata pelajaran dobel berhasil dibersihkan. Tersisa " + (cleanRows.length - 1) + " mata pelajaran unik yang rapi.";
+  Logger.log(msg);
+  try {
+    SpreadsheetApp.getUi().alert(msg);
+  } catch(e) {
+    // Berjalan aman jika dieksekusi dari editor Apps Script tanpa UI
+  }
+}
+
+/**
+ * FUNGSI KHUSUS: SETUP JUDUL KOLOM SHEET CODING CHALLENGES
+ * Jalankan fungsi ini untuk langsung memasang 12 kolom resmi Coding Challenges!
+ */
+function setupCodingChallengesSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var cols = ["id", "title", "subjectId", "allowedBlocksCount", "characterIcon", "gridSize", "startPos", "targetPos", "targetGoal", "availableBlocks", "expectedSequence", "lastUpdated"];
+  
+  // Deteksi sheet coding dengan berbagai kemungkinan nama (CodingChallenges, Coding Challenges, coding chaleng, dll)
+  var sheet = null;
+  var sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    var n = sheets[i].getName().trim().toLowerCase().replace(/[\s_-]+/g, "");
+    if (n.indexOf("coding") !== -1 || n.indexOf("chaleng") !== -1 || n.indexOf("challenge") !== -1) {
+      sheet = sheets[i];
+      // Pastikan nama tab resmi: CodingChallenges
+      try { sheet.setName("CodingChallenges"); } catch(e) {}
+      break;
+    }
+  }
+
+  if (!sheet) {
+    sheet = ss.insertSheet("CodingChallenges");
+  }
+
+  // Tuliskan Baris Judul Kolom (Row 1)
+  sheet.getRange(1, 1, 1, cols.length).setValues([cols]);
+  sheet.getRange(1, 1, 1, cols.length)
+    .setFontWeight("bold")
+    .setBackground("#4f46e5")
+    .setFontColor("#ffffff")
+    .setHorizontalAlignment("center");
+  sheet.setFrozenRows(1);
+
+  // Jika belum ada data baris 2, tambahkan 1 contoh tantangan awal
+  if (sheet.getLastRow() <= 1) {
+    sheet.appendRow([
+      "cod-01",
+      "Misi Robot: Menyiram Padi Sawah",
+      "ipas",
+      6,
+      "🤖",
+      4,
+      '{"x":0,"y":0}',
+      '{"x":3,"y":3}',
+      "Bantu robot melangkah menuju petak sawah untuk menyiram tanaman padi",
+      '[{"id":"b-maju","text":"Maju 1 Langkah","color":"blue"},{"id":"b-kanan","text":"Belok Kanan","color":"amber"},{"id":"b-kiri","text":"Belok Kiri","color":"purple"}]',
+      '["b-maju","b-maju","b-kanan","b-maju"]',
+      new Date().toISOString()
+    ]);
+  }
+
+  try {
+    sheet.autoResizeColumns(1, cols.length);
+  } catch(e) {}
+
+  var msg = "🎉 Berhasil! Seluruh 12 kolom resmi untuk Sheet CodingChallenges telah terpasang dengan rapi.";
+  Logger.log(msg);
+  try {
+    SpreadsheetApp.getUi().alert(msg);
+  } catch(e) {}
+}
+
+/**
+ * Menu otomatis di Spreadsheet untuk pembersihan & setup 1-klik
+ */
+function onOpen() {
+  try {
+    SpreadsheetApp.getUi()
+      .createMenu("🚀 PRIMA Tools")
+      .addItem("🛠️ Setup Semua Sheet & Kolom Otomatis", "autoSetupAllSheets")
+      .addItem("🎮 Setup Sheet Coding Challenges", "setupCodingChallengesSheet")
+      .addItem("🧹 Bersihkan Duplikat Subjects", "bersihkanDataDobelSubjects")
+      .addToUi();
+  } catch(e) {}
+}
+
+/**
  * OTOMATIS MEMBUAT SELURUH TAB SHEET & JUDUL KOLOM DI SPREADSHEET
+ * Tinggal pilih fungsi ini dan klik ▶ Run di Apps Script!
  */
 function autoSetupAllSheets() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -591,18 +795,80 @@ function autoSetupAllSheets() {
     2
   )};
   
+  var createdCount = 0;
+  var updatedCount = 0;
+
   schemas.forEach(function(s) {
-    var sheet = ss.getSheetByName(s.name);
+    // Cari sheet fleksibel (bahkan jika ada spasi, underscore, atau huruf kecil/besar)
+    var sheet = null;
+    var sheets = ss.getSheets();
+    var cleanTarget = s.name.toLowerCase().replace(/[\s_-]+/g, "");
+
+    for (var k = 0; k < sheets.length; k++) {
+      var rawName = sheets[k].getName().trim().toLowerCase();
+      var cleanRaw = rawName.replace(/[\s_-]+/g, "");
+      if (rawName === s.name.toLowerCase() || cleanRaw === cleanTarget || (cleanTarget.indexOf("coding") !== -1 && cleanRaw.indexOf("coding") !== -1)) {
+        sheet = sheets[k];
+        // Standardisasi nama tab ke nama resmi
+        if (sheets[k].getName() !== s.name) {
+          try { sheets[k].setName(s.name); } catch(e) {}
+        }
+        break;
+      }
+    }
+
     if (!sheet) {
       sheet = ss.insertSheet(s.name);
+      createdCount++;
     }
+
+    // Cek baris 1 (Header)
+    var needHeader = false;
     if (sheet.getLastRow() === 0) {
-      sheet.getRange(1, 1, 1, s.cols.length).setValues([s.cols]);
-      sheet.getRange(1, 1, 1, s.cols.length).setFontWeight("bold").setBackground("#4f46e5").setFontColor("#ffffff");
+      needHeader = true;
+    } else {
+      var currentHeaders = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
+      if (!currentHeaders[0] || String(currentHeaders[0]).trim() === '' || currentHeaders.length < s.cols.length) {
+        needHeader = true;
+      }
     }
+
+    if (needHeader) {
+      sheet.getRange(1, 1, 1, s.cols.length).setValues([s.cols]);
+      updatedCount++;
+    }
+
+    // Percantik Header
+    sheet.getRange(1, 1, 1, s.cols.length)
+      .setFontWeight("bold")
+      .setBackground("#4f46e5")
+      .setFontColor("#ffffff")
+      .setHorizontalAlignment("center");
+      
+    sheet.setFrozenRows(1);
+    try {
+      sheet.autoResizeColumns(1, s.cols.length);
+    } catch(e) {}
   });
+
+  // Khusus CodingChallenges, pastikan kolomnya terisi
+  try {
+    setupCodingChallengesSheet();
+  } catch(e) {}
+
+  // Jika sheet Subjects ada baris dobel, otomatis rapikan juga
+  try {
+    bersihkanDataDobelSubjects();
+  } catch(e) {}
+
+  var resultMessage = "🎉 Berhasil! Seluruh 15 Tab Sheet & Judul Kolom PRIMA telah dibuat/dirapikan dengan sempurna.";
+  Logger.log(resultMessage);
   
-  SpreadsheetApp.getUi().alert("🎉 Berhasil! Seluruh Tab Sheet & Judul Kolom Database PRIMA telah dibuat otomatis.");
+  try {
+    SpreadsheetApp.getUi().alert(resultMessage);
+  } catch(e) {
+    // Aman jika dijalankan dari editor Apps Script
+  }
 }`}
           </pre>
         </div>

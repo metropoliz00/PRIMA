@@ -23,10 +23,10 @@ export const fetchAppData = async <T = any>(sheetName: string): Promise<T[]> => 
 };
 
 /**
- * Push data to Google Spreadsheet via GAS (Create or Update)
+ * Push data to Google Spreadsheet via GAS (Create or Update or Cleanup)
  * Note: Uses text/plain to avoid CORS preflight OPTIONS rejection in Google Apps Script Web App
  */
-export const pushAppData = async (sheetName: string, action: 'create' | 'update', data: any): Promise<boolean> => {
+export const pushAppData = async (sheetName: string, action: 'create' | 'update' | 'cleanupDuplicates', data: any): Promise<boolean> => {
   try {
     const url = `${GAS_WEB_APP_URL}?action=${action}&sheet=${encodeURIComponent(sheetName)}`;
     const response = await fetch(url, {
@@ -47,6 +47,10 @@ export const pushAppData = async (sheetName: string, action: 'create' | 'update'
     console.warn(`[AppsScript] Failed to push data (${action}) to "${sheetName}":`, error);
     return false;
   }
+};
+
+export const cleanupRemoteDuplicates = async (sheetName: string): Promise<boolean> => {
+  return pushAppData(sheetName, 'cleanupDuplicates', {});
 };
 
 // --- Entity-specific Helpers ---

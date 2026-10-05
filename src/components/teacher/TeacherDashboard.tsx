@@ -6,7 +6,7 @@ import {
 import { User as UserType } from '../../types/auth';
 import { Subject, ClassRoom, Material, QuestionBankItem, Assessment, Announcement, ReflectionEntry, AITutorConfig, InteractiveVideo, VideoCheckpoint } from '../../types/learning';
 import { createUser, updateUser, deleteUser } from '../../services/authService';
-import { saveSubjects, getStoredCodingChallenges, saveCodingChallenges, CodingChallengeItem, getStoredVideos, saveVideos, syncVideosWithGAS, getStoredActivities, saveActivities, InteractiveActivity, getAllStudentsProgress, getStudentProgressForId, saveAllStudentsProgress, getStoredMaterials, saveMaterials, saveQuestionBank, saveAssessments, getStoredTtsSetting, saveTtsSetting } from '../../data/learningData';
+import { saveSubjects, organizeAndCleanAllSubjects, deduplicateSubjects, getStoredCodingChallenges, saveCodingChallenges, CodingChallengeItem, getStoredVideos, saveVideos, syncVideosWithGAS, getStoredActivities, saveActivities, InteractiveActivity, getAllStudentsProgress, getStudentProgressForId, saveAllStudentsProgress, getStoredMaterials, saveMaterials, saveQuestionBank, saveAssessments, getStoredTtsSetting, saveTtsSetting } from '../../data/learningData';
 import { parseEmbedUrl } from '../journey/steps/VideoPlayerStep';
 import { pushAppData } from '../../services/appscript';
 import { DatabaseSchemaDocs } from './DatabaseSchemaDocs';
@@ -72,7 +72,13 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [localAiConfigs, setLocalAiConfigs] = useState<AITutorConfig[]>(aiConfigsList);
   const [localReflections, setLocalReflections] = useState<ReflectionEntry[]>(reflectionsList);
   const [localClasses, setLocalClasses] = useState<ClassRoom[]>(classesList);
-  const [localSubjects, setLocalSubjects] = useState<Subject[]>(subjectsList);
+  const [localSubjects, setLocalSubjects] = useState<Subject[]>(() => deduplicateSubjects(subjectsList));
+
+  useEffect(() => {
+    if (subjectsList && subjectsList.length > 0) {
+      setLocalSubjects(deduplicateSubjects(subjectsList));
+    }
+  }, [subjectsList]);
   const [localCodingChallenges, setLocalCodingChallenges] = useState<CodingChallengeItem[]>(codingChallengesList || getStoredCodingChallenges());
   const [isSyncingLeaderboard, setIsSyncingLeaderboard] = useState(false);
 
@@ -151,6 +157,26 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [showAddAssessmentModal, setShowAddAssessmentModal] = useState(false);
   const [showAddSubjectModal, setShowAddSubjectModal] = useState(false);
   const [showAiSandboxModal, setShowAiSandboxModal] = useState<AITutorConfig | null>(null);
+  const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
+
+  const handleCleanDuplicates = async () => {
+    setIsCleaningDuplicates(true);
+    try {
+      const res = await organizeAndCleanAllSubjects();
+      setLocalSubjects(res.subjects);
+      saveSubjects(res.subjects);
+      onRefreshData();
+      if (res.duplicatesRemoved > 0) {
+        toast.success(`🎉 Berhasil! ${res.duplicatesRemoved} mata pelajaran dobel berhasil dibersihkan & ditata rapi.`);
+      } else {
+        toast.success(`✅ Seluruh mata pelajaran sudah rapi & unik (${res.subjects.length} mapel).`);
+      }
+    } catch (e) {
+      toast.error('Gagal membersihkan data duplikat.');
+    } finally {
+      setIsCleaningDuplicates(false);
+    }
+  };
 
   // Edit states
   const [editingStudent, setEditingStudent] = useState<UserType | null>(null);
@@ -1720,22 +1746,54 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         {/* 4. MATA PELAJARAN */}
         {activeTab === 'subjects' && (
           <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-100">
               <div>
-                <h3 className="font-heading text-xl font-bold text-slate-900">📚 Mata Pelajaran Digital</h3>
-                <p className="text-xs text-slate-500">Mata pelajaran aktif pada kurikulum SD yang dapat diinput dan disesuaikan.</p>
+                <div className="flex items-center gap-2.5">
+                  <h3 className="font-heading text-xl font-bold text-slate-900">📚 Mata Pelajaran Digital</h3>
+                  <span className="px-3 py-1 rounded-full text-xs font-black bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs">
+                    {localSubjects.length} Mata Pelajaran Unik
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Mata pelajaran kurikulum SD yang terhubung otomatis dengan database Google Spreadsheet.
+                </p>
               </div>
-              <button
-                onClick={() => {
-                  setEditingSubject(null);
-                  setSubjectForm({ id: '', name: '', description: '', grade: teacherGrade || 5, icon: '📚', color: 'from-blue-500 to-indigo-600', status: 'PUBLISHED' });
-                  setShowAddSubjectModal(true);
-                }}
-                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow flex items-center gap-1.5 shrink-0 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Tambah Mata Pelajaran</span>
-              </button>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCleanDuplicates}
+                  disabled={isCleaningDuplicates}
+                  className="px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all active:scale-95"
+                  title="Hapus baris ganda di Google Sheets dan tata ulang secara rapi"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-amber-700 ${isCleaningDuplicates ? 'animate-spin' : ''}`} />
+                  <span>{isCleaningDuplicates ? 'Merapikan...' : '🧹 Bersihkan Data Dobel (Sheets)'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingSubject(null);
+                    setSubjectForm({ id: '', name: '', description: '', grade: teacherGrade || 5, icon: '📚', color: 'from-blue-500 to-indigo-600', status: 'PUBLISHED' });
+                    setShowAddSubjectModal(true);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow flex items-center gap-1.5 shrink-0 cursor-pointer transition-all active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Tambah Mata Pelajaran</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Helper Notice for Spreadsheet Organization */}
+            <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200 text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start sm:items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5 sm:mt-0" />
+                <span>
+                  <strong>Solusi Data Spreadsheet Dobel:</strong> Sistem telah diperbarui dengan proteksi anti-dobel otomatis. Jika pada sheet <em>Subjects</em> di Google Spreadsheet Anda masih terdapat baris ganda, klik tombol <strong>"🧹 Bersihkan Data Dobel (Sheets)"</strong> di atas untuk merapikannya.
+                </span>
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {localSubjects.map((sub) => (

@@ -1,6 +1,6 @@
 import { Subject, StudentProgress, Badge, TeacherAnalytics, CodingBlock, InteractiveVideo, QuestionBankItem, Assessment, Material, Topic } from '../types/learning';
 import { INITIAL_QUESTION_BANK, INITIAL_ASSESSMENTS, INITIAL_MATERIALS } from './initialData';
-import { getRemoteSubjects, createRemoteSubject, updateRemoteSubject, getRemoteVideos, createRemoteVideo, updateRemoteVideo, pushAppData, fetchAppData } from '../services/appscript';
+import { getRemoteSubjects, createRemoteSubject, updateRemoteSubject, getRemoteVideos, createRemoteVideo, updateRemoteVideo, pushAppData, fetchAppData, cleanupRemoteDuplicates } from '../services/appscript';
 
 export const INITIAL_BADGES: Badge[] = [
   {
@@ -482,12 +482,91 @@ export const TEACHER_ANALYTICS: TeacherAnalytics = {
   avgLearningTimeMinutes: 20
 };
 
+/**
+ * Normalizes subject ID to canonical keys to prevent duplicates
+ * e.g. 'bahasa-indonesia' vs 'bahasa_indonesia', 'IPAS' vs 'ipas'
+ */
+export function normalizeSubjectId(id: string): string {
+  if (!id) return '';
+  const clean = id.trim().toLowerCase().replace(/_/g, '-');
+  if (clean === 'bahasa-indonesia' || clean === 'bahasaindonesia' || clean === 'bi' || clean.includes('indonesia')) return 'bahasa-indonesia';
+  if (clean === 'bahasa-inggris' || clean === 'bahasainggris' || clean === 'bing' || clean.includes('inggris')) return 'bahasa-inggris';
+  if (clean === 'pancasila' || clean === 'ppkn' || clean === 'pendidikan-pancasila') return 'pancasila';
+  if (clean === 'seni' || clean === 'seni-budaya' || clean === 'sbk' || clean === 'sbdp' || clean.includes('seni')) return 'seni';
+  if (clean === 'pjok' || clean === 'penjas' || clean.includes('pjok') || clean.includes('jasmani')) return 'pjok';
+  if (clean === 'matematika' || clean === 'math' || clean.includes('matematika')) return 'matematika';
+  if (clean === 'ipas' || clean === 'ipa' || clean === 'ips' || clean.includes('ipas')) return 'ipas';
+  return clean;
+}
+
+/**
+ * Deduplicates an array of subjects based on normalized ID or normalized Name.
+ * If duplicate is found, merges topics and preserves the most complete metadata.
+ */
+export function deduplicateSubjects(list: Subject[]): Subject[] {
+  if (!Array.isArray(list)) return [];
+  const map = new Map<string, Subject>();
+
+  for (const s of list) {
+    if (!s || (!s.id && !s.name)) continue;
+    const rawId = s.id || s.name || '';
+    const normId = normalizeSubjectId(rawId);
+    const normName = (s.name || '').trim().toLowerCase();
+
+    // Check if duplicate exists either by normId or by identical clean name
+    let foundKey: string | undefined;
+    for (const [key, existing] of map.entries()) {
+      if (key === normId || (existing.name && existing.name.trim().toLowerCase() === normName)) {
+        foundKey = key;
+        break;
+      }
+    }
+
+    if (foundKey) {
+      const existing = map.get(foundKey)!;
+      // Merge unique topics
+      const existingTopics = [...(existing.topics || [])];
+      (s.topics || []).forEach((t) => {
+        if (!existingTopics.some((et) => et.id === t.id || et.title.toLowerCase() === t.title.toLowerCase())) {
+          existingTopics.push(t);
+        }
+      });
+
+      map.set(foundKey, {
+        ...existing,
+        id: foundKey, // use canonical id
+        name: existing.name || s.name,
+        description: existing.description || s.description,
+        icon: existing.icon || s.icon || '📚',
+        color: existing.color || s.color || 'blue',
+        bgGradient: existing.bgGradient || s.bgGradient || 'from-blue-500 to-indigo-600',
+        grade: existing.grade || s.grade || 5,
+        status: existing.status || s.status || 'PUBLISHED',
+        topics: existingTopics,
+      });
+    } else {
+      map.set(normId, {
+        ...s,
+        id: normId,
+        grade: s.grade || 5,
+        status: s.status || 'PUBLISHED',
+      });
+    }
+  }
+
+  return Array.from(map.values());
+}
+
 export function getStoredSubjects(): Subject[] {
   try {
     const data = localStorage.getItem('prima_subjects');
     if (data) {
       const parsed: Subject[] = JSON.parse(data);
-      return parsed.map((s) => {
+      const cleaned = deduplicateSubjects(parsed);
+      if (cleaned.length !== parsed.length) {
+        localStorage.setItem('prima_subjects', JSON.stringify(cleaned));
+      }
+      return cleaned.map((s) => {
         if (s.id === 'bahasa_indonesia' && s.topics?.some((t) => t.id === 'bi-iklan')) {
           return { ...s, topics: [] };
         }
@@ -497,14 +576,15 @@ export function getStoredSubjects(): Subject[] {
   } catch (e) {
     console.error('Error reading subjects from localStorage', e);
   }
-  return INITIAL_SUBJECTS;
+  return deduplicateSubjects(INITIAL_SUBJECTS);
 }
 
 export function saveSubjects(subjects: Subject[]): void {
   try {
-    localStorage.setItem('prima_subjects', JSON.stringify(subjects));
+    const cleaned = deduplicateSubjects(subjects);
+    localStorage.setItem('prima_subjects', JSON.stringify(cleaned));
     // Asynchronously update remote subjects in Google Sheets
-    subjects.forEach((sub) => {
+    cleaned.forEach((sub) => {
       updateRemoteSubject({
         id: sub.id,
         name: sub.name,
@@ -521,15 +601,51 @@ export function saveSubjects(subjects: Subject[]): void {
   }
 }
 
+/**
+ * Organizes and permanently cleans up duplicates both in localStorage and in Google Spreadsheet
+ */
+export async function organizeAndCleanAllSubjects(): Promise<{ subjects: Subject[]; duplicatesRemoved: number }> {
+  const current = getStoredSubjects();
+  const initialCount = current.length;
+  const cleaned = deduplicateSubjects(current);
+  const duplicatesRemoved = Math.max(0, initialCount - cleaned.length);
+
+  // Save clean data locally
+  localStorage.setItem('prima_subjects', JSON.stringify(cleaned));
+
+  // Clean remote Google Spreadsheet
+  try {
+    await cleanupRemoteDuplicates('Subjects');
+    // Ensure every clean unique subject is updated
+    for (const sub of cleaned) {
+      await updateRemoteSubject({
+        id: sub.id,
+        name: sub.name,
+        icon: sub.icon,
+        color: sub.color,
+        bgGradient: sub.bgGradient,
+        description: sub.description,
+        grade: sub.grade,
+        status: sub.status || 'PUBLISHED',
+      });
+    }
+  } catch (err) {
+    console.warn('[Sync] Cleanup remote failed:', err);
+  }
+
+  return { subjects: cleaned, duplicatesRemoved };
+}
+
 export async function syncSubjectsWithGAS(): Promise<Subject[]> {
   try {
     const remote = await getRemoteSubjects();
     if (remote && Array.isArray(remote) && remote.length > 0) {
       const validRemote = remote.filter((s: any) => s.id && s.name);
       if (validRemote.length > 0) {
+        const dedupedRemote = deduplicateSubjects(validRemote as any);
         const local = getStoredSubjects();
         const merged = local.map((l) => {
-          const matched = validRemote.find((r: any) => r.id === l.id);
+          const matched = dedupedRemote.find((r: any) => normalizeSubjectId(r.id) === normalizeSubjectId(l.id));
           if (matched) {
             return {
               ...l,
@@ -540,8 +656,9 @@ export async function syncSubjectsWithGAS(): Promise<Subject[]> {
           }
           return l;
         });
-        localStorage.setItem('prima_subjects', JSON.stringify(merged));
-        return merged;
+        const finalClean = deduplicateSubjects(merged);
+        localStorage.setItem('prima_subjects', JSON.stringify(finalClean));
+        return finalClean;
       }
     } else {
       // If remote is empty, seed initial subjects into Google Sheets

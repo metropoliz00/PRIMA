@@ -42,17 +42,21 @@
 
 .bg-landing-hero {
   position: relative;
-  background-color: #0f172a;
+  background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 40%, #f5f3ff 75%, #ecfdf5 100%);
 }
 
 .bg-landing-hero::before {
   content: '';
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle at 50% 30%, rgba(15, 23, 42, 0.3) 0%, rgba(15, 23, 42, 0.8) 100%), url('/child_coding_ai_bg.jpg');
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(14, 165, 233, 0.08) 0%, transparent 45%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.88) 0%, rgba(240, 249, 255, 0.84) 100%),
+    url('/child_coding_ai_bg.jpg');
   background-size: cover;
   background-position: center;
-  opacity: 0.20;
+  opacity: 0.95;
   pointer-events: none;
   z-index: 0;
 }

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import {
-  Users, GraduationCap, BookOpen, Layers, ShieldCheck, Activity, Settings, LogOut, Plus, Search, Edit3, Trash2, KeyRound, CheckCircle, XCircle, UserCheck, FileText, Lock, Sliders, Database, Server, BarChart3, X
+  Users, GraduationCap, BookOpen, Layers, ShieldCheck, Activity, Settings, LogOut, Plus, Search, Edit3, Trash2, KeyRound, CheckCircle, XCircle, UserCheck, FileText, Lock, Sliders, Database, Server, BarChart3, X, RefreshCw, Sparkles
 } from 'lucide-react';
 import { User, UserRole } from '../../types/auth';
 import { Subject, ClassRoom } from '../../types/learning';
 import { createUser, updateUser, deleteUser } from '../../services/authService';
+import { organizeAndCleanAllSubjects, saveSubjects, deduplicateSubjects } from '../../data/learningData';
 
 interface AdminDashboardProps {
   currentUser: User;
@@ -44,7 +45,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingClass, setEditingClass] = useState<ClassRoom | null>(null);
   const [classForm, setClassForm] = useState({ name: '', grade: 5 });
 
-  const [localSubjects, setLocalSubjects] = useState<Subject[]>(subjectsList);
+  const [localSubjects, setLocalSubjects] = useState<Subject[]>(() => deduplicateSubjects(subjectsList));
+
+  useEffect(() => {
+    if (subjectsList && subjectsList.length > 0) {
+      setLocalSubjects(deduplicateSubjects(subjectsList));
+    }
+  }, [subjectsList]);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [subjectForm, setSubjectForm] = useState({ name: '', description: '', grade: 5 });
@@ -215,10 +222,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setShowSubjectModal(true);
   };
 
+  const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
+
+  const handleCleanDuplicates = async () => {
+    setIsCleaningDuplicates(true);
+    try {
+      const res = await organizeAndCleanAllSubjects();
+      setLocalSubjects(res.subjects);
+      saveSubjects(res.subjects);
+      onRefreshData();
+      if (res.duplicatesRemoved > 0) {
+        toast.success(`🎉 Berhasil! ${res.duplicatesRemoved} mata pelajaran dobel berhasil dibersihkan & ditata.`);
+      } else {
+        toast.success(`✅ Seluruh mata pelajaran sudah rapi & tidak ada duplikat (${res.subjects.length} mapel).`);
+      }
+    } catch (e) {
+      toast.error('Gagal membersihkan data duplikat.');
+    } finally {
+      setIsCleaningDuplicates(false);
+    }
+  };
+
   const handleSaveSubject = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingSubject) {
-      setLocalSubjects(localSubjects.map((s) => (s.id === editingSubject.id ? { ...s, name: subjectForm.name, description: subjectForm.description, grade: Number(subjectForm.grade) } : s)));
+      const updated = localSubjects.map((s) => (s.id === editingSubject.id ? { ...s, name: subjectForm.name, description: subjectForm.description, grade: Number(subjectForm.grade) } : s));
+      setLocalSubjects(updated);
+      saveSubjects(updated);
       toast.success(`Mata pelajaran ${subjectForm.name} berhasil diperbarui!`);
     } else {
       const newSub: Subject = {
@@ -226,12 +256,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         name: subjectForm.name,
         description: subjectForm.description,
         grade: Number(subjectForm.grade),
-        icon: 'BookOpen',
+        icon: '📚',
         color: 'from-blue-500 to-indigo-600',
         bgGradient: 'from-blue-500 to-indigo-600',
         topics: [],
       };
-      setLocalSubjects([newSub, ...localSubjects]);
+      const updated = [newSub, ...localSubjects];
+      setLocalSubjects(updated);
+      saveSubjects(updated);
       toast.success(`Mata pelajaran ${subjectForm.name} berhasil ditambahkan!`);
     }
     setShowSubjectModal(false);
@@ -239,7 +271,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteSubject = (id: string) => {
-    setLocalSubjects(localSubjects.filter((s) => s.id !== id));
+    const updated = localSubjects.filter((s) => s.id !== id);
+    setLocalSubjects(updated);
+    saveSubjects(updated);
     toast.success('Mata pelajaran berhasil dihapus.');
   };
 
@@ -647,18 +681,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* 5. MATA PELAJARAN */}
         {activeTab === 'subjects' && (
           <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-4 animate-fadeIn">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100">
               <div>
-                <h3 className="font-heading text-lg font-bold text-slate-900">Mata Pelajaran Sistem</h3>
-                <p className="text-xs text-slate-500">Kelola daftar kurikulum dan mata pelajaran aktif.</p>
+                <div className="flex items-center gap-2.5">
+                  <h3 className="font-heading text-lg font-bold text-slate-900">Mata Pelajaran Sistem</h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    {localSubjects.length} Mata Pelajaran Unik
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">Kelola daftar kurikulum dan mata pelajaran aktif yang terhubung dengan Google Sheets.</p>
               </div>
-              <button
-                onClick={handleOpenAddSubject}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer flex items-center gap-1.5 shadow"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Tambah Mata Pelajaran</span>
-              </button>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCleanDuplicates}
+                  disabled={isCleaningDuplicates}
+                  className="px-4 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all active:scale-95"
+                  title="Hapus baris ganda di Google Sheets dan tata ulang secara rapi"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-amber-700 ${isCleaningDuplicates ? 'animate-spin' : ''}`} />
+                  <span>{isCleaningDuplicates ? 'Merapikan...' : '🧹 Bersihkan Data Dobel (Sheets)'}</span>
+                </button>
+
+                <button
+                  onClick={handleOpenAddSubject}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer flex items-center gap-1.5 shadow transition-all active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Tambah Mata Pelajaran</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Helper Notice for Spreadsheet Organization */}
+            <div className="p-3.5 rounded-2xl bg-indigo-50/80 border border-indigo-200 text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start sm:items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5 sm:mt-0" />
+                <span>
+                  <strong>Data Dobel di Spreadsheet?</strong> Klik tombol <strong>"🧹 Bersihkan Data Dobel (Sheets)"</strong> untuk merapikan baris ganda di spreadsheet dan memastikan setiap mata pelajaran hanya tercatat 1 kali secara unik.
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
