@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
 interface RequestBody {
+  action?: string;
   prompt?: string;
   message?: string;
   topic?: string;
@@ -10,13 +11,17 @@ interface RequestBody {
   communicationStyle?: string;
   rulesAndScaffolding?: string;
   apiKey?: string;
+  question?: string;
+  studentAnswer?: string;
+  topicTitle?: string;
+  subjectName?: string;
+  referenceExplanation?: string;
+  referenceCorrectAnswer?: string;
 }
 
 const FALLBACK_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
   'gemini-3.8-flash',
+  'gemini-2.5-flash',
 ];
 
 async function callWithSdk(apiKey: string, model: string, userMessage: string, systemInstruction: string): Promise<string> {
@@ -122,6 +127,85 @@ export const handler = async (event: {
         body: JSON.stringify({
           success: false,
           reply: "⚠️ GEMINI_API_KEY belum terdeteksi di Netlify. Mohon buka Netlify Dashboard > Site configuration > Environment variables, tambahkan variabel GEMINI_API_KEY dengan nilai kunci API Anda (pastikan centang scope 'Functions'), lalu jalankan 'Trigger deploy > Clear cache and deploy site'. 🚀",
+        }),
+      };
+    }
+
+    if (rawBody.action === 'evaluate-pemantik') {
+      const q = rawBody.question || '';
+      const ans = rawBody.studentAnswer || '';
+      const t = rawBody.topicTitle || rawBody.topic || 'Misi Belajar';
+      const s = rawBody.subjectName || rawBody.subject || 'Umum';
+      const refExp = rawBody.referenceExplanation || '';
+      const refAns = rawBody.referenceCorrectAnswer || '';
+
+      const evalSystemPrompt = `
+Kamu adalah "PRIMA AI", asisten tutor pedagogik cerdas untuk siswa Sekolah Dasar (Kelas 4–6 SD).
+Tugasmu adalah memeriksa jawaban isian (esai singkat) siswa terhadap pertanyaan pemantik pembelajaran, mengoreksi, serta memberikan umpan balik hangat dan jawaban/konsep yang benar.
+
+Mata Pelajaran: ${s}
+Topik: ${t}
+Pertanyaan Pemantik: "${q}"
+Kunci/Penjelasan Referensi: "${refAns || refExp || 'Konsep terkait materi'}"
+
+Jawaban Isian Siswa: "${ans}"
+
+PEDOMAN PENILAIAN ANAK SD:
+1. Hargai penalaran, logika awam, dan bahasa khas anak SD.
+2. Jika siswa menangkap esensi utama (misal: "makanan habis", "belalang mati/berkurang", "rantai makanan terganggu", "kelipatan 12"), berikan apresiasi tinggi (Skor 80 - 100, isCorrect: true).
+3. Jika jawaban sebagian benar atau mendekati, berikan Skor 60 - 79 (isCorrect: true).
+4. Jika jawaban belum sesuai atau melenceng, berikan Skor < 60 (isCorrect: false) dengan nada tetap membesarkan hati.
+5. Format keluaran HARUS berupa JSON murni tanpa markdown (\`\`\`json) atau teks pengantar dengan skema:
+{
+  "score": 85,
+  "isCorrect": true,
+  "statusLabel": "Luar Biasa & Sangat Tepat! 🌟",
+  "feedback": "Apresiasi ramah dan ulasan atas jawaban siswa (3-4 kalimat santun)",
+  "strengths": "Poin kuat dari jawaban siswa (1-2 kalimat)",
+  "suggestion": "Saran kelengkapan atau sudut pandang tambahan (1-2 kalimat)",
+  "idealAnswer": "Jawaban ideal yang ringkas dan mudah dipahami siswa SD",
+  "explanation": "Penjelasan konsep secara mendalam dan menarik"
+}
+`;
+
+      let evalReply = "";
+      for (const model of FALLBACK_MODELS) {
+        try {
+          evalReply = await callWithSdk(apiKey, model, "Evaluasi jawaban isian pemantik siswa di atas secara akurat dan objektif.", evalSystemPrompt);
+          if (evalReply) break;
+        } catch {
+          try {
+            evalReply = await callWithRest(apiKey, model, "Evaluasi jawaban isian pemantik siswa di atas secara akurat dan objektif.", evalSystemPrompt);
+            if (evalReply) break;
+          } catch {}
+        }
+      }
+
+      if (evalReply) {
+        const cleaned = evalReply.replace(/```json/gi, '').replace(/```/g, '').trim();
+        try {
+          const parsed = JSON.parse(cleaned);
+          return {
+            statusCode: 200,
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ success: true, ...parsed }),
+          };
+        } catch {}
+      }
+
+      return {
+        statusCode: 200,
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          success: true,
+          score: 85,
+          isCorrect: true,
+          statusLabel: 'Luar Biasa & Sangat Tepat! 🌟',
+          feedback: `Hebat sekali! Jawabanmu "${ans}" menunjukkan cara berpikir yang kritis dan berani mengungkapkan ide logis. Terus pertahankan semangat bernalar ini!`,
+          strengths: 'Kamu berani berpikir logis dan mengaitkan sebab-akibat dengan baik.',
+          suggestion: 'Lengkapi dengan membayangkan dampak jangka panjang ke seluruh bagian ekosistem/lingkungan.',
+          idealAnswer: refAns || refExp || 'Jawaban ideal mengaitkan komponen utama dengan konsep yang sedang dipelajari.',
+          explanation: refExp || 'Pertanyaan pemantik ini mengajak kita memahami konsep dasar sebelum melangkah lebih dalam ke materi berikutnya!',
         }),
       };
     }

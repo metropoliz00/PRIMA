@@ -10,6 +10,8 @@ interface VideoPlayerStepProps {
   content: any;
   subjectId?: string;
   subjectName?: string;
+  videosList?: InteractiveVideo[];
+  topicTitle?: string;
   onNext: () => void;
 }
 
@@ -37,25 +39,57 @@ export function parseEmbedUrl(rawUrl: string): { embedUrl: string; type: 'youtub
   return { embedUrl: rawUrl, type: 'other' };
 }
 
-export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subjectId, subjectName, onNext }) => {
-  // Check stored videos from database
-  const storedVideos = getStoredVideos();
+export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({
+  content,
+  subjectId,
+  subjectName,
+  videosList,
+  topicTitle,
+  onNext,
+}) => {
+  // Check stored videos from props or database
+  const allVideos = (videosList && videosList.length > 0) ? videosList : getStoredVideos();
   
-  // Find a specific video configured in the database/Spreadsheet for this subject (e.g. IPAS, Matematika)
-  const matchedDbVideo = subjectId
-    ? storedVideos.find((v) => v.subjectId?.toLowerCase() === subjectId.toLowerCase())
-    : null;
+  // Find videos configured for this subject (case-insensitive and partial match support)
+  const subjectVideos = subjectId
+    ? allVideos.filter((v) => {
+        const vSub = (v.subjectId || '').toLowerCase().trim();
+        const curSub = subjectId.toLowerCase().trim();
+        return vSub === curSub || curSub.includes(vSub) || vSub.includes(curSub);
+      })
+    : allVideos;
+
+  // Fallback to all videos if no subject match
+  const candidateVideos = subjectVideos.length > 0 ? subjectVideos : allVideos;
+
+  const [selectedVideoId, setSelectedVideoId] = useState<string>('');
+
+  useEffect(() => {
+    if (candidateVideos.length > 0) {
+      const matchTopic = topicTitle 
+        ? candidateVideos.find(v => 
+            v.title.toLowerCase().includes(topicTitle.toLowerCase()) || 
+            topicTitle.toLowerCase().includes(v.title.toLowerCase())
+          )
+        : null;
+
+      setSelectedVideoId((prev) => {
+        if (prev && candidateVideos.some(v => v.id === prev)) return prev;
+        return matchTopic ? matchTopic.id : candidateVideos[0].id;
+      });
+    }
+  }, [candidateVideos, topicTitle, subjectId]);
+
+  const activeVideo = candidateVideos.find(v => v.id === selectedVideoId) || candidateVideos[0] || null;
 
   // PRIORITY: Always prioritize video and checkpoints saved in the database by the teacher!
-  const rawVideoUrl = (matchedDbVideo && matchedDbVideo.videoUrl && matchedDbVideo.videoUrl.trim() !== '')
-    ? matchedDbVideo.videoUrl
+  const rawVideoUrl = (activeVideo && activeVideo.videoUrl && activeVideo.videoUrl.trim() !== '')
+    ? activeVideo.videoUrl
     : (content?.videoUrl && content.videoUrl.trim() !== '')
     ? content.videoUrl
-    : (storedVideos[0]?.videoUrl || '');
+    : (allVideos[0]?.videoUrl || '');
 
-  const videoTitle = (matchedDbVideo && matchedDbVideo.title)
-    ? matchedDbVideo.title
-    : content?.title || 'Video Interaktif Pembelajaran';
+  const videoTitle = activeVideo?.title || content?.title || 'Video Interaktif Pembelajaran';
 
   const hasVideo = !!(rawVideoUrl && rawVideoUrl.trim() !== '');
   const { embedUrl, type: videoType } = parseEmbedUrl(rawVideoUrl);
@@ -67,8 +101,8 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
 
   // Initial Checkpoints resolution: Prefer database checkpoints first
   const initialCheckpoints: VideoCheckpoint[] =
-    (matchedDbVideo && matchedDbVideo.checkpoints && matchedDbVideo.checkpoints.length > 0)
-      ? matchedDbVideo.checkpoints
+    (activeVideo && activeVideo.checkpoints && activeVideo.checkpoints.length > 0)
+      ? activeVideo.checkpoints
       : content?.checkpoints || [];
 
   const [localCheckpoints, setLocalCheckpoints] = useState<VideoCheckpoint[]>(initialCheckpoints);
@@ -79,14 +113,20 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
 
-  // Sync checkpoints if matched video changes
+  // Sync checkpoints if active video changes
   useEffect(() => {
-    if (matchedDbVideo && matchedDbVideo.checkpoints) {
-      setLocalCheckpoints(matchedDbVideo.checkpoints);
+    if (activeVideo && activeVideo.checkpoints && activeVideo.checkpoints.length > 0) {
+      setLocalCheckpoints(activeVideo.checkpoints);
+    } else if (content?.checkpoints && content.checkpoints.length > 0) {
+      setLocalCheckpoints(content.checkpoints);
     } else {
-      setLocalCheckpoints(content?.checkpoints || []);
+      setLocalCheckpoints([]);
     }
-  }, [matchedDbVideo?.id, content]);
+    setAnsweredCheckpoints({});
+    setActiveCheckpoint(null);
+    setCurrentTime(0);
+    setIsPlaying(false);
+  }, [activeVideo?.id, content]);
 
   // Virtual Timer for YouTube / Drive Embed Checkpoints
   useEffect(() => {
@@ -178,6 +218,48 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({ content, subje
           </button>
         </div>
       </div>
+
+      {/* Candidate Videos Switcher (from Teacher) */}
+      {candidateVideos.length > 1 && (
+        <div className="p-3 bg-indigo-50/70 border border-indigo-200/80 rounded-2xl space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-extrabold text-indigo-900 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Daftar Video Interaktif dari Guru ({candidateVideos.length} Video):</span>
+            </span>
+            <span className="text-[11px] font-semibold text-slate-500">Pilih video untuk ditonton</span>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+            {candidateVideos.map((v) => {
+              const isSelected = (activeVideo?.id === v.id);
+              const cpCount = v.checkpoints?.length || v.checkpointsCount || 0;
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => {
+                    setSelectedVideoId(v.id);
+                    setIsPlaying(false);
+                    setCurrentTime(0);
+                  }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-2 border ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-md shadow-indigo-500/25 scale-[1.02]'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-xs'
+                  }`}
+                >
+                  <Play className={`w-3 h-3 ${isSelected ? 'fill-white' : 'fill-indigo-600 text-indigo-600'}`} />
+                  <span className="max-w-[200px] truncate">{v.title}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                    isSelected ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {cpCount} Soal
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Video Player or Empty State */}
       {!hasVideo ? (

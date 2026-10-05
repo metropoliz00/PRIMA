@@ -4,6 +4,7 @@ import { Subject } from '../../types/learning';
 
 interface SubjectSelectorProps {
   subjects: Subject[];
+  canAddSubject?: boolean;
   onSelectSubject: (subjectId: string) => void;
   onAddSubject: (newSubject: Subject) => void;
   onBackToHome?: () => void;
@@ -11,6 +12,7 @@ interface SubjectSelectorProps {
 
 export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
   subjects,
+  canAddSubject = false,
   onSelectSubject,
   onAddSubject,
   onBackToHome,
@@ -73,13 +75,15 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="px-5 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-sm transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
-        >
-          <Plus className="w-4 h-4 text-indigo-600" />
-          <span>Tambah Mata Pelajaran</span>
-        </button>
+        {canAddSubject && (
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="px-5 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-sm transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+          >
+            <Plus className="w-4 h-4 text-indigo-600" />
+            <span>Tambah Mata Pelajaran</span>
+          </button>
+        )}
       </div>
 
       {/* Cards Grid */}

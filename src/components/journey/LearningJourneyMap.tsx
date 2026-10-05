@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Lock, Sparkles, HelpCircle, Eye, RefreshCw, Video, Bot, Gamepad2, Code, Flame, Award, Heart } from 'lucide-react';
+import { Check, Lock, Sparkles, HelpCircle, Eye, RefreshCw, Video, Bot, Gamepad2, Code, Flame, Award, Heart, ArrowLeft } from 'lucide-react';
 import { Topic, StepType } from '../../types/learning';
 import toast from 'react-hot-toast';
 
@@ -7,6 +7,7 @@ interface LearningJourneyMapProps {
   topic: Topic;
   activeStepIndex: number;
   onSelectStep: (index: number) => void;
+  onBack?: () => void;
 }
 
 const STEP_ICONS: Record<StepType, React.FC<{ className?: string }>> = {
@@ -26,6 +27,7 @@ export const LearningJourneyMap: React.FC<LearningJourneyMapProps> = ({
   topic,
   activeStepIndex,
   onSelectStep,
+  onBack,
 }) => {
   const completedCount = topic.steps.filter((s) => s.isCompleted).length;
 
@@ -34,17 +36,29 @@ export const LearningJourneyMap: React.FC<LearningJourneyMapProps> = ({
       
       {/* Header Info */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b-2 border-white/50 pb-6">
-        <div>
-          <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white/70 border-2 border-white text-xs font-black text-indigo-700 mb-2 shadow-inner">
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            <span>Petualangan Misi</span>
-          </span>
-          <h2 className="font-heading text-3xl font-black text-slate-900 drop-shadow-sm">
-            {topic.title}
-          </h2>
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 font-extrabold text-xs shadow-md border-2 border-white/80 transition-all cursor-pointer group shrink-0 active:scale-95"
+              title="Kembali ke Daftar Topik"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span>Kembali</span>
+            </button>
+          )}
+          <div>
+            <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white/70 border-2 border-white text-xs font-black text-indigo-700 mb-2 shadow-inner">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span>Petualangan Misi</span>
+            </span>
+            <h2 className="font-heading text-2xl sm:text-3xl font-black text-slate-900 drop-shadow-sm">
+              {topic.title}
+            </h2>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 self-end sm:self-center">
           <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Progress:</span>
           <span className="px-5 py-2 bg-gradient-to-r from-emerald-400 to-cyan-500 text-white font-black text-xs rounded-full shadow-lg">
             {completedCount} / {topic.steps.length} Misi
@@ -112,15 +126,19 @@ export const LearningJourneyMap: React.FC<LearningJourneyMapProps> = ({
                   className={`w-16 h-16 rounded-3xl flex items-center justify-center font-heading font-black text-lg transition-all duration-300 shadow-xl ${
                     isActive
                       ? 'bg-gradient-to-tr from-yellow-300 via-amber-400 to-orange-500 text-white scale-125 ring-4 ring-white shadow-amber-500/50'
-                      : isCompleted || isUnlocked
+                      : isCompleted
                       ? 'bg-gradient-to-tr from-emerald-400 to-cyan-500 text-white hover:scale-110 shadow-emerald-500/30'
+                      : isUnlocked
+                      ? 'bg-white text-emerald-500 border-4 border-emerald-400 hover:scale-110'
                       : 'bg-slate-200 text-slate-500 border-4 border-slate-300/80 shadow-xs'
                   }`}
                 >
-                  {isCompleted || isUnlocked ? (
+                  {isCompleted ? (
                     <Check className="w-8 h-8 stroke-[4]" />
+                  ) : !isUnlocked ? (
+                    <Lock className="w-7 h-7 text-slate-500" />
                   ) : (
-                    <Lock className="w-6 h-6 text-slate-600" />
+                    <IconComponent className="w-8 h-8" />
                   )}
                 </div>
 

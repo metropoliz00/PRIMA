@@ -16,7 +16,7 @@ app.use(express.json({ limit: '10mb' }));
 const apiKey = process.env.GEMINI_API_KEY || '';
 
 async function callGeminiAPI(promptText: string, key: string): Promise<string> {
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
+  const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
   
   for (const model of models) {
     try {
@@ -141,6 +141,99 @@ Gunakan bahasa Indonesia ramah anak SD.
     res.json({
       success: true,
       feedback: 'Refleksi yang sangat bagus! Kamu sudah belajar dengan tekun hari ini. Tingkatkan terus semangat eksplorasimu! 🌟',
+    });
+  }
+});
+
+// AI Pemantik Essay Evaluation Endpoint
+app.post('/api/ai/evaluate-pemantik', async (req, res) => {
+  try {
+    const {
+      question,
+      studentAnswer,
+      topicTitle,
+      subjectName,
+      referenceExplanation,
+      referenceCorrectAnswer,
+    } = req.body;
+
+    const systemPrompt = `
+Kamu adalah "PRIMA AI", asisten tutor pedagogik cerdas untuk siswa Sekolah Dasar (Kelas 4–6 SD).
+Tugasmu adalah memeriksa jawaban isian (esai singkat) siswa terhadap pertanyaan pemantik pembelajaran, mengoreksi, serta memberikan umpan balik hangat dan jawaban/konsep yang benar.
+
+Mata Pelajaran: ${subjectName || 'Umum'}
+Topik: ${topicTitle || 'Misi Belajar'}
+Pertanyaan Pemantik: "${question || ''}"
+Kunci/Penjelasan Referensi: "${referenceCorrectAnswer || referenceExplanation || 'Konsep terkait materi'}"
+
+Jawaban Isian Siswa: "${studentAnswer || ''}"
+
+PEDOMAN PENILAIAN ANAK SD:
+1. Hargai penalaran, logika awam, dan bahasa khas anak SD. Jawaban tidak harus berupa definisi ilmiah formal.
+2. Jika siswa menangkap esensi utama (misal: "makanan habis", "belalang mati/berkurang", "rantai makanan terganggu", "kelipatan 12"), berikan apresiasi tinggi (Skor 80 - 100, isCorrect: true).
+3. Jika jawaban sebagian benar atau mendekati, berikan Skor 60 - 79 (isCorrect: true).
+4. Jika jawaban belum sesuai atau melenceng, berikan Skor < 60 (isCorrect: false) dengan nada tetap membesarkan hati.
+5. Format keluaran HARUS berupa JSON murni tanpa markdown (\`\`\`json) atau teks pengantar dengan skema:
+{
+  "score": 85,
+  "isCorrect": true,
+  "statusLabel": "Luar Biasa & Sangat Tepat! 🌟",
+  "feedback": "Apresiasi ramah dan ulasan atas jawaban siswa (3-4 kalimat santun)",
+  "strengths": "Poin kuat dari jawaban siswa (1-2 kalimat)",
+  "suggestion": "Saran kelengkapan atau sudut pandang tambahan (1-2 kalimat)",
+  "idealAnswer": "Jawaban ideal yang ringkas dan mudah dipahami siswa SD",
+  "explanation": "Penjelasan konsep secara mendalam dan menarik"
+}
+`;
+
+    let evaluationResult: any = null;
+    if (apiKey) {
+      try {
+        const rawResponse = await callGeminiAPI(systemPrompt, apiKey);
+        const cleaned = rawResponse.replace(/```json/gi, '').replace(/```/g, '').trim();
+        evaluationResult = JSON.parse(cleaned);
+      } catch (geminiErr) {
+        console.warn('Gemini call or parse failed for pemantik evaluation, falling back:', geminiErr);
+      }
+    }
+
+    if (!evaluationResult || typeof evaluationResult.score !== 'number') {
+      const ansLower = (studentAnswer || '').toLowerCase();
+      const hasKeywords = ansLower.includes('mati') || ansLower.includes('makan') || ansLower.includes('kurang') ||
+        ansLower.includes('habis') || ansLower.includes('hilang') || ansLower.includes('12') || ansLower.includes('kpk') ||
+        ansLower.includes('produsen') || ansLower.includes('rantai') || ansLower.includes('seimbang');
+
+      const isLongEnough = (studentAnswer || '').trim().length >= 10;
+      const score = hasKeywords ? (isLongEnough ? 90 : 80) : (isLongEnough ? 70 : 60);
+
+      evaluationResult = {
+        score,
+        isCorrect: score >= 65,
+        statusLabel: score >= 80 ? 'Luar Biasa & Sangat Tepat! 🌟' : 'Bagus & Mendekati Benar! 💡',
+        feedback: `Hebat sekali! Jawabanmu "${studentAnswer}" menunjukkan cara berpikir yang kritis. Kamu sudah berani mengemukakan pendapat berdasarkan pengamatan dan logikamu sendiri. Terus pertahankan semangat bernalar ini!`,
+        strengths: 'Kamu berani berpikir logis dan mengaitkan sebab-akibat dengan baik.',
+        suggestion: 'Lengkapi dengan membayangkan dampak jangka panjang ke seluruh bagian lingkungan.',
+        idealAnswer: referenceCorrectAnswer || referenceExplanation || 'Jawaban ideal mengaitkan peran komponen produsen dan konsumen dalam menjaga keseimbangan alam.',
+        explanation: referenceExplanation || 'Pertanyaan pemantik ini mengajak kita memahami konsep dasar sebelum melangkah lebih dalam ke materi berikutnya!',
+      };
+    }
+
+    res.json({
+      success: true,
+      ...evaluationResult,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/ai/evaluate-pemantik:', error);
+    res.json({
+      success: true,
+      score: 85,
+      isCorrect: true,
+      statusLabel: 'Hebat, Pemikiranmu Kritis! 💡',
+      feedback: 'Kamu sudah mencoba menjawab dengan bernalar kritis! Pertahankan rasa ingin tahumu untuk langkah eksplorasi materi selanjutnya.',
+      strengths: 'Kemauan untuk menuangkan ide dan berpikir logis.',
+      suggestion: 'Hubungkan jawabanmu dengan konsep utama topik ini.',
+      idealAnswer: req.body?.referenceCorrectAnswer || req.body?.referenceExplanation || 'Pemahaman yang selaras dengan konsep materi.',
+      explanation: req.body?.referenceExplanation || 'Konsep ini menjadi dasar penting dalam petualangan belajarmu!',
     });
   }
 });

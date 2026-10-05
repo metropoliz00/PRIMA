@@ -24,6 +24,7 @@ interface TeacherDashboardProps {
   aiConfigsList: AITutorConfig[];
   codingChallengesList?: CodingChallengeItem[];
   activitiesList?: InteractiveActivity[];
+  interactiveVideosList?: InteractiveVideo[];
   onAddSubject: (newSubject: Subject) => void;
   onRefreshData: () => void;
   onRequestLogout: () => void;
@@ -32,6 +33,7 @@ interface TeacherDashboardProps {
   onUpdateCodingChallenges?: (updated: CodingChallengeItem[]) => void;
   onUpdateMaterials?: (updated: Material[]) => void;
   onUpdateActivities?: (updated: InteractiveActivity[]) => void;
+  onUpdateVideos?: (updated: InteractiveVideo[]) => void;
 }
 
 export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
@@ -47,6 +49,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   aiConfigsList,
   codingChallengesList,
   activitiesList,
+  interactiveVideosList,
   onAddSubject,
   onRefreshData,
   onRequestLogout,
@@ -55,6 +58,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onUpdateCodingChallenges,
   onUpdateMaterials,
   onUpdateActivities,
+  onUpdateVideos,
 }) => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
@@ -604,6 +608,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     }
     setLocalInteractiveVideos(updated);
     saveVideos(updated);
+    if (onUpdateVideos) {
+      onUpdateVideos(updated);
+    }
     setShowAddVideoModal(false);
   };
 
@@ -611,6 +618,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const updated = localInteractiveVideos.filter((v) => v.id !== id);
     setLocalInteractiveVideos(updated);
     saveVideos(updated);
+    if (onUpdateVideos) {
+      onUpdateVideos(updated);
+    }
     toast.success('Video interaktif berhasil dihapus dari Database.');
   };
 
@@ -3354,7 +3364,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-2xs hover:border-indigo-200 transition-all">
                 <div className="space-y-1">
                   <span className="block text-slate-800 text-xs">🔊 Suara Narator Otomatis (Text-to-Speech)</span>
-                  <span className="block text-[10px] text-slate-500 font-semibold leading-relaxed">Mengaktifkan tombol asisten suara agar siswa dapat mendengarkan pembacaan materi konsep secara langsung.</span>
+                  <span className="block text-[10px] text-slate-500 font-semibold leading-relaxed">Kendali Terpusat Guru: Mengaktifkan suara narator otomatis (TTS) pada pembelajaran siswa (Evaluasi Pemantik & Eksplorasi Konsep). Tampilan siswa tetap bersih tanpa tombol navigasi suara.</span>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input

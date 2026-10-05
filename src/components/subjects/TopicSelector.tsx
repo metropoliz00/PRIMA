@@ -87,7 +87,6 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({
                     <BookOpen className="w-4 h-4 text-indigo-500" />
                     <span>10 Tahap Learning Journey</span>
                   </span>
-                  <span className="text-indigo-600 font-extrabold">Siap Dimulai</span>
                 </div>
 
                 <div className="flex items-center justify-between pt-1">

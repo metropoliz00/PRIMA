@@ -661,8 +661,23 @@ export async function syncVideosWithGAS(): Promise<InteractiveVideo[]> {
     if (remote && Array.isArray(remote) && remote.length > 0) {
       const validRemote = remote.filter((v: any) => v.id && v.title && v.videoUrl);
       if (validRemote.length > 0) {
-        localStorage.setItem('prima_interactive_videos', JSON.stringify(validRemote));
-        return validRemote;
+        const local = getStoredVideos();
+        // Merge remote with local checkpoints
+        const merged = validRemote.map((r: any) => {
+          const l = local.find((x) => x.id === r.id);
+          return {
+            ...r,
+            checkpoints: (l && l.checkpoints && l.checkpoints.length > 0) ? l.checkpoints : (r.checkpoints || []),
+          };
+        });
+        // Retain local videos that might not be on remote yet
+        local.forEach((l) => {
+          if (!merged.some((m) => m.id === l.id)) {
+            merged.push(l);
+          }
+        });
+        localStorage.setItem('prima_interactive_videos', JSON.stringify(merged));
+        return merged;
       }
     }
   } catch (err) {
@@ -1286,6 +1301,7 @@ export function getStoredTtsSetting(): boolean {
     if (val !== null) {
       return val === 'true';
     }
+    localStorage.setItem('prima_tts_enabled', 'true');
   } catch (e) {
     console.error('Error reading TTS setting', e);
   }

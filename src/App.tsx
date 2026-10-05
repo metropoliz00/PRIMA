@@ -48,6 +48,7 @@ import {
   Announcement,
   ReflectionEntry,
   AITutorConfig,
+  InteractiveVideo,
 } from './types/learning';
 import {
   getStoredSubjects,
@@ -71,6 +72,9 @@ import {
   getStoredActivities,
   saveActivities,
   InteractiveActivity,
+  getStoredVideos,
+  saveVideos,
+  syncVideosWithGAS,
 } from './data/learningData';
 import {
   INITIAL_CLASSES,
@@ -104,6 +108,7 @@ function MainAppContent() {
   const [aiConfigsList] = useState<AITutorConfig[]>(INITIAL_AI_CONFIGS);
   const [codingChallengesList, setCodingChallengesList] = useState<CodingChallengeItem[]>(getStoredCodingChallenges());
   const [activitiesList, setActivitiesList] = useState<InteractiveActivity[]>(getStoredActivities());
+  const [videosList, setVideosList] = useState<InteractiveVideo[]>(getStoredVideos());
 
   // Selected Active Learning State
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
@@ -131,6 +136,13 @@ function MainAppContent() {
         setSelectedSubject(mergedWithMats[0]);
       }
     });
+
+    // Synchronize videos from Google Apps Script Sheets DB
+    syncVideosWithGAS().then((synced) => {
+      if (synced && synced.length > 0) {
+        setVideosList(synced);
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -268,6 +280,7 @@ function MainAppContent() {
 
     if (completedIndex + 1 < selectedTopic.steps.length) {
       setActiveStepIndex(completedIndex + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -334,7 +347,11 @@ function MainAppContent() {
 
   const handleQuickMenuSelect = useCallback((menuId: string) => {
     if (menuId === 'subject-selector') {
-      setCurrentView('subject-selector');
+      if (role === 'MURID') {
+        setCurrentView('student-dashboard');
+      } else {
+        setCurrentView('subject-selector');
+      }
     } else if (menuId === 'simulation-menu') {
       setCurrentView('student-activities');
     } else if (menuId === 'progress-view' || menuId === 'badges-menu') {
@@ -349,6 +366,26 @@ function MainAppContent() {
       setCurrentView('student-activities');
     }
   }, [selectedTopic]);
+
+  const handleUpdateVideos = useCallback((updated: InteractiveVideo[]) => {
+    setVideosList(updated);
+    saveVideos(updated);
+  }, []);
+
+  const handleSelectVideoFromDashboard = useCallback((vid: InteractiveVideo) => {
+    const sub = subjects.find(
+      (s) => s.id?.toLowerCase() === vid.subjectId?.toLowerCase() || s.name?.toLowerCase().includes((vid.subjectId || '').toLowerCase())
+    ) || subjects[0];
+
+    if (sub) {
+      setSelectedSubject(sub);
+      if (sub.topics.length > 0) {
+        setSelectedTopic(sub.topics[0]);
+      }
+      setActiveStepIndex(3);
+      setCurrentView('learning-journey');
+    }
+  }, [subjects]);
 
   const currentStep = selectedTopic?.steps[activeStepIndex];
 
@@ -441,6 +478,8 @@ function MainAppContent() {
             onUpdateCodingChallenges={setCodingChallengesList}
             onUpdateMaterials={handleUpdateMaterials}
             onUpdateActivities={setActivitiesList}
+            onUpdateVideos={handleUpdateVideos}
+            interactiveVideosList={videosList}
           />
         )}
 
@@ -451,31 +490,56 @@ function MainAppContent() {
             progress={progress}
             subjects={subjects}
             materials={materialsList}
+            videosList={videosList}
             onSelectMenu={handleQuickMenuSelect}
             onSelectSubject={handleSelectSubject}
+            onSelectVideo={handleSelectVideoFromDashboard}
             onRequestLogout={() => setShowLogoutModal(true)}
           />
         )}
 
-        {/* SUBJECT SELECTOR */}
+        {/* SUBJECT SELECTOR (Only for Teachers / Admins) */}
         {currentView === 'subject-selector' && (
-          <SubjectSelector
-            subjects={subjects}
-            onSelectSubject={handleSelectSubject}
-            onAddSubject={handleAddSubject}
-            onBackToHome={() => {
-              if (role === 'GURU') setCurrentView('teacher-dashboard');
-              else if (role === 'ADMIN') setCurrentView('admin-dashboard');
-              else setCurrentView('student-dashboard');
-            }}
-          />
+          role === 'MURID' ? (
+            <StudentDashboardView
+              currentUser={user!}
+              progress={progress}
+              subjects={subjects}
+              materials={materialsList}
+              videosList={videosList}
+              onSelectMenu={handleQuickMenuSelect}
+              onSelectSubject={handleSelectSubject}
+              onSelectVideo={handleSelectVideoFromDashboard}
+              onRequestLogout={() => setShowLogoutModal(true)}
+            />
+          ) : (
+            <SubjectSelector
+              subjects={subjects}
+              canAddSubject={role === 'GURU' || role === 'ADMIN'}
+              onSelectSubject={handleSelectSubject}
+              onAddSubject={handleAddSubject}
+              onBackToHome={() => {
+                if (role === 'GURU') setCurrentView('teacher-dashboard');
+                else if (role === 'ADMIN') setCurrentView('admin-dashboard');
+                else setCurrentView('student-dashboard');
+              }}
+            />
+          )
         )}
 
         {/* TOPIC SELECTOR */}
         {currentView === 'topic-selector' && selectedSubject && (
           <TopicSelector
             subject={selectedSubject}
-            onBack={() => setCurrentView('subject-selector')}
+            onBack={() => {
+              if (role === 'MURID') {
+                setCurrentView('student-dashboard');
+              } else if (role === 'GURU') {
+                setCurrentView('teacher-dashboard');
+              } else {
+                setCurrentView('subject-selector');
+              }
+            }}
             onSelectTopic={handleSelectTopic}
           />
         )}
@@ -486,6 +550,15 @@ function MainAppContent() {
             <LearningJourneyMap
               topic={selectedTopic}
               activeStepIndex={activeStepIndex}
+              onBack={() => {
+                if (role === 'MURID') {
+                  setCurrentView('student-dashboard');
+                } else if (selectedSubject) {
+                  setCurrentView('topic-selector');
+                } else {
+                  setCurrentView('teacher-dashboard');
+                }
+              }}
               onSelectStep={(idx) => {
                 const isUnlocked = idx === 0 || selectedTopic.steps.slice(0, idx).every(s => Boolean(s.isCompleted));
                 if (isUnlocked) {
@@ -494,6 +567,7 @@ function MainAppContent() {
                   const firstIncompleteIdx = selectedTopic.steps.findIndex((s) => !s.isCompleted);
                   setActiveStepIndex(firstIncompleteIdx !== -1 ? firstIncompleteIdx : 0);
                 }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             />
 
@@ -523,6 +597,8 @@ function MainAppContent() {
                     content={currentStep.content}
                     subjectId={selectedSubject?.id}
                     subjectName={selectedSubject?.name}
+                    videosList={videosList}
+                    topicTitle={selectedTopic?.title}
                     onNext={() => handleAdvanceStep(3)}
                   />
                 )}
@@ -598,6 +674,32 @@ function MainAppContent() {
         onCancel={() => setShowLogoutModal(false)}
         onConfirm={() => {
           setShowLogoutModal(false);
+          // Preserve persistent curriculum & teacher databases before clearing session cache
+          const DB_KEYS = [
+            'prima_interactive_videos',
+            'prima_subjects',
+            'prima_materials',
+            'prima_question_bank',
+            'prima_assessments',
+            'prima_coding_challenges',
+            'prima_activities',
+            'prima_users',
+            'prima_tts_enabled',
+          ];
+          const preserved: Record<string, string> = {};
+          DB_KEYS.forEach((k) => {
+            const val = localStorage.getItem(k);
+            if (val) preserved[k] = val;
+          });
+          localStorage.clear();
+          sessionStorage.clear();
+          if (typeof window !== 'undefined' && 'caches' in window) {
+            caches.keys().then((names) => names.forEach((n) => caches.delete(n))).catch(() => {});
+          }
+          // Restore curriculum & teacher database
+          Object.entries(preserved).forEach(([k, val]) => {
+            localStorage.setItem(k, val);
+          });
           logout();
           setCurrentView('login');
         }}

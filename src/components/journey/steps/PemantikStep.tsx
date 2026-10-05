@@ -1,5 +1,22 @@
-import React, { useState } from 'react';
-import { HelpCircle, CheckCircle2, ArrowRight, Lightbulb } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  HelpCircle,
+  CheckCircle2,
+  ArrowRight,
+  Lightbulb,
+  Sparkles,
+  Bot,
+  RotateCcw,
+  Mic,
+  MicOff,
+  Award,
+  Star,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle
+} from 'lucide-react';
+import { evaluatePemantikAnswer, PemantikEvaluationResult } from '../../../services/aiService';
+import { getStoredTtsSetting } from '../../../data/learningData';
 
 interface PemantikStepProps {
   content: any;
@@ -8,99 +25,392 @@ interface PemantikStepProps {
   onNext: () => void;
 }
 
-export const PemantikStep: React.FC<PemantikStepProps> = ({ content, onNext }) => {
-  const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [submitted, setSubmitted] = useState(false);
+export const PemantikStep: React.FC<PemantikStepProps> = ({
+  content,
+  topicTitle = 'Misi Belajar',
+  subjectName = 'IPAS',
+  onNext
+}) => {
+  const [studentAnswer, setStudentAnswer] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [evaluation, setEvaluation] = useState<PemantikEvaluationResult | null>(null);
+  const [showClue, setShowClue] = useState(false);
+  const evaluationRef = useRef<HTMLDivElement>(null);
 
-  const isCorrect = selectedOption === content.correctAnswer;
+  // Extract reference answers and explanations from content
+  const referenceExplanation = content?.explanation || '';
+  const referenceCorrectAnswer =
+    content?.idealAnswer ||
+    (content?.options && typeof content?.correctAnswer === 'number'
+      ? content.options[content.correctAnswer]
+      : '');
+
+  // Pre-load voices on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+  }, []);
+
+  // Cleanup speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  // Scroll to evaluation when ready
+  useEffect(() => {
+    if (evaluation && evaluationRef.current) {
+      evaluationRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [evaluation]);
+
+  // Speak AI Evaluation Text (Activated strictly if Teacher has turned on TTS)
+  const speakEvaluationIfAllowed = (evalData: PemantikEvaluationResult) => {
+    const isTtsAllowed = getStoredTtsSetting();
+    if (!isTtsAllowed || typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    window.speechSynthesis.cancel();
+
+    const textToSpeak = `
+      ${evalData.statusLabel}.
+      Umpan balik dari PRIMA AI:
+      ${evalData.feedback}.
+      Kunci jawaban yang benar:
+      ${evalData.idealAnswer}.
+      Penjelasan konsep materi:
+      ${evalData.explanation}.
+    `;
+
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.lang = 'id-ID';
+    utterance.rate = 0.98;
+
+    const voices = window.speechSynthesis.getVoices();
+    const indonesianVoice = voices.find(
+      (v) => v.lang.startsWith('id') || v.lang.startsWith('in') || v.name.toLowerCase().includes('indonesia')
+    );
+    if (indonesianVoice) {
+      utterance.voice = indonesianVoice;
+    }
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Submit Answer for AI Evaluation
+  const handleSubmitAnswer = async () => {
+    const trimmed = studentAnswer.trim();
+    if (!trimmed || trimmed.length < 3) return;
+
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await evaluatePemantikAnswer({
+        question: content?.question || '',
+        studentAnswer: trimmed,
+        topicTitle,
+        subjectName,
+        referenceExplanation,
+        referenceCorrectAnswer,
+      });
+
+      setEvaluation(result);
+
+      // Automatically speak evaluation in background if teacher turned on TTS
+      setTimeout(() => {
+        speakEvaluationIfAllowed(result);
+      }, 400);
+    } catch (err) {
+      console.error('Error submitting answer:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Allow student to edit/revise their answer
+  const handleResetForRevision = () => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setEvaluation(null);
+  };
+
+  const wordCount = studentAnswer.trim() ? studentAnswer.trim().split(/\s+/).length : 0;
+  const isInputValid = studentAnswer.trim().length >= 3;
 
   return (
     <div className="glass-card p-6 sm:p-8 rounded-3xl space-y-6 border border-slate-200/80 shadow-lg bg-white">
-      
-      {/* Title */}
-      <div className="flex items-center gap-3">
-        <div className="p-3 bg-amber-100 text-amber-700 rounded-2xl shadow-sm">
-          <HelpCircle className="w-6 h-6" />
+      {/* 1. Clean Header (No TTS Navigation/Buttons) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-2xl shadow-md shadow-amber-500/20">
+            <Lightbulb className="w-6 h-6 animate-pulse" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-black text-amber-700 uppercase tracking-widest bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-300/60">
+                Langkah 1: Pertanyaan Pemantik
+              </span>
+              <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                ✍️ Isian Mandiri + Koreksi AI
+              </span>
+            </div>
+            <h3 className="font-heading text-xl sm:text-2xl font-black text-slate-900 mt-1">
+              Uji Rasa Ingin Tahumu & Bernalar Kritis! 💡
+            </h3>
+          </div>
         </div>
-        <div>
-          <span className="text-xs font-bold text-amber-600 uppercase tracking-wider bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200/50">Langkah 1: Pertanyaan Pemantik</span>
-          <h3 className="font-heading text-xl font-bold text-slate-900">Uji Rasa Ingin Tahumu! 💡</h3>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200/80">
+            Materi: <strong className="text-slate-800">{topicTitle}</strong>
+          </span>
         </div>
       </div>
 
-      {/* Main Question Card */}
-      <div className="p-5 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-3">
-        <p className="text-base font-semibold text-slate-800 leading-relaxed">
-          {content.question}
+      {/* 2. Stimulus & Question Card (Clean, no TTS button) */}
+      <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-amber-50/80 via-orange-50/60 to-yellow-50/80 border border-amber-200/90 shadow-inner space-y-3">
+        <div className="flex items-center gap-2 text-xs font-extrabold text-amber-800 uppercase tracking-wider">
+          <HelpCircle className="w-4 h-4 text-amber-600" />
+          <span>Pertanyaan Berpikir Kritis Siswa</span>
+        </div>
+
+        <p className="text-base sm:text-lg font-bold text-slate-900 leading-relaxed">
+          {content?.question || 'Bagaimana pendapatmu mengenai konsep pembelajaran ini?'}
         </p>
-      </div>
 
-      {/* Options */}
-      <div className="space-y-3">
-        {content.options?.map((opt: string, idx: number) => {
-          const isSelected = selectedOption === idx;
-          return (
-            <button
-              key={idx}
-              onClick={() => {
-                if (!submitted) setSelectedOption(idx);
-              }}
-              className={`w-full p-4 rounded-2xl border text-left font-semibold text-xs sm:text-sm transition-all flex items-center justify-between cursor-pointer ${
-                isSelected
-                  ? 'bg-indigo-50 border-indigo-500 text-indigo-900 shadow-sm'
-                  : 'bg-white border-slate-200 hover:border-indigo-200 text-slate-700'
-              }`}
-            >
-              <span>{opt}</span>
-              <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${isSelected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300'}`}>
-                {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Actions & Feedback */}
-      <div className="pt-4 border-t border-slate-100 space-y-4">
-        {!submitted ? (
+        {/* Collapsible Clue / Hint */}
+        <div className="pt-2">
           <button
-            disabled={selectedOption === null}
-            onClick={() => setSubmitted(true)}
-            className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-indigo-500/20 cursor-pointer"
+            type="button"
+            onClick={() => setShowClue(!showClue)}
+            className="inline-flex items-center gap-1.5 text-xs font-extrabold text-amber-700 hover:text-amber-900 transition-colors cursor-pointer bg-white/80 hover:bg-white px-3 py-1.5 rounded-xl border border-amber-200 shadow-xs"
           >
-            Kirim Jawaban Pemantik
+            <span>💡 {showClue ? 'Tutup Petunjuk Awal' : 'Butuh Petunjuk Berpikir?'}</span>
+            {showClue ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
-        ) : (
-          <div className="space-y-4">
-            <div className={`p-4 rounded-2xl border ${isCorrect ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-950'}`}>
-              <div className="flex items-center gap-2 font-bold text-sm mb-1">
-                <Lightbulb className={`w-5 h-5 ${isCorrect ? 'text-amber-500 animate-bounce' : 'text-rose-500'}`} />
-                <span>{isCorrect ? 'Luar biasa! Pemikiran yang tajam! 🌟' : 'Jawabanmu kurang tepat! ❌'}</span>
-              </div>
-              <p className="text-xs font-medium leading-relaxed mt-1">
-                {isCorrect ? content.explanation : 'Mari kita lihat penjelasan yang benar di bawah ini.'}
-              </p>
-              <div className={`mt-3 pt-3 border-t text-xs ${isCorrect ? 'border-emerald-200 text-emerald-800' : 'border-rose-200 text-rose-900'}`}>
-                <span className="font-extrabold">Penjelasan:</span> <span className="font-medium">{content.explanation}</span>
-              </div>
-              {!isCorrect && (
-                <div className="mt-2 pt-2 border-t border-rose-200 text-rose-900 text-xs">
-                  <span className="font-extrabold">Jawaban yang benar:</span> <span className="font-bold underline text-emerald-700">{content.options?.[content.correctAnswer]}</span>
-                </div>
+
+          {showClue && (
+            <div className="mt-2.5 p-3.5 rounded-xl bg-white border border-amber-200 text-xs text-slate-700 leading-relaxed shadow-sm animate-fadeIn">
+              <strong className="text-amber-800">Petunjuk Guru:</strong> Pikirkan hubungan sebab-akibat
+              yang terjadi antara makhluk hidup atau angka-angka di sekitar kita. Tuliskan apa yang
+              terlintas di pikiranmu secara jujur dan mandiri!
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 3. Input Section (Isian Siswa) */}
+      {!evaluation ? (
+        <div className="space-y-4 pt-1">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <label className="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center gap-2">
+              <span>Tuliskan Jawaban atau Pendapatmu Sendiri:</span>
+              <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                Format Isian Bebas
+              </span>
+            </label>
+
+            {/* Voice Dictation (Mic) for speaking input (REMOVED) */}
+          </div>
+
+          {/* Textarea */}
+          <div className="relative">
+            <textarea
+              rows={4}
+              value={studentAnswer}
+              onChange={(e) => setStudentAnswer(e.target.value)}
+              disabled={isSubmitting}
+              placeholder="Tuliskan jawaban atau pendapatmu di sini..."
+              className="w-full p-4 text-xs sm:text-sm font-medium text-slate-800 bg-slate-50/50 hover:bg-white focus:bg-white rounded-2xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all outline-hidden resize-y placeholder:text-slate-400"
+            />
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
+            <div className="flex items-center gap-3">
+              <span>{studentAnswer.length} karakter</span>
+              <span>•</span>
+              <span>{wordCount} kata</span>
+              {!isInputValid && studentAnswer.length > 0 && (
+                <span className="text-amber-600 font-semibold">(Tulis minimal 3 karakter)</span>
               )}
             </div>
 
             <button
+              type="button"
+              disabled={!isInputValid || isSubmitting}
+              onClick={handleSubmitAnswer}
+              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-sky-600 hover:from-indigo-700 hover:to-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-xs sm:text-sm shadow-lg shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>PRIMA AI Sedang Menilai & Mengoreksi... 🤖</span>
+                </>
+              ) : (
+                <>
+                  <Bot className="w-4 h-4 text-sky-200" />
+                  <span>Kirim & Minta Koreksi AI 🤖</span>
+                  <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* 4. AI Evaluation & Feedback Display (Clean, no TTS navigation) */
+        <div ref={evaluationRef} className="space-y-6 pt-2 animate-fadeIn">
+          {/* Answer Preview */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+              <span>Jawaban yang Kamu Tulis:</span>
+              <button
+                type="button"
+                onClick={handleResetForRevision}
+                className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-bold cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Ubah Jawaban</span>
+              </button>
+            </div>
+            <p className="text-xs sm:text-sm font-semibold text-slate-800 italic bg-white p-3 rounded-xl border border-slate-200/80">
+              "{studentAnswer}"
+            </p>
+          </div>
+
+          {/* AI Score & Status Header */}
+          <div
+            className={`p-5 rounded-2xl border shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+              evaluation.score >= 80
+                ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-300 text-emerald-950'
+                : evaluation.score >= 60
+                ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300 text-amber-950'
+                : 'bg-gradient-to-r from-sky-50 to-indigo-50 border-sky-300 text-indigo-950'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center font-heading font-black text-xl shadow-md ${
+                  evaluation.score >= 80
+                    ? 'bg-emerald-600 text-white shadow-emerald-500/30'
+                    : evaluation.score >= 60
+                    ? 'bg-amber-500 text-white shadow-amber-500/30'
+                    : 'bg-indigo-600 text-white shadow-indigo-500/30'
+                }`}
+              >
+                {evaluation.score}
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
+                  <span className="font-heading font-black text-base sm:text-lg">
+                    {evaluation.statusLabel}
+                  </span>
+                </div>
+                <p className="text-xs font-medium text-slate-600 mt-0.5">
+                  Skor Penalaran Pemantik: <strong className="text-slate-900">{evaluation.score} / 100</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <div className="flex items-center gap-1 px-3 py-1.5 bg-white/90 border border-slate-200/80 rounded-xl shadow-xs text-xs font-black text-amber-600">
+                <Award className="w-4 h-4 text-amber-500" />
+                <span>+15 XP Terkumpul 🎉</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Section A: AI Feedback Box */}
+          <div className="p-5 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 space-y-3 shadow-xs">
+            <div className="flex items-center gap-2 text-indigo-900 font-extrabold text-xs sm:text-sm">
+              <Bot className="w-4 h-4 text-indigo-600" />
+              <span>Umpan Balik Cerdas dari PRIMA AI:</span>
+            </div>
+            <p className="text-xs sm:text-sm font-medium text-slate-700 leading-relaxed bg-white/80 p-3.5 rounded-xl border border-indigo-100">
+              {evaluation.feedback}
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs space-y-1">
+                <span className="font-extrabold text-emerald-800 flex items-center gap-1">
+                  <span>🌟 Yang Sudah Bagus:</span>
+                </span>
+                <p className="text-emerald-900 font-medium leading-relaxed">
+                  {evaluation.strengths}
+                </p>
+              </div>
+
+              <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-xs space-y-1">
+                <span className="font-extrabold text-amber-800 flex items-center gap-1">
+                  <span>💡 Saran Penyempurnaan:</span>
+                </span>
+                <p className="text-amber-900 font-medium leading-relaxed">
+                  {evaluation.suggestion}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Section B: Correct Answer & Concept Explanation */}
+          <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-300 space-y-3 shadow-xs">
+            <div className="flex items-center gap-2 text-emerald-950 font-extrabold text-xs sm:text-sm">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Kunci Konsep & Jawaban yang Benar:</span>
+            </div>
+
+            {/* Ideal Answer */}
+            <div className="bg-white p-4 rounded-xl border border-emerald-200 space-y-1 shadow-xs">
+              <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700 block">
+                🎯 Jawaban Ideal / Kunci Jawaban:
+              </span>
+              <p className="text-xs sm:text-sm font-bold text-slate-900 leading-relaxed">
+                {evaluation.idealAnswer || referenceCorrectAnswer || 'Keterkaitan langsung antara produsen dan konsumen.'}
+              </p>
+            </div>
+
+            {/* Concept Explanation */}
+            <div className="bg-emerald-100/50 p-4 rounded-xl border border-emerald-200/80 space-y-1">
+              <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 block">
+                📖 Penjelasan Konsep Lengkap:
+              </span>
+              <p className="text-xs sm:text-sm font-medium text-slate-800 leading-relaxed">
+                {evaluation.explanation || referenceExplanation || 'Setiap makhluk hidup dan komponen materi memiliki peran berkesinambungan.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Actions: Re-answer or Next */}
+          <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={handleResetForRevision}
+              className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>✍️ Coba Jawab Ulang / Perbaiki Jawaban</span>
+            </button>
+
+            <button
+              type="button"
               onClick={onNext}
-              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-600 text-white font-bold text-xs shadow-md flex items-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 text-white font-black text-xs sm:text-sm shadow-lg shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>Lanjut ke Eksplorasi Materi</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
-        )}
-      </div>
-
+        </div>
+      )}
     </div>
   );
 };

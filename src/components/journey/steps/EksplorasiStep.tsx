@@ -145,12 +145,24 @@ export const EksplorasiStep: React.FC<EksplorasiStepProps> = ({
   subjectName = 'IPAS', 
   onNext 
 }) => {
-  const [chatMessages, setChatMessages] = useState<Message[]>([]);
+  const extra: TopicExtra = TOPIC_EXTRAS[topicTitle] || getGenericExtra(topicTitle, subjectName);
+
+  const [chatMessages, setChatMessages] = useState<Message[]>(() => [
+    { sender: 'bot', text: extra.botWelcome }
+  ]);
   const [userInput, setUserInput] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [activeDetailCard, setActiveDetailCard] = useState<number | null>(null);
 
   const [isTtsAllowed, setIsTtsAllowed] = useState(true);
+
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const userHasChatted = useRef(false);
+
+  // Keep page view at top on mount so students read the narrative & concepts first
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
 
   useEffect(() => {
     // Check global teacher setting from localStorage (synced with remote DB)
@@ -166,32 +178,26 @@ export const EksplorasiStep: React.FC<EksplorasiStepProps> = ({
     };
   }, []);
 
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const isInitialMount = useRef(true);
-  const extra: TopicExtra = TOPIC_EXTRAS[topicTitle] || getGenericExtra(topicTitle, subjectName);
-
-  // Initialize chatbot messages
+  // Update welcome message if topic changes
   useEffect(() => {
-    if (chatMessages.length === 0) {
-      setChatMessages([
-        { sender: 'bot', text: extra.botWelcome }
-      ]);
-    }
-  }, [extra, chatMessages]);
+    setChatMessages([
+      { sender: 'bot', text: extra.botWelcome }
+    ]);
+    userHasChatted.current = false;
+  }, [extra.botWelcome]);
 
-  // Scroll chat to bottom (only on subsequent updates, so it doesn't force page scroll on mount)
+  // Only scroll inside the chat box container itself, and ONLY after the user has actively chatted
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
+    if (userHasChatted.current && chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, isAiLoading]);
 
   const handleSendChatMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userInput.trim() || isAiLoading) return;
 
+    userHasChatted.current = true;
     const studentMessage = userInput.trim();
     setUserInput('');
     setChatMessages((prev) => [...prev, { sender: 'student', text: studentMessage }]);
@@ -226,14 +232,6 @@ export const EksplorasiStep: React.FC<EksplorasiStepProps> = ({
             <h3 className="font-heading text-xl font-black text-slate-900 mt-1">Pahami Konsep Kunci & Hubungan Nyata 🌍</h3>
           </div>
         </div>
-
-        <button
-          onClick={onNext}
-          className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 text-white font-black text-xs shadow-lg shadow-indigo-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 cursor-pointer shrink-0"
-        >
-          <span>Lanjut ke Mini Game</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
       </div>
 
       {/* 2. Real-World Situation & Concept Summary Container */}
@@ -392,7 +390,7 @@ export const EksplorasiStep: React.FC<EksplorasiStepProps> = ({
         </div>
 
         {/* Chat Bubble Container */}
-        <div className="p-5 h-72 overflow-y-auto bg-slate-50 space-y-4 no-scrollbar">
+        <div ref={chatContainerRef} className="p-5 h-72 overflow-y-auto bg-slate-50 space-y-4 no-scrollbar">
           {chatMessages.map((msg, index) => {
             const isBot = msg.sender === 'bot';
             return (
@@ -430,8 +428,6 @@ export const EksplorasiStep: React.FC<EksplorasiStepProps> = ({
               </div>
             </div>
           )}
-
-          <div ref={chatEndRef} />
         </div>
 
         {/* Chat Form */}

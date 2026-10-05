@@ -47,7 +47,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 Dashboard Siswa SD
               </span>
               <h2 className="font-heading text-2xl sm:text-3xl font-black text-slate-900">
-                Selamat datang, {progress.studentName}! 👋
+                Selamat datang, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600">{progress.studentName}</span>! 👋
               </h2>
               <p className="text-sm font-medium text-slate-600">
                 Siap melanjutkan petualangan belajar multi-mata pelajaran hari ini?

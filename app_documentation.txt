@@ -1,0 +1,50 @@
+# Dokumentasi Lengkap Aplikasi PRIMA
+
+Aplikasi ini adalah platform pendidikan interaktif berbasis React (Vite) dengan backend Express.
+
+## 1. Arsitektur Komponen
+- `/components/admin`: Manajemen tingkat sistem.
+- `/components/auth`: Autentikasi (Login).
+- `/components/dashboard`: Dashboard utama (Siswa/Guru).
+- `/components/gamification`: Logika sistem progress, XP, dan badge.
+- `/components/journey/steps`: Langkah-langkah modul pembelajaran (*Journey*).
+- `/components/landing`: Halaman utama sebelum login.
+- `/components/layout`: Navigasi dan struktur (Navbar, Footer).
+- `/components/student`: Tampilan spesifik siswa.
+- `/components/subjects`: Navigasi pemilihan mata pelajaran & topik.
+- `/components/teacher`: Dashboard manajemen materi kurikulum & analisis.
+
+## 2. Jabaran Menu dan Fitur
+
+### A. Fitur Guru (Teacher Dashboard)
+Dashboard guru adalah pusat kontrol kurikulum dan pemantauan siswa.
+- **Manajemen Materi**: Membuat, mengedit, dan menghapus materi pembelajaran (`Material`).
+- **Bank Soal & Asesmen**: Membuat soal, mengelola bank soal (`QuestionBank`), dan menyusun asesmen/kuis (`Assessment`) dengan target nilai (KKTP).
+- **Interaksi & Aktivitas**: Mengelola aktivitas interaktif (`Matching`, `Simulation`, `Puzzle`, `Lab`) dan video pembelajaran interaktif.
+- **Coding & AI**: Mengonfigurasi tantangan logika pemrograman (`CodingChallenge`) dan perilaku asisten AI (`AITutorConfig`).
+- **Data Siswa & Kelas**: Mengelola akun murid, pengelompokan kelas, dan memantau perkembangan nilai/skor siswa.
+- **Pengumuman**: Membuat pengumuman yang ditujukan untuk kelas tertentu.
+- **Analisis & Sinkronisasi**: Memantau perkembangan belajar siswa secara *real-time* dan menyinkronkan data dengan Google Spreadsheet/Database.
+- **Konfigurasi Sistem**: Mengelola setelan TTS (*Text-to-Speech*) dan melihat dokumentasi skema database.
+
+### B. Fitur Siswa (Student Dashboard)
+Dashboard siswa dirancang untuk pengalaman belajar yang fokus dan interaktif.
+- **Ruang Belajar**: Akses ke mata pelajaran dan modul pembelajaran yang telah diterbitkan guru.
+- **Petualangan Belajar (*Learning Journey*)**:
+  - **Pemantik**: Stimulus awal dengan input isian bebas (esai pendek siswa). Jawaban siswa dikoreksi secara otomatis oleh PRIMA AI secara real-time dengan umpan balik pedagogik, penilaian skor, highlight kelebihan/saran, serta menampilkan kunci konsep & jawaban yang benar (mendukung input suara 🎙️ dan pembacaan umpan balik audio 🔊).
+  - **Eksplorasi**: Materi konsep dengan fitur TTS kata per kata (hover).
+  - **Video & Simulasi**: Media visual dan simulasi interaktif.
+  - **Tantangan**: Tantangan HOTS (berpikir tingkat tinggi) dan logika pemrograman (Coding).
+  - **Asesmen & Refleksi**: Kuis pemahaman dan sesi refleksi belajar.
+- **Asisten AI (PRIMA AI)**: Chatbot asisten tutor untuk membantu pemahaman materi.
+- **Sistem Gamifikasi**: Poin XP, Streak (harian), dan Badge (pencapaian) untuk memotivasi belajar.
+
+### C. Fitur Admin
+- **Manajemen Sistem**: Akses kontrol penuh untuk pengelolaan konfigurasi sistem aplikasi tingkat lanjut.
+
+## 3. Layanan & Data
+- `authService.ts`: Manajemen sesi dan akun.
+- `aiService.ts`: Integrasi model AI (Gemini) untuk asisten dan pembuatan soal otomatis.
+- `appscript.ts`: Integrasi dengan Google Apps Script (eksternal data).
+- `learningData.ts`: Database kurikulum statis dan fungsi persisten data.
+- `initialData.ts`: Inisialisasi data awal aplikasi.

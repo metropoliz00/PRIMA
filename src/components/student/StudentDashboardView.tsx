@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, BookOpen, Video, Gamepad2, Bot, Code, Brain, Trophy, BarChart3, User, Sparkles, Flame, Play, MessageSquare, FileText, ArrowRight
 } from 'lucide-react';
-import { StudentProgress, Subject, Material } from '../../types/learning';
+import { StudentProgress, Subject, Material, InteractiveVideo } from '../../types/learning';
 import { User as UserType } from '../../types/auth';
 
 interface StudentDashboardViewProps {
@@ -10,8 +10,10 @@ interface StudentDashboardViewProps {
   progress: StudentProgress;
   subjects: Subject[];
   materials?: Material[];
+  videosList?: InteractiveVideo[];
   onSelectMenu: (menuId: string) => void;
   onSelectSubject: (subjectId: string) => void;
+  onSelectVideo?: (video: InteractiveVideo) => void;
   onRequestLogout: () => void;
 }
 
@@ -20,8 +22,10 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   progress,
   subjects,
   materials = [],
+  videosList = [],
   onSelectMenu,
   onSelectSubject,
+  onSelectVideo,
   onRequestLogout,
 }) => {
   const [activeTab, setActiveTab] = useState('beranda');
@@ -51,7 +55,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                 Ruang Belajar Siswa SD Kelas {currentUser.grade || 5}
               </span>
               <h2 className="font-heading text-2xl sm:text-3xl font-black text-slate-900 leading-tight">
-                Selamat datang, {currentUser.name}! 👋
+                Selamat datang, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600">{currentUser.name}</span>! 👋
               </h2>
               <p className="text-sm font-medium text-slate-600">
                 Ayo teruskan petualangan belajarmu bersama PRIMA AI & Simulasi!
