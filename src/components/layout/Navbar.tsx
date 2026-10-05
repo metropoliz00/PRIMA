@@ -41,17 +41,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="h-7 w-auto object-contain transition-all duration-300 ease-out group-hover:scale-105 group-hover:translate-x-1 group-hover:brightness-110 group-active:scale-95"
               />
             </div>
-            <p className="text-[10px] font-semibold text-slate-600 hidden lg:block leading-tight mt-0.5">
-              <span>
-                <span className="text-emerald-600 font-extrabold">P</span>embelajaran{' '}
-                <span className="text-sky-600 font-extrabold">R</span>esponsif{' '}
-                <span className="text-amber-500 font-extrabold">I</span>nteraktif
-              </span>
-              <br />
-              <span>
-                berbasis <span className="text-rose-500 font-extrabold">M</span>ultimedia dan{' '}
-                <span className="text-indigo-600 font-extrabold">A</span>I
-              </span>
+            <p className="text-[10px] font-semibold text-slate-600 hidden lg:block whitespace-nowrap leading-tight mt-0.5">
+              <span className="text-emerald-600 font-extrabold">P</span>embelajaran{' '}
+              <span className="text-sky-600 font-extrabold">R</span>esponsif{' '}
+              <span className="text-amber-500 font-extrabold">I</span>nteraktif berbasis{' '}
+              <span className="text-rose-500 font-extrabold">M</span>ultimedia dan{' '}
+              <span className="text-indigo-600 font-extrabold">A</span>I
             </p>
           </div>
         </div>

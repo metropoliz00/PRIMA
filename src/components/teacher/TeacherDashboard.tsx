@@ -1515,7 +1515,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             />
             <div>
               <h2 className="font-heading font-black text-white text-lg tracking-tight">PORTAL GURU</h2>
-              <p className="text-[10px] font-semibold text-slate-300 leading-tight mt-0.5">
+              <p className="text-[10px] font-semibold text-slate-300 whitespace-nowrap leading-tight mt-0.5">
                 <span className="text-emerald-400 font-extrabold">P</span>embelajaran{' '}
                 <span className="text-cyan-300 font-extrabold">R</span>esponsif{' '}
                 <span className="text-amber-300 font-extrabold">I</span>nteraktif berbasis{' '}

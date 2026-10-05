@@ -32,17 +32,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 className="h-8 w-auto object-contain transition-all duration-300 ease-out group-hover:scale-105 group-hover:translate-x-1 group-active:scale-95"
               />
             </div>
-            <p className="text-[11px] font-semibold text-slate-600 leading-snug">
-              <span>
-                <span className="text-emerald-600 font-extrabold">P</span>embelajaran{' '}
-                <span className="text-sky-600 font-extrabold">R</span>esponsif{' '}
-                <span className="text-amber-600 font-extrabold">I</span>nteraktif
-              </span>
-              <br />
-              <span>
-                berbasis <span className="text-rose-500 font-extrabold">M</span>ultimedia dan{' '}
-                <span className="text-indigo-600 font-extrabold">A</span>I
-              </span>
+            <p className="text-[11px] font-semibold text-slate-600 whitespace-nowrap">
+              <span className="text-emerald-600 font-extrabold">P</span>embelajaran{' '}
+              <span className="text-sky-600 font-extrabold">R</span>esponsif{' '}
+              <span className="text-amber-600 font-extrabold">I</span>nteraktif berbasis{' '}
+              <span className="text-rose-500 font-extrabold">M</span>ultimedia dan{' '}
+              <span className="text-indigo-600 font-extrabold">A</span>I
             </p>
           </div>
         </div>
@@ -65,17 +60,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   />
                 </div>
               </div>
-              <p className="text-base sm:text-xl font-extrabold text-slate-800 tracking-wide leading-snug">
-                <span>
-                  <span className="text-emerald-600 font-black">P</span>embelajaran{' '}
-                  <span className="text-sky-600 font-black">R</span>esponsif{' '}
-                  <span className="text-amber-600 font-black">I</span>nteraktif
-                </span>
-                <br />
-                <span className="text-slate-700">
-                  berbasis <span className="text-rose-600 font-black">M</span>ultimedia dan{' '}
-                  <span className="text-indigo-600 font-black">A</span>I
-                </span>
+              <p className="text-sm sm:text-lg font-extrabold text-slate-800 tracking-wide">
+                <span className="text-emerald-600 font-black">P</span>embelajaran{' '}
+                <span className="text-sky-600 font-black">R</span>esponsif{' '}
+                <span className="text-amber-600 font-black">I</span>nteraktif berbasis{' '}
+                <span className="text-rose-600 font-black">M</span>ultimedia dan{' '}
+                <span className="text-indigo-600 font-black">A</span>I
               </p>
               <p className="text-xl sm:text-2xl font-black bg-gradient-to-r from-indigo-700 via-sky-600 to-emerald-600 bg-clip-text text-transparent italic pt-1">
                 “Belajar. Bereksplorasi. Bernalar. Berkarya.”

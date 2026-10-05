@@ -90,12 +90,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onBackToLa
               MASUK
             </h1>
             <div className="flex flex-col items-center justify-center w-full text-center space-y-0.5">
-              <p className="text-xs sm:text-sm font-extrabold text-slate-800 leading-snug">
+              <p className="text-xs sm:text-sm font-extrabold text-slate-800 leading-snug whitespace-nowrap">
                 <span className="text-emerald-600 font-black">P</span>embelajaran{' '}
                 <span className="text-sky-600 font-black">R</span>esponsif{' '}
                 <span className="text-amber-600 font-black">I</span>nteraktif
               </p>
-              <p className="text-xs sm:text-sm font-extrabold text-slate-800 leading-snug">
+              <p className="text-xs sm:text-sm font-extrabold text-slate-800 leading-snug whitespace-nowrap">
                 berbasis{' '}
                 <span className="text-rose-600 font-black">M</span>ultimedia dan{' '}
                 <span className="text-indigo-600 font-black">A</span>I
