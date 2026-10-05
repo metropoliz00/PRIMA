@@ -218,80 +218,95 @@ export interface GeneratePemantikParams {
   subjectName?: string;
   baseQuestion?: string;
   learningObjectives?: string;
+  studentName?: string;
+  studentGrade?: number;
+  variationSeed?: string | number;
 }
 
 export function getClientDynamicPemantikFallback(params: GeneratePemantikParams): GeneratedPemantik {
   const t = (params.topicTitle || '').toLowerCase();
   const s = (params.subjectName || '').toLowerCase();
+  const seed = Date.now();
 
   if (t.includes('ekosistem') || t.includes('rantai') || t.includes('alam') || s.includes('ipas') || s.includes('sains')) {
-    const pool = [
-      {
-        question: 'Jika di sebuah persawahan semua ular sawah ditangkap oleh pemburu liar, apa yang akan terjadi pada populasi tikus dan tanaman padi petani? Mengapa demikian?',
-        clue: 'Pikirkan hubungan pemangsa (ular) dengan mangsanya (tikus), serta makanan tikus di sawah.',
-        idealAnswer: 'Populasi tikus akan melonjak tajam karena tidak ada predator alaminya (ular). Akibatnya, tikus akan memakan habis tanaman padi dan petani mengalami gagal panen.',
-        explanation: 'Dalam rantai makanan, hilangnya predator alami menyebabkan ledakan populasi mangsa yang dapat merusak keseimbangan seluruh ekosistem sawah.',
-      },
-      {
-        question: 'Bayangkan jika seluruh cacing tanah dan jamur pengurai tiba-tiba menghilang dari muka bumi. Bagaimana nasib sampah dedaunan kering dan kesuburan tanah tanaman kita?',
-        clue: 'Ingat peran penting organisme pengurai (dekomposer) dalam mengolah zat sisa menjadi unsur hara.',
-        idealAnswer: 'Sampah dedaunan dan sisa makhluk hidup akan menumpuk tanpa bisa membusuk. Tanah kehilangan zat hara alami sehingga tanaman baru kesulitan tumbuh subur.',
-        explanation: 'Pengurai (dekomposer) bertugas mendaur ulang materi organik menjadi nutrisi tanah. Tanpa mereka, siklus nutrisi dalam ekosistem akan terputus.',
-      },
-      {
-        question: 'Di sebuah danau air tawar, ikan kecil memakan lumut, dan burung bangau memangsa ikan kecil. Jika air danau tercemar limbah pabrik hingga semua lumut mati, bagaimana nasib burung bangau? Jelaskan!',
-        clue: 'Perhatikan perpindahan energi dari produsen (lumut) ke konsumen tingkat berikutnya.',
-        idealAnswer: 'Jika lumut mati, ikan kecil kelaparan dan mati. Akibatnya, burung bangau kehilangan sumber makanannya sehingga harus berpindah tempat atau populasinya berkurang.',
-        explanation: 'Ketiadaan produsen di dasar rantai makanan memberikan efek domino ke seluruh tingkatan konsumen di atasnya hingga predator puncak.',
-      },
-      {
-        question: 'Jika di padang rumput tiba-tiba dimasukkan kawanan serigala asing dalam jumlah sangat banyak, bagaimana pengaruhnya terhadap populasi kelinci dan rumput? Mengapa?',
-        clue: 'Pikirkan dampak bertingkat: pemangsa bertambah -> hewan pemakan rumput berkurang -> kondisi rumput?',
-        idealAnswer: 'Serigala akan memangsa kelinci secara berlebihan sehingga kelinci berkurang drastis. Karena kelinci sedikit, rumput di padang rumput justru dapat tumbuh lebih lebat.',
-        explanation: 'Ini adalah contoh dinamika populasi: perubahan jumlah predator di tingkat atas memengaruhi populasi herbivora dan vegetasi di bawahnya.',
-      },
+    const ecosystems = [
+      { name: 'sawah', prod: 'tanaman padi', herb: 'belalang & tikus', carn: 'katak & ular', top: 'burung elang' },
+      { name: 'danau air tawar', prod: 'lumut & alga hijau', herb: 'udang kecil & ikan nila', carn: 'ikan gabus', top: 'burung bangau' },
+      { name: 'hutan tropis', prod: 'tumbuhan paku & pohon buah', herb: 'rusa & monyet', carn: 'serigala', top: 'harimau sumatera' },
+      { name: 'laut pesisir', prod: 'fitoplankton & terumbu karang', herb: 'ikan kecil & kepiting', carn: 'ikan tongkol', top: 'hiu karang' },
+      { name: 'kebun sayur sekolah', prod: 'tanaman sawi & tomat', herb: 'ulat daun & siput', carn: 'burung pipit & bunglon', top: 'kucing liar' },
     ];
-    const picked = pool[Math.floor(Math.random() * pool.length)];
+    const eco = ecosystems[Math.floor(Math.random() * ecosystems.length)];
+
+    const variations = [
+      {
+        question: `Di sebuah ekosistem ${eco.name}, jika populasi ${eco.top} tiba-tiba diburu hingga punah, menurutmu apa yang akan terjadi pada populasi ${eco.carn} dan ${eco.prod}? Jelaskan alasannya!`,
+        clue: `Pikirkan dampak rantai makanan bertingkat: saat pemangsa puncak (${eco.top}) hilang, bagaimana nasib hewan yang biasanya dimangsa?`,
+        idealAnswer: `Populasi ${eco.carn} akan bertambah banyak karena tidak ada predator pemangsanya. Hal ini membuat ${eco.herb} diburu berlebihan, dan pada akhirnya keseimbangan ekosistem ${eco.name} menjadi terganggu.`,
+        explanation: `Dalam jaring-jaring makanan, hilangnya predator puncak menimbulkan efek domino yang mengacaukan populasi tingkatan di bawahnya.`,
+      },
+      {
+        question: `Bayangkan jika di ekosistem ${eco.name} terjadi kekeringan panjang sehingga ${eco.prod} tidak bisa tumbuh. Bagaimana nasib ${eco.herb} dan ${eco.carn}? Mengapa?`,
+        clue: `Ingat bahwa produsen (${eco.prod}) adalah sumber energi utama bagi seluruh makhluk hidup di ekosistem.`,
+        idealAnswer: `${eco.herb} akan kekurangan makanan dan populasinya menurun drastis atau mati kelaparan. Selanjutnya, ${eco.carn} juga akan kehilangan mangsa dan populasinya ikut berkurang.`,
+        explanation: `Ketiadaan produsen di dasar piramida energi akan memutus aliran energi ke seluruh tingkatan konsumen di atasnya.`,
+      },
+      {
+        question: `Jika manusia menyemprotkan zat kimia pembasmi serangga secara berlebihan di ${eco.name} hingga semua hewan pengurai dan serangga musnah, apa dampak jangka panjangnya pada tanah dan air?`,
+        clue: `Pikirkan tugas dekomposer (pengurai) dalam mengolah bangkai dan sisa daun menjadi pupuk alami penyubur tanah.`,
+        idealAnswer: `Bangkai dan sampah daun akan menumpuk tanpa membusuk, tanah kehilangan kesuburan alaminya, dan tanaman baru akan sulit tumbuh subur.`,
+        explanation: `Pengurai adalah pahlawan tanpa tanda jasa dalam ekosistem yang menjaga siklus daur ulang zat hara tetap berjalan.`,
+      },
+      {
+        question: `Menurut analisismu, mengapa sebuah ekosistem ${eco.name} yang memiliki keanekaragaman makhluk hidup lebih kuat bertahan dari bencana dibandingkan ekosistem yang hanya memiliki 1 jenis hewan saja?`,
+        clue: `Pikirkan ketersediaan alternatif makanan jika salah satu spesies hewan terkena penyakit.`,
+        idealAnswer: `Karena jika salah satu hewan berkurang, predator masih memiliki pilihan mangsa lain sehingga jaring makanan tidak langsung runtuh total.`,
+        explanation: `Semakin beragam makhluk hidup dalam suatu ekosistem, semakin stabil jaring-jaring makanan yang terbentuk.`,
+      }
+    ];
+    const picked = variations[Math.floor(Math.random() * variations.length)];
     return { ...picked, isAiGenerated: false };
   }
 
   if (t.includes('kpk') || t.includes('fpb') || t.includes('kelipatan') || t.includes('faktor') || s.includes('matematika')) {
-    const pool = [
+    const numA = [4, 6, 8, 12, 15][Math.floor(Math.random() * 5)];
+    const numB = [8, 9, 10, 15, 20][Math.floor(Math.random() * 5)];
+    const variations = [
       {
-        question: 'Dua buah bus pariwisata berangkat dari terminal yang sama. Bus Merah berangkat tiap 15 menit, dan Bus Biru berangkat tiap 20 menit. Pada menit keberapa kedua bus tersebut akan berangkat bersamaan kembali? Bagaimana caramu mengetahuinya?',
-        clue: 'Gunakan konsep Kelipatan Persekutuan Terkecil (KPK) dari bilangan 15 dan 20.',
-        idealAnswer: 'Kedua bus akan berangkat bersamaan pada menit ke-60 (1 jam kemudian), karena 60 adalah Kelipatan Persekutuan Terkecil (KPK) dari 15 dan 20.',
-        explanation: 'KPK digunakan untuk mencari titik temu waktu berkala terkecil dari dua jadwal kegiatan yang berbeda kelipatannya.',
+        question: `Dua sahabat, Budi dan Siti, berlatih renang di kolam yang sama. Budi berlatih setiap ${numA} hari sekali dan Siti setiap ${numB} hari sekali. Jika hari ini mereka berenang bersama, berapa hari lagi mereka akan bertemu di kolam renang lagi? Bagaimana caramu menghitungnya?`,
+        clue: `Gunakan konsep Kelipatan Persekutuan Terkecil (KPK) dari bilangan ${numA} dan ${numB}.`,
+        idealAnswer: `Mencari KPK dari ${numA} dan ${numB} untuk menemukan hari pertemuan berikutnya saat jadwal kelipatan keduanya bertemu.`,
+        explanation: `KPK digunakan untuk mencari waktu pertemuan bersama dari dua kegiatan yang berulang dengan periode waktu berbeda.`,
       },
       {
-        question: 'Ibu memiliki 24 kue bolu dan 36 permen buah. Ibu ingin membagikannya ke dalam beberapa kotak kado dengan jumlah isi kue dan permen sama banyak tanpa sisa. Berapa kotak kado paling banyak yang bisa disiapkan Ibu? Konsep matematika apa yang kamu gunakan?',
-        clue: 'Gunakan Faktor Persekutuan Terbesar (FPB) dari 24 dan 36 untuk membagi benda sama rata.',
-        idealAnswer: 'Kotak kado paling banyak adalah 12 kotak, karena 12 adalah FPB dari 24 dan 36. Setiap kotak berisi 2 kue bolu dan 3 permen buah.',
-        explanation: 'FPB sangat berguna dalam kehidupan nyata untuk membagi berbagai barang ke dalam kelompok-kelompok yang sama banyak dan adil tanpa ada sisa.',
+        question: `Kakak memiliki 24 kue cokelat dan 36 permen susu yang ingin dimasukkan ke dalam kantong bingkisan ultah. Setiap kantong harus berisi kue dan permen sama banyak tanpa sisa. Berapa kantong paling banyak yang bisa disiapkan? Konsep apa yang digunakan?`,
+        clue: `Gunakan konsep Faktor Persekutuan Terbesar (FPB) untuk membagi benda ke dalam kelompok terbesar yang sama rata.`,
+        idealAnswer: `Jumlah kantong terbanyak adalah FPB dari 24 dan 36 yaitu 12 kantong, masing-masing berisi 2 kue dan 3 permen.`,
+        explanation: `FPB sangat bermanfaat dalam kehidupan sehari-hari untuk membagi barang secara adil tanpa ada bagian yang tersisa.`,
       },
       {
-        question: 'Lampu hias taman berkedip secara otomatis. Lampu kuning berkedip tiap 4 detik, dan lampu hijau tiap 6 detik. Jika keduanya menyala bersama pada detik ke-0, pada detik keberapa sajakah mereka menyala serentak lagi? Jelaskan!',
-        clue: 'Tuliskan kelipatan 4 (4, 8, 12, 16...) dan kelipatan 6 (6, 12, 18...). Temukan angka persekutuan terkecilnya!',
-        idealAnswer: 'Mereka menyala serentak pertama kali pada detik ke-12 (KPK dari 4 dan 6), kemudian detik ke-24, ke-36, dan seterusnya setiap kelipatan 12 detik.',
-        explanation: 'Peristiwa berkala yang berulang dengan periode berbeda akan bertemu kembali pada waktu kelipatan persekutuan dari kedua periode tersebut.',
-      },
+        question: `Lampu hias pohon natal menyala bergantian. Lampu merah menyala tiap ${numA} detik, dan lampu biru menyala tiap ${numB} detik. Pada detik keberapa sajakah kedua lampu akan menyala serentak bersama-sama?`,
+        clue: `Tuliskan kelipatan angka ${numA} dan kelipatan angka ${numB}, lalu temukan angka kelipatan persekutuan terkecilnya!`,
+        idealAnswer: `Kedua lampu akan menyala bersama pertama kali pada detik kelipatan persekutuan terkecil (KPK) dari ${numA} dan ${numB}.`,
+        explanation: `Peristiwa berulang secara berkala akan sinkron pada titik temu kelipatan persekutuan dari kedua interval waktu.`,
+      }
     ];
-    const picked = pool[Math.floor(Math.random() * pool.length)];
+    const picked = variations[Math.floor(Math.random() * variations.length)];
     return { ...picked, isAiGenerated: false };
   }
 
   const pool = [
     {
-      question: params.baseQuestion || `Menurut pengamatanmu dalam kehidupan sehari-hari, mengapa kita perlu mempelajari materi "${params.topicTitle}"? Apa masalah di sekitarmu yang bisa diselesaikan dengan pemahaman ini?`,
-      clue: `Hubungkan konsep ${params.topicTitle} dengan pengalaman nyata yang sering kamu lihat di rumah atau sekolah.`,
-      idealAnswer: `Pemahaman tentang ${params.topicTitle} melatih penalaran kritis dan membantu kita memahami cara kerja lingkungan sekitar dengan bijak.`,
-      explanation: `Konsep ini dirancang untuk menjawab fenomena dunia nyata dan melatih kita berpikir kritis serta mandiri.`,
+      question: params.baseQuestion || `Menurut pengamatanmu dalam kehidupan sehari-hari, bagaimana konsep "${params.topicTitle}" bisa membantu memecahkan masalah di rumah atau lingkungan sekitarmu?`,
+      clue: `Hubungkan materi ${params.topicTitle} dengan pengalaman nyata yang sering kamu alami atau lihat.`,
+      idealAnswer: `Pemahaman tentang ${params.topicTitle} melatih penalaran kritis dan membantu mengambil keputusan yang bijak dalam kehidupan sehari-hari.`,
+      explanation: `Setiap konsep pembelajaran memiliki aplikasi nyata yang bermanfaat untuk melatih daya nalar dan kreativitas siswa.`,
     },
     {
-      question: `Bayangkan jika kamu seorang detektif sains yang sedang mengamati "${params.topicTitle}". Jika ada satu bagian yang hilang atau berubah drastis, apa dampak pertama yang akan kamu cari tahu? Mengapa?`,
-      clue: 'Fokus pada hubungan sebab dan akibat antara bagian-bagian dalam topik ini.',
-      idealAnswer: 'Mencari tahu bagian mana yang paling terdampak secara langsung, lalu memprediksi dampaknya ke hal-hal lain di sekitarnya.',
-      explanation: 'Berpikir ilmiah berarti menelusuri rantai sebab-akibat dari setiap perubahan fenomena.',
+      question: `Bayangkan jika kamu seorang penemu cilik yang sedang merancang karya berbasis "${params.topicTitle}". Hal baru apa yang ingin kamu ciptakan agar bermanfaat bagi teman-teman sekolahmu?`,
+      clue: 'Pikirkan solusi kreatif yang mempermudah kegiatan belajar atau membantu lingkungan sekitar.',
+      idealAnswer: 'Merancang karya atau kebiasaan baru yang mempermudah pemahaman dan memberikan dampak positif bagi orang lain.',
+      explanation: 'Kreativitas berawal dari keberanian menerapkan ilmu pengetahuan untuk menciptakan solusi nyata.',
     }
   ];
   const picked = pool[Math.floor(Math.random() * pool.length)];
@@ -299,9 +314,10 @@ export function getClientDynamicPemantikFallback(params: GeneratePemantikParams)
 }
 
 export async function generatePemantikQuestion(params: GeneratePemantikParams): Promise<GeneratedPemantik> {
+  const dynamicSeed = `${Date.now()}_${Math.random()}`;
   const endpoints = [
-    { url: '/api/ai/generate-pemantik', body: { ...params, variationSeed: Math.random() } },
-    { url: '/.netlify/functions/gemini', body: { action: 'generate-pemantik', ...params, variationSeed: Math.random() } },
+    { url: '/api/ai/generate-pemantik', body: { ...params, variationSeed: dynamicSeed } },
+    { url: '/.netlify/functions/gemini', body: { action: 'generate-pemantik', ...params, variationSeed: dynamicSeed } },
   ];
 
   for (const { url, body } of endpoints) {

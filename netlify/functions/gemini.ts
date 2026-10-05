@@ -210,6 +210,121 @@ PEDOMAN PENILAIAN ANAK SD:
       };
     }
 
+    if (rawBody.action === 'generate-pemantik') {
+      const {
+        topicTitle = 'Misi Belajar',
+        subjectName = 'IPAS',
+        baseQuestion = '',
+        learningObjectives = '',
+        studentName = '',
+        variationSeed = `${Date.now()}_${Math.random()}`,
+      } = rawBody as any;
+
+      const pemantikSystemPrompt = `
+Kamu adalah "PRIMA AI", perancang pertanyaan pemantik pedagogik Kurikulum Merdeka untuk siswa SD (Kelas 4–6).
+Tugasmu adalah merumuskan SATU (1) pertanyaan pemantik studi kasus yang SEGAR, MENARIK, PENUH RASA INGIN TAHU, dan BERBEDA SETIAP SAAT.
+
+Informasi Belajar:
+- Mata Pelajaran: ${subjectName}
+- Topik Pembelajaran: ${topicTitle}
+- Tujuan Pembelajaran: ${learningObjectives || 'Memantik rasa ingin tahu dan penalaran sebab-akibat siswa SD'}
+- Nama Siswa Sesi: ${studentName || 'Petualang Cilik'}
+- ID Variasi Unik: ${variationSeed}
+
+INSTRUKSI KEUNIKAN MUTLAK:
+1. Pertanyaan ini HARUS BARU dan BERBEDA dari pertanyaan sebelumnya. JANGAN membuat pertanyaan yang klise atau berulang.
+2. Gunakan variasi studi kasus konkret di sekitar anak SD (misalnya situasi di taman, sawah, sungai, dapur, pasar, kebun binatang, fenomena alam, atau eksperimen tak terduga).
+3. Bentuk pertanyaan memicu nalar kritis/HOTS ("Bayangkan jika...", "Menurutmu apa yang terjadi jika...", "Mengapa...", "Bagaimana cara...").
+4. Format keluaran HARUS berupa JSON murni tanpa markdown (\`\`\`json) atau teks pengantar:
+{
+  "question": "Kalimat pertanyaan pemantik yang seru dan menantang rasa ingin tahu",
+  "clue": "Petunjuk berpikir ramah anak (1-2 kalimat) yang membimbing penalaran",
+  "idealAnswer": "Kunci poin esensial atau konsep ideal yang diharapkan dipikirkan anak",
+  "explanation": "Penjelasan konsep materi secara menyenangkan dan mudah dimengerti anak SD"
+}
+`;
+
+      let pemantikReply = "";
+      for (const model of FALLBACK_MODELS) {
+        try {
+          pemantikReply = await callWithSdk(apiKey, model, `Rumuskan 1 pertanyaan pemantik baru dengan variasi seed: ${variationSeed}`, pemantikSystemPrompt);
+          if (pemantikReply) break;
+        } catch {
+          try {
+            pemantikReply = await callWithRest(apiKey, model, `Rumuskan 1 pertanyaan pemantik baru dengan variasi seed: ${variationSeed}`, pemantikSystemPrompt);
+            if (pemantikReply) break;
+          } catch {}
+        }
+      }
+
+      if (pemantikReply) {
+        const cleaned = pemantikReply.replace(/```json/gi, '').replace(/```/g, '').trim();
+        try {
+          const parsed = JSON.parse(cleaned);
+          if (parsed && parsed.question) {
+            return {
+              statusCode: 200,
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ success: true, isAiGenerated: true, ...parsed }),
+            };
+          }
+        } catch {}
+      }
+    }
+
+    if (rawBody.action === 'generate-questions') {
+      const { subjectId, topicTitle, grade = 5, numPG = 2, numPGK = 1, numBS = 1 } = rawBody as any;
+      const qSystemPrompt = `
+Kamu adalah pakar pembuat soal Asesmen Kompetensi Minimum (AKM) tingkat Sekolah Dasar (Kelas 4-6 SD).
+Topik: "${topicTitle || 'Umum'}" (Mata Pelajaran: "${subjectId || 'Umum'}", Kelas: ${grade} SD).
+ID Acak Sesi: ${Date.now()}_${Math.random()}
+
+Buatlah soal-soal BARU dan BERBEDA dengan konfigurasi:
+- PG: ${numPG} soal
+- PGK: ${numPGK} soal
+- BS: ${numBS} soal
+
+Format keluaran HARUS berupa JSON array murni tanpa markdown (\`\`\`json):
+[
+  {
+    "id": "qb_auto_1",
+    "subjectId": "${subjectId || 'ipas'}",
+    "type": "PG",
+    "level": "MOTS",
+    "stimulus": "Teks wacana atau skenario kasus pendek",
+    "questionText": "Pertanyaan",
+    "options": ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
+    "correctAnswer": 0,
+    "explanation": "Pembahasan rinci"
+  }
+]
+`;
+      let qReply = "";
+      for (const model of FALLBACK_MODELS) {
+        try {
+          qReply = await callWithSdk(apiKey, model, "Buat soal asesmen AKM sesuai instruksi.", qSystemPrompt);
+          if (qReply) break;
+        } catch {
+          try {
+            qReply = await callWithRest(apiKey, model, "Buat soal asesmen AKM sesuai instruksi.", qSystemPrompt);
+            if (qReply) break;
+          } catch {}
+        }
+      }
+
+      if (qReply) {
+        const cleaned = qReply.replace(/```json/gi, '').replace(/```/g, '').trim();
+        try {
+          const parsed = JSON.parse(cleaned);
+          return {
+            statusCode: 200,
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ success: true, questions: parsed }),
+          };
+        } catch {}
+      }
+    }
+
     const {
       prompt,
       message,

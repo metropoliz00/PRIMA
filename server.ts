@@ -15,7 +15,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const apiKey = process.env.GEMINI_API_KEY || '';
 
-async function callGeminiAPI(promptText: string, key: string): Promise<string> {
+async function callGeminiAPI(promptText: string, key: string, options?: { temperature?: number; topP?: number }): Promise<string> {
   const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
   
   for (const model of models) {
@@ -34,7 +34,11 @@ async function callGeminiAPI(promptText: string, key: string): Promise<string> {
                 { text: promptText }
               ]
             }
-          ]
+          ],
+          generationConfig: {
+            temperature: options?.temperature ?? 0.95,
+            topP: options?.topP ?? 0.95,
+          }
         })
       });
 
@@ -341,26 +345,36 @@ app.post('/api/ai/generate-pemantik', async (req, res) => {
       subjectName = 'IPAS',
       baseQuestion = '',
       learningObjectives = '',
-      variationSeed = Math.random(),
+      studentName = '',
+      variationSeed = `${Date.now()}_${Math.random()}`,
     } = req.body;
+
+    const perspectives = [
+      'Studi Kasus Lingkungan Sekitar & Rumah',
+      'Eksperimen / Fenomena Tak Terduga',
+      'Dampak Perubahan Cepat & Rantai Sebab-Akibat',
+      'Misteri Alam & Petualangan Nyata',
+      'Penerapan Kreatif Sehari-hari',
+    ];
+    const pickedPerspective = perspectives[Math.floor(Math.random() * perspectives.length)];
 
     const systemPrompt = `
 Kamu adalah "PRIMA AI", perancang pertanyaan pemantik pedagogik Kurikulum Merdeka untuk siswa SD (Sekolah Dasar Kelas 4–6).
-Tugasmu adalah merumuskan SATU (1) pertanyaan pemantik (inquiry trigger question) yang SEGAR, MENARIK, dan BERUBAH-UBAH setiap saat untuk siswa yang baru saja memasuki misi belajar ini.
+Tugasmu adalah merumuskan SATU (1) pertanyaan pemantik (inquiry trigger question) yang SEGAR, MENARIK, PENUH RASA INGIN TAHU, dan BERBEDA SETIAP SAAT.
 
 Informasi Materi:
 - Mata Pelajaran: ${subjectName}
 - Topik Pembelajaran: ${topicTitle}
 - Tujuan / Konteks Pembelajaran: ${learningObjectives || 'Memantik rasa ingin tahu dan penalaran sebab-akibat siswa SD'}
-- Pertanyaan Acuan / Sebelumnya: "${baseQuestion}"
-- Nomor Acak Variasi: ${variationSeed}
+- Nama Siswa Sesi: ${studentName || 'Petualang Cilik'}
+- Sudut Pandang Khusus Kali Ini: ${pickedPerspective}
+- ID Variasi Unik / Timestamp: ${variationSeed}
 
-KRITERIA PERTANYAAN PEMANTIK ANAK SD:
-1. Hubungkan dengan studi kasus sehari-hari, fenomena alam, atau situasi konkret di sekitar anak SD.
-2. Gunakan gaya bahasa bersahabat, ceria, dan merangsang rasa penasaran ("Bayangkan jika...", "Menurutmu apa yang terjadi jika...", "Mengapa...", "Bagaimana cara...").
-3. BUKAN pertanyaan teoretis/hafalan definisi, melainkan pertanyaan penalaran logis (HOTS ramah anak).
-4. Buat pertanyaan BARU dan BERVARIASI agar berbeda dari pertanyaan dasar sebelumnya.
-5. Format keluaran WAJIB JSON murni tanpa pembungkus markdown (\`\`\`json) dengan struktur:
+INSTRUKSI KEUNIKAN MUTLAK:
+1. Pertanyaan ini HARUS BARU dan BERBEDA dari pertanyaan sebelumnya. JANGAN pernah membuat pertanyaan yang sama persis atau klise.
+2. Hubungkan dengan studi kasus sehari-hari, fenomena konkret di sekitar anak SD (taman, sawah, dapur, sungai, pasar, sekolah, hewan, tumbuhan, angka, dll.).
+3. Gunakan gaya bahasa bersahabat, ceria, dan merangsang rasa penasaran ("Bayangkan jika...", "Menurutmu apa yang terjadi jika...", "Mengapa...", "Bagaimana caramu...").
+4. Format keluaran WAJIB JSON murni tanpa pembungkus markdown (\`\`\`json) dengan struktur:
 {
   "question": "Kalimat pertanyaan pemantik yang seru dan menantang rasa ingin tahu",
   "clue": "Petunjuk berpikir ramah anak (1-2 kalimat) yang membimbing penalaran",
@@ -372,7 +386,7 @@ KRITERIA PERTANYAAN PEMANTIK ANAK SD:
     let generated: any = null;
     if (apiKey) {
       try {
-        const rawResponse = await callGeminiAPI(systemPrompt, apiKey);
+        const rawResponse = await callGeminiAPI(systemPrompt, apiKey, { temperature: 1.0, topP: 0.95 });
         const cleaned = rawResponse.replace(/```json/gi, '').replace(/```/g, '').trim();
         generated = JSON.parse(cleaned);
       } catch (geminiErr) {

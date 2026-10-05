@@ -1294,31 +1294,61 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     }, 2000);
 
     try {
-      const response = await fetch('/api/ai/generate-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subjectId: aiGenSubjectId,
-          topicTitle: aiGenTopic,
-          grade: 5,
-          numPG: aiGenNumPG,
-          numPGK: aiGenNumPGK,
-          numBS: aiGenNumBS
-        })
-      });
+      const endpoints = [
+        {
+          url: '/api/ai/generate-questions',
+          body: {
+            subjectId: aiGenSubjectId,
+            topicTitle: aiGenTopic,
+            grade: 5,
+            numPG: aiGenNumPG,
+            numPGK: aiGenNumPGK,
+            numBS: aiGenNumBS,
+            variationSeed: `${Date.now()}_${Math.random()}`,
+          },
+        },
+        {
+          url: '/.netlify/functions/gemini',
+          body: {
+            action: 'generate-questions',
+            subjectId: aiGenSubjectId,
+            topicTitle: aiGenTopic,
+            grade: 5,
+            numPG: aiGenNumPG,
+            numPGK: aiGenNumPGK,
+            numBS: aiGenNumBS,
+            variationSeed: `${Date.now()}_${Math.random()}`,
+          },
+        },
+      ];
+
+      let data: any = null;
+      for (const ep of endpoints) {
+        try {
+          const res = await fetch(ep.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ep.body),
+          });
+          if (res.ok) {
+            const parsed = await res.json();
+            if (parsed && (parsed.success || Array.isArray(parsed.questions))) {
+              data = parsed;
+              break;
+            }
+          }
+        } catch {
+          // try next endpoint
+        }
+      }
 
       clearInterval(stepInterval);
 
-      if (!response.ok) {
-        throw new Error('Server AI mengembalikan status error.');
-      }
-
-      const data = await response.json();
-      if (data.success && Array.isArray(data.questions)) {
+      if (data && Array.isArray(data.questions) && data.questions.length > 0) {
         setAiGenResult(data.questions);
-        toast.success(`Berhasil memformulasikan ${data.questions.length} butir soal AI! ✨`);
+        toast.success(`Berhasil memformulasikan ${data.questions.length} butir soal AI yang unik & baru! ✨`);
       } else {
-        throw new Error(data.error || 'Gagal memparsing respons soal dari AI.');
+        throw new Error(data?.error || 'Gagal memparsing respons soal dari AI.');
       }
     } catch (err: any) {
       clearInterval(stepInterval);

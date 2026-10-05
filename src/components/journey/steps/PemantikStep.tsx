@@ -22,6 +22,7 @@ import {
   getClientDynamicPemantikFallback,
 } from '../../../services/aiService';
 import { getStoredTtsSetting } from '../../../data/learningData';
+import { useAuth } from '../../../context/AuthContext';
 
 interface PemantikStepProps {
   content: any;
@@ -36,6 +37,8 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({
   subjectName = 'IPAS',
   onNext
 }) => {
+  const { user } = useAuth();
+
   // Initialize with topic-aware dynamic question immediately so there is no layout jump
   const [initialData] = useState(() =>
     getClientDynamicPemantikFallback({
@@ -43,6 +46,9 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({
       subjectName,
       baseQuestion: content?.question,
       learningObjectives: content?.learningObjectives || content?.explanation,
+      studentName: user?.name || '',
+      studentGrade: user?.grade || 5,
+      variationSeed: `${Date.now()}_${Math.random()}`,
     })
   );
 
@@ -72,6 +78,9 @@ export const PemantikStep: React.FC<PemantikStepProps> = ({
           subjectName,
           baseQuestion: content?.question,
           learningObjectives: content?.learningObjectives || content?.explanation,
+          studentName: user?.name || '',
+          studentGrade: user?.grade || 5,
+          variationSeed: `${Date.now()}_${questionSeed}_${Math.random()}`,
         });
         if (isMounted && fresh?.question) {
           setDynamicQuestion(fresh.question);
