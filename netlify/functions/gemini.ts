@@ -21,7 +21,7 @@ interface RequestBody {
 
 const FALLBACK_MODELS = [
   'gemini-3.8-flash',
-  'gemini-2.5-flash',
+  'gemini-3.1-flash-lite',
 ];
 
 async function callWithSdk(apiKey: string, model: string, userMessage: string, systemInstruction: string): Promise<string> {
@@ -38,7 +38,9 @@ async function callWithSdk(apiKey: string, model: string, userMessage: string, s
     model,
     contents: userMessage,
     config: {
-      systemInstruction,
+      systemInstruction: systemInstruction || undefined,
+      temperature: 1.0,
+      topP: 0.95,
     },
   });
 
@@ -50,23 +52,27 @@ async function callWithSdk(apiKey: string, model: string, userMessage: string, s
 
 async function callWithRest(apiKey: string, model: string, userMessage: string, systemInstruction: string): Promise<string> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const payload: any = {
+    contents: [
+      {
+        parts: [
+          { text: systemInstruction ? `${systemInstruction}\n\n${userMessage}` : userMessage }
+        ],
+      },
+    ],
+    generationConfig: {
+      temperature: 1.0,
+      topP: 0.95,
+    }
+  };
+
   const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "User-Agent": "aistudio-build",
     },
-    body: JSON.stringify({
-      systemInstruction: {
-        parts: [{ text: systemInstruction }],
-      },
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: userMessage }],
-        },
-      ],
-    }),
+    body: JSON.stringify(payload),
   });
 
   const data = await res.json();

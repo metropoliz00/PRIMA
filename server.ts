@@ -16,7 +16,7 @@ app.use(express.json({ limit: '10mb' }));
 const apiKey = process.env.GEMINI_API_KEY || '';
 
 async function callGeminiAPI(promptText: string, key: string, options?: { temperature?: number; topP?: number }): Promise<string> {
-  const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+  const models = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
   
   for (const model of models) {
     try {
@@ -60,7 +60,7 @@ async function callGeminiAPI(promptText: string, key: string, options?: { temper
 app.get('/api/ai/status', (req, res) => {
   res.json({
     status: 'ONLINE',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.8-flash',
     hasApiKey: true,
     engine: 'Google Gemini REST API',
   });
