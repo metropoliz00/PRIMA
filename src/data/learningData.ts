@@ -108,33 +108,45 @@ export const INITIAL_SUBJECTS: Subject[] = [
             stepNumber: 2,
             type: 'eksplorasi',
             title: 'EKSPLORASI',
-            subtitle: 'Komponen & Peran dalam Ekosistem',
+            subtitle: 'Pengertian & Ragam Ekosistem (Sawah, Hutan, Sungai, Laut)',
             isCompleted: false,
             isUnlocked: false,
             content: {
               cards: [
                 {
-                  title: 'Produsen (Tumbuhan)',
-                  description: 'Makhluk hidup yang membuat makanan sendiri melalui fotosintesis dengan bantuan matahari.',
-                  tag: 'Tumbuhan Hijau',
-                  icon: '🌿'
+                  title: 'Pengertian Ekosistem & Komponen',
+                  description: 'Ekosistem adalah hubungan timbal balik antara makhluk hidup (komponen biotik: produsen, konsumen, pengurai) dengan benda tak hidup (komponen abiotik: air, tanah, udara, cahaya matahari).',
+                  tag: 'Konsep Dasar',
+                  icon: '🌍'
                 },
                 {
-                  title: 'Konsumen I (Herbivora)',
-                  description: 'Hewan pemakan tumbuhan seperti belalang, kelinci, ulat, dan sapi.',
-                  tag: 'Pemakan Tumbuhan',
-                  icon: '🐇'
+                  title: 'Ekosistem Sawah (Buatan)',
+                  description: 'Lahan basah buatan manusia untuk padi dengan irigasi teratur. Rantai makanan: Padi -> Belalang/Tikus -> Katak/Ular -> Burung Elang -> Jamur Pengurai.',
+                  tag: 'Ekosistem Buatan',
+                  icon: '🌾'
                 },
                 {
-                  title: 'Konsumen II & III (Karnivora/Omnivora)',
-                  description: 'Hewan pemakan hewan lain seperti katak, ular, elang, dan serigala.',
-                  tag: 'Pemakan Daging',
-                  icon: '🦅'
+                  title: 'Ekosistem Hutan Tropis (Darat)',
+                  description: 'Ekosistem darat alami terlebat dengan pohon tinggi, paku-pakuan, rusa, burung, dan harimau. Menjadi paru-paru dunia penyimpan cadangan air bersih.',
+                  tag: 'Ekosistem Darat',
+                  icon: '🌲'
                 },
                 {
-                  title: 'Pengurai (Dekomposer)',
-                  description: 'Bakteri dan jamur yang menguraikan sisa makhluk mati menjadi hara tanah bagi tumbuhan.',
-                  tag: 'Dekomposer',
+                  title: 'Ekosistem Sungai (Air Tawar)',
+                  description: 'Aliran air tawar berarus dengan bebatuan kali dan kaya oksigen. Rantai makanan: Lumut -> Jentik/Udang -> Ikan Kecil -> Ikan Gabus/Burung Raja Udang.',
+                  tag: 'Air Tawar Mengalir',
+                  icon: '🌊'
+                },
+                {
+                  title: 'Ekosistem Laut & Pesisir (Air Asin)',
+                  description: 'Ekosistem air asin terluas di bumi dengan terumbu karang indah. Rantai makanan: Fitoplankton -> Zooplankton/Ikan Teri -> Ikan Tongkol -> Ikan Hiu Karang.',
+                  tag: 'Ekosistem Bahari',
+                  icon: '🐠'
+                },
+                {
+                  title: 'Peran Pengurai (Dekomposer)',
+                  description: 'Jamur dan bakteri pengurai mendaur ulang bangkai hewan dan tumbuhan mati menjadi unsur hara penyubur tanah agar tanaman baru dapat tumbuh subur.',
+                  tag: 'Daur Ulang Alami',
                   icon: '🍄'
                 }
               ]
