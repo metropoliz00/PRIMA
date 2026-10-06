@@ -73,21 +73,31 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
   }, [activitiesList]);
 
   // MATCHING GAME STATE
+  const [activeMatchingPairs, setActiveMatchingPairs] = useState<Array<{ id: string; left: string; right: string }>>(DEFAULT_MATCHING_PAIRS);
+  const [shuffledRightPairs, setShuffledRightPairs] = useState<Array<{ id: string; left: string; right: string }>>(DEFAULT_MATCHING_PAIRS);
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const [matchedPairs, setMatchedPairs] = useState<Record<string, string>>({});
   const [wrongMatch, setWrongMatch] = useState<string | null>(null);
 
-  // SIMULATION GAME STATE (Live Ecosystem Variables)
+  // SIMULATION GAME STATE (Live Ecosystem Variables & Math Simulator)
   const [simGrass, setSimGrass] = useState<number>(100);
   const [simGrasshopper, setSimGrasshopper] = useState<number>(50);
   const [simFrog, setSimFrog] = useState<number>(20);
   const [simSnake, setSimSnake] = useState<number>(6);
+  const [mathA, setMathA] = useState<number>(12);
+  const [mathB, setMathB] = useState<number>(18);
 
   // PUZZLE GAME STATE (Ordering Steps)
   const [puzzleItems, setPuzzleItems] = useState<Array<{ id: string; label: string; rank: number }>>([]);
   const [puzzleChecked, setPuzzleChecked] = useState<boolean>(false);
 
   // LAB GAME STATE (Apparatus & Filtration Layers)
+  const [activeLabApparatus, setActiveLabApparatus] = useState<Array<{ id: string; name: string; score: number; icon?: string }>>([
+    { id: 'l1', name: 'Kerikil & Pasir Kasar', score: 25, icon: '🪨' },
+    { id: 'l2', name: 'Arang Aktif Karbon', score: 35, icon: '⬛' },
+    { id: 'l3', name: 'Sabut Kelapa / Ijuk Alami', score: 20, icon: '🥥' },
+    { id: 'l4', name: 'Kain Kasa Saringan Halus', score: 20, icon: '📜' },
+  ]);
   const [labLayers, setLabLayers] = useState<string[]>([]);
   const [labClarity, setLabClarity] = useState<number>(20);
   const [labPoured, setLabPoured] = useState<boolean>(false);
@@ -101,23 +111,70 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
     setActivePlayingActivity(act);
     setIsPlayingCompleted(false);
 
-    // Reset Matching State
+    // Dynamic Matching configuration from Teacher
+    const customPairs = act.config?.matchingPairs && act.config.matchingPairs.length > 0
+      ? act.config.matchingPairs
+      : act.subjectId?.toLowerCase() === 'matematika'
+      ? [
+          { id: 'mm1', left: '1/2 (Satu Per Dua)', right: '0,5 atau 50%' },
+          { id: 'mm2', left: '1/4 (Satu Per Empat)', right: '0,25 atau 25%' },
+          { id: 'mm3', left: '3/4 (Tiga Per Empat)', right: '0,75 atau 75%' },
+          { id: 'mm4', left: '1/5 (Satu Per Lima)', right: '0,2 atau 20%' },
+          { id: 'mm5', left: '4/5 (Empat Per Lima)', right: '0,8 atau 80%' },
+        ]
+      : DEFAULT_MATCHING_PAIRS;
+
+    setActiveMatchingPairs(customPairs);
+    // Shuffle right-side targets for fair challenge
+    setShuffledRightPairs([...customPairs].sort(() => Math.random() - 0.5));
     setSelectedLeft(null);
     setMatchedPairs({});
     setWrongMatch(null);
 
-    // Reset Simulation State
-    setSimGrass(100);
-    setSimGrasshopper(50);
-    setSimFrog(20);
-    setSimSnake(6);
+    // Dynamic Simulation State
+    if (act.config?.simVariables && act.config.simVariables.length > 0) {
+      act.config.simVariables.forEach((v) => {
+        if (v.key === 'grass') setSimGrass(v.initial);
+        if (v.key === 'grasshopper') setSimGrasshopper(v.initial);
+        if (v.key === 'frog') setSimFrog(v.initial);
+        if (v.key === 'snake') setSimSnake(v.initial);
+      });
+    } else {
+      setSimGrass(100);
+      setSimGrasshopper(50);
+      setSimFrog(20);
+      setSimSnake(6);
+    }
+    setMathA(12);
+    setMathB(18);
 
-    // Reset Puzzle State (Guaranteed Shuffled Derangement - zero lines start in correct position)
-    const shuffled = shuffleDerangement(DEFAULT_PUZZLE_ITEMS, (item, idx) => item.rank === idx + 1);
+    // Dynamic Puzzle State from Teacher
+    const customPuzzle = act.config?.puzzleItems && act.config.puzzleItems.length > 0
+      ? act.config.puzzleItems
+      : act.subjectId?.toLowerCase() === 'matematika'
+      ? [
+          { id: 'p1', label: '1. Tuliskan Bilangan (12 dan 18) 🔢', rank: 1 },
+          { id: 'p2', label: '2. Tentukan Faktor Prima Tiap Bilangan 🌳', rank: 2 },
+          { id: 'p3', label: '3. Buat Bentuk Faktorisasi Prima (2² x 3) 🧮', rank: 3 },
+          { id: 'p4', label: '4. Ambil Semua Faktor Berpangkat Terbesar 📈', rank: 4 },
+          { id: 'p5', label: '5. Kalikan Seluruh Faktor untuk Menemukan KPK (36) ✨', rank: 5 },
+        ]
+      : DEFAULT_PUZZLE_ITEMS;
+
+    const shuffled = shuffleDerangement(customPuzzle, (item, idx) => item.rank === idx + 1);
     setPuzzleItems(shuffled);
     setPuzzleChecked(false);
 
-    // Reset Lab State
+    // Dynamic Lab State from Teacher
+    const customLab = act.config?.labApparatus && act.config.labApparatus.length > 0
+      ? act.config.labApparatus
+      : [
+          { id: 'l1', name: 'Kerikil & Pasir Kasar', score: 25, icon: '🪨' },
+          { id: 'l2', name: 'Arang Aktif Karbon', score: 35, icon: '⬛' },
+          { id: 'l3', name: 'Sabut Kelapa / Ijuk Alami', score: 20, icon: '🥥' },
+          { id: 'l4', name: 'Kain Kasa Saringan Halus', score: 20, icon: '📜' },
+        ];
+    setActiveLabApparatus(customLab);
     setLabLayers([]);
     setLabClarity(20);
     setLabPoured(false);
@@ -138,7 +195,7 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
     setWrongMatch(null);
   };
 
-  const handleMatchRightClick = (pair: typeof DEFAULT_MATCHING_PAIRS[0]) => {
+  const handleMatchRightClick = (pair: { id: string; left: string; right: string }) => {
     if (!selectedLeft) return;
 
     if (selectedLeft === pair.id) {
@@ -148,7 +205,7 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
       setSelectedLeft(null);
       toast.success(`Cocok! ${pair.left} ➔ ${pair.right}`);
 
-      if (Object.keys(updated).length === DEFAULT_MATCHING_PAIRS.length) {
+      if (Object.keys(updated).length === activeMatchingPairs.length) {
         toast.success('🎉 Hebat! Semua pasangan berhasil dicocokkan dengan sempurna!');
       }
     } else {
@@ -158,6 +215,10 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
       setTimeout(() => setWrongMatch(null), 800);
     }
   };
+
+  // Math Helper Functions
+  const getGcd = (a: number, b: number): number => (b === 0 ? a : getGcd(b, a % b));
+  const getLcm = (a: number, b: number): number => ((a * b) / (getGcd(a, b) || 1));
 
   // Simulation Ecosystem Balance Calculator
   const getEcosystemHarmony = () => {
@@ -406,15 +467,15 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
                         🧩 Klik kartu kiri, lalu klik pasangannya di sebelah kanan:
                       </span>
                       <span className="text-xs font-extrabold text-purple-600 bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
-                        Cocok: {Object.keys(matchedPairs).length} / {DEFAULT_MATCHING_PAIRS.length}
+                        Cocok: {Object.keys(matchedPairs).length} / {activeMatchingPairs.length}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Left Column: Concept Cards */}
                       <div className="space-y-2.5">
-                        <p className="text-[11px] font-extrabold uppercase text-slate-400 tracking-wider">Komponen Ekosistem</p>
-                        {DEFAULT_MATCHING_PAIRS.map((pair) => {
+                        <p className="text-[11px] font-extrabold uppercase text-slate-400 tracking-wider">Pernyataan / Konsep Kiri</p>
+                        {activeMatchingPairs.map((pair) => {
                           const isMatched = !!matchedPairs[pair.id];
                           const isSelected = selectedLeft === pair.id;
 
@@ -438,16 +499,16 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
                         })}
                       </div>
 
-                      {/* Right Column: Roles Targets */}
+                      {/* Right Column: Target Match Cards */}
                       <div className="space-y-2.5">
-                        <p className="text-[11px] font-extrabold uppercase text-slate-400 tracking-wider">Peran & Kategori</p>
-                        {DEFAULT_MATCHING_PAIRS.map((pair) => {
-                          const isMatched = !!matchedPairs[pair.id];
+                        <p className="text-[11px] font-extrabold uppercase text-slate-400 tracking-wider">Pasangan Tepat Kanan</p>
+                        {shuffledRightPairs.map((pair) => {
+                          const isMatched = Object.values(matchedPairs).includes(pair.right);
                           const isWrong = wrongMatch === pair.id;
 
                           return (
                             <button
-                              key={pair.id}
+                              key={`r-${pair.id}`}
                               disabled={isMatched || !selectedLeft}
                               onClick={() => handleMatchRightClick(pair)}
                               className={`w-full p-3.5 rounded-2xl border text-left font-bold text-xs transition-all flex items-center justify-between cursor-pointer ${
@@ -470,138 +531,208 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
                   </div>
                 )}
 
-                {/* 2. SIMULATION ENGINE (Live Variable Sliders & Visual Canvas) */}
+                {/* 2. SIMULATION ENGINE (Math vs Ecosystem) */}
                 {activePlayingActivity.type === 'SIMULATION' && (
-                  <div className="space-y-5">
-                    
-                    {/* Live Graphical Ecosystem Viewport */}
-                    <div className="p-6 rounded-3xl bg-gradient-to-b from-sky-200 via-emerald-100 to-amber-100 border border-emerald-300 shadow-inner relative overflow-hidden min-h-[160px] flex flex-col justify-between">
-                      <div className="flex items-center justify-between z-10">
-                        <span className="text-[11px] font-extrabold px-3 py-1 bg-white/90 text-emerald-900 rounded-full border shadow-xs">
-                          📊 Arena Simulasi Interaktif Sawah
-                        </span>
-                        <span className="text-[11px] font-black px-3 py-1 bg-white/90 text-indigo-900 rounded-full border shadow-xs">
-                          Skor Harmoni: {ecosystemHarmony.score}%
-                        </span>
+                  (activePlayingActivity.config?.simulationType === 'math' || activePlayingActivity.subjectId?.toLowerCase() === 'matematika') ? (
+                    <div className="space-y-5">
+                      <div className="p-6 rounded-3xl bg-gradient-to-r from-blue-900 to-indigo-900 text-white space-y-4 shadow-md">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-sky-300 flex items-center gap-1.5">
+                            <Cpu className="w-4 h-4" />
+                            <span>Laboratorium Simulasi Bilangan & Pohon Faktor (KPK & FPB)</span>
+                          </span>
+                          <span className="text-xs font-mono bg-white/20 px-3 py-1 rounded-full text-white font-bold">
+                            Matematika Interaktif
+                          </span>
+                        </div>
+                        <p className="text-xs text-blue-100 leading-relaxed">
+                          Ubah nilai angka A dan B untuk menguji kelipatan dan pembagian faktor prima secara langsung!
+                        </p>
                       </div>
 
-                      {/* Animated Living Entities */}
-                      <div className="flex flex-wrap gap-2 justify-center items-center py-4 z-10">
-                        {Array.from({ length: Math.min(12, Math.round(simGrass / 10)) }).map((_, i) => (
-                          <span key={`g-${i}`} className="text-2xl animate-bounce" style={{ animationDuration: `${2 + (i % 3)}s` }}>🌾</span>
-                        ))}
-                        {Array.from({ length: Math.min(8, Math.round(simGrasshopper / 12)) }).map((_, i) => (
-                          <span key={`gh-${i}`} className="text-2xl animate-pulse" style={{ animationDuration: `${1.5 + (i % 2)}s` }}>🦗</span>
-                        ))}
-                        {Array.from({ length: Math.min(6, Math.round(simFrog / 4)) }).map((_, i) => (
-                          <span key={`f-${i}`} className="text-2xl animate-bounce" style={{ animationDuration: `${1.8 + (i % 2)}s` }}>🐸</span>
-                        ))}
-                        {Array.from({ length: Math.min(4, simSnake) }).map((_, i) => (
-                          <span key={`s-${i}`} className="text-2xl animate-pulse">🐍</span>
-                        ))}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                          <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                            <span>Angka Pertama (A):</span>
+                            <span className="text-indigo-600 font-mono text-base font-extrabold">{mathA}</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={2}
+                            max={60}
+                            value={mathA}
+                            onChange={(e) => setMathA(Number(e.target.value))}
+                            className="w-full accent-indigo-600 cursor-pointer"
+                          />
+                        </div>
+
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                          <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                            <span>Angka Kedua (B):</span>
+                            <span className="text-emerald-600 font-mono text-base font-extrabold">{mathB}</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={2}
+                            max={60}
+                            value={mathB}
+                            onChange={(e) => setMathB(Number(e.target.value))}
+                            className="w-full accent-emerald-600 cursor-pointer"
+                          />
+                        </div>
                       </div>
 
-                      {/* Balance Status Banner */}
-                      <div className={`p-3 rounded-2xl text-xs font-bold border z-10 ${
-                        ecosystemHarmony.status === 'balanced'
-                          ? 'bg-emerald-600 text-white border-emerald-700'
-                          : ecosystemHarmony.status === 'warning'
-                          ? 'bg-amber-500 text-white border-amber-600'
-                          : 'bg-rose-600 text-white border-rose-700'
-                      }`}>
-                        {ecosystemHarmony.message}
+                      {/* Math Result Cards */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-5 bg-indigo-50 border border-indigo-200 rounded-3xl text-center space-y-1">
+                          <span className="text-[11px] font-bold uppercase text-indigo-700">Kelipatan Terkecil (KPK)</span>
+                          <p className="font-heading font-black text-3xl text-indigo-900">{getLcm(mathA, mathB)}</p>
+                          <p className="text-[10px] text-indigo-600">Titik temu kelipatan bersama</p>
+                        </div>
+                        <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-3xl text-center space-y-1">
+                          <span className="text-[11px] font-bold uppercase text-emerald-700">Faktor Terbesar (FPB)</span>
+                          <p className="font-heading font-black text-3xl text-emerald-900">{getGcd(mathA, mathB)}</p>
+                          <p className="text-[10px] text-emerald-600">Pembagi terbesar kedua angka</p>
+                        </div>
                       </div>
                     </div>
-
-                    {/* Interactive Population Sliders */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      
-                      <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
-                        <div className="flex justify-between items-center text-xs font-bold text-slate-800">
-                          <span>🌾 Tanaman Padi (Produsen)</span>
-                          <span className="text-emerald-600">{simGrass} Unit</span>
+                  ) : (
+                    <div className="space-y-5">
+                      {/* Live Graphical Ecosystem Viewport */}
+                      <div className="p-6 rounded-3xl bg-gradient-to-b from-sky-200 via-emerald-100 to-amber-100 border border-emerald-300 shadow-inner relative overflow-hidden min-h-[160px] flex flex-col justify-between">
+                        <div className="flex items-center justify-between z-10">
+                          <span className="text-[11px] font-extrabold px-3 py-1 bg-white/90 text-emerald-900 rounded-full border shadow-xs">
+                            📊 Arena Simulasi Interaktif
+                          </span>
+                          <span className="text-[11px] font-black px-3 py-1 bg-white/90 text-indigo-900 rounded-full border shadow-xs">
+                            Skor Harmoni: {ecosystemHarmony.score}%
+                          </span>
                         </div>
-                        <input
-                          type="range"
-                          min={10}
-                          max={200}
-                          value={simGrass}
-                          onChange={(e) => setSimGrass(Number(e.target.value))}
-                          className="w-full accent-emerald-600 cursor-pointer"
-                        />
+
+                        {/* Animated Living Entities */}
+                        <div className="flex flex-wrap gap-2 justify-center items-center py-4 z-10">
+                          {Array.from({ length: Math.min(12, Math.round(simGrass / 10)) }).map((_, i) => (
+                            <span key={`g-${i}`} className="text-2xl animate-bounce" style={{ animationDuration: `${2 + (i % 3)}s` }}>🌾</span>
+                          ))}
+                          {Array.from({ length: Math.min(8, Math.round(simGrasshopper / 12)) }).map((_, i) => (
+                            <span key={`gh-${i}`} className="text-2xl animate-pulse" style={{ animationDuration: `${1.5 + (i % 2)}s` }}>🦗</span>
+                          ))}
+                          {Array.from({ length: Math.min(6, Math.round(simFrog / 4)) }).map((_, i) => (
+                            <span key={`f-${i}`} className="text-2xl animate-bounce" style={{ animationDuration: `${1.8 + (i % 2)}s` }}>🐸</span>
+                          ))}
+                          {Array.from({ length: Math.min(4, simSnake) }).map((_, i) => (
+                            <span key={`s-${i}`} className="text-2xl animate-pulse">🐍</span>
+                          ))}
+                        </div>
+
+                        {/* Balance Status Banner */}
+                        <div className={`p-3 rounded-2xl text-xs font-bold border z-10 ${
+                          ecosystemHarmony.status === 'balanced'
+                            ? 'bg-emerald-600 text-white border-emerald-700'
+                            : ecosystemHarmony.status === 'warning'
+                            ? 'bg-amber-500 text-white border-amber-600'
+                            : 'bg-rose-600 text-white border-rose-700'
+                        }`}>
+                          {ecosystemHarmony.message}
+                        </div>
                       </div>
 
-                      <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
-                        <div className="flex justify-between items-center text-xs font-bold text-slate-800">
-                          <span>🦗 Hama Belalang (Konsumen I)</span>
-                          <span className="text-green-600">{simGrasshopper} Ekor</span>
-                        </div>
-                        <input
-                          type="range"
-                          min={5}
-                          max={150}
-                          value={simGrasshopper}
-                          onChange={(e) => setSimGrasshopper(Number(e.target.value))}
-                          className="w-full accent-green-600 cursor-pointer"
-                        />
-                      </div>
+                      {/* Interactive Population Sliders */}
+                      {(() => {
+                        const grassVar = activePlayingActivity.config?.simVariables?.find((v) => v.key === 'grass');
+                        const grasshopperVar = activePlayingActivity.config?.simVariables?.find((v) => v.key === 'grasshopper');
+                        const frogVar = activePlayingActivity.config?.simVariables?.find((v) => v.key === 'frog');
+                        const snakeVar = activePlayingActivity.config?.simVariables?.find((v) => v.key === 'snake');
 
-                      <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
-                        <div className="flex justify-between items-center text-xs font-bold text-slate-800">
-                          <span>🐸 Katak Sawah (Konsumen II)</span>
-                          <span className="text-sky-600">{simFrog} Ekor</span>
-                        </div>
-                        <input
-                          type="range"
-                          min={2}
-                          max={50}
-                          value={simFrog}
-                          onChange={(e) => setSimFrog(Number(e.target.value))}
-                          className="w-full accent-sky-600 cursor-pointer"
-                        />
-                      </div>
+                        return (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                              <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                                <span>{grassVar?.label || '🌾 Tanaman Padi (Produsen)'}</span>
+                                <span className="text-emerald-600">{simGrass} {grassVar?.unit || 'Unit'}</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={grassVar?.min ?? 10}
+                                max={grassVar?.max ?? 200}
+                                value={simGrass}
+                                onChange={(e) => setSimGrass(Number(e.target.value))}
+                                className="w-full accent-emerald-600 cursor-pointer"
+                              />
+                            </div>
 
-                      <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
-                        <div className="flex justify-between items-center text-xs font-bold text-slate-800">
-                          <span>🐍 Ular Predator (Konsumen III)</span>
-                          <span className="text-purple-600">{simSnake} Ekor</span>
-                        </div>
-                        <input
-                          type="range"
-                          min={1}
-                          max={20}
-                          value={simSnake}
-                          onChange={(e) => setSimSnake(Number(e.target.value))}
-                          className="w-full accent-purple-600 cursor-pointer"
-                        />
-                      </div>
+                            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                              <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                                <span>{grasshopperVar?.label || '🦗 Hama Belalang (Konsumen I)'}</span>
+                                <span className="text-green-600">{simGrasshopper} {grasshopperVar?.unit || 'Ekor'}</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={grasshopperVar?.min ?? 5}
+                                max={grasshopperVar?.max ?? 150}
+                                value={simGrasshopper}
+                                onChange={(e) => setSimGrasshopper(Number(e.target.value))}
+                                className="w-full accent-green-600 cursor-pointer"
+                              />
+                            </div>
 
+                            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                              <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                                <span>{frogVar?.label || '🐸 Katak Sawah (Konsumen II)'}</span>
+                                <span className="text-sky-600">{simFrog} {frogVar?.unit || 'Ekor'}</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={frogVar?.min ?? 2}
+                                max={frogVar?.max ?? 50}
+                                value={simFrog}
+                                onChange={(e) => setSimFrog(Number(e.target.value))}
+                                className="w-full accent-sky-600 cursor-pointer"
+                              />
+                            </div>
+
+                            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                              <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                                <span>{snakeVar?.label || '🐍 Ular Predator (Konsumen III)'}</span>
+                                <span className="text-purple-600">{simSnake} {snakeVar?.unit || 'Ekor'}</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={snakeVar?.min ?? 1}
+                                max={snakeVar?.max ?? 20}
+                                value={simSnake}
+                                onChange={(e) => setSimSnake(Number(e.target.value))}
+                                className="w-full accent-purple-600 cursor-pointer"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Skenario Preset Buttons */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <span className="text-[11px] font-bold text-slate-500">Uji Skenario:</span>
+                        <button
+                          onClick={() => { setSimGrass(100); setSimGrasshopper(50); setSimFrog(20); setSimSnake(6); }}
+                          className="px-3 py-1 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-[11px] cursor-pointer"
+                        >
+                          🌿 Keseimbangan Alami
+                        </button>
+                        <button
+                          onClick={() => { setSimGrass(25); setSimGrasshopper(90); setSimFrog(8); setSimSnake(3); }}
+                          className="px-3 py-1 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-[11px] cursor-pointer"
+                        >
+                          ☀️ Musim Kemarau
+                        </button>
+                        <button
+                          onClick={() => { setSimGrass(120); setSimGrasshopper(120); setSimFrog(4); setSimSnake(2); }}
+                          className="px-3 py-1 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-[11px] cursor-pointer"
+                        >
+                          🚨 Ledakan Hama
+                        </button>
+                      </div>
                     </div>
-
-                    {/* Skenario Preset Buttons */}
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <span className="text-[11px] font-bold text-slate-500">Uji Skenario:</span>
-                      <button
-                        onClick={() => { setSimGrass(100); setSimGrasshopper(50); setSimFrog(20); setSimSnake(6); }}
-                        className="px-3 py-1 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-[11px] cursor-pointer"
-                      >
-                        🌿 Keseimbangan Alami
-                      </button>
-                      <button
-                        onClick={() => { setSimGrass(25); setSimGrasshopper(90); setSimFrog(8); setSimSnake(3); }}
-                        className="px-3 py-1 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-[11px] cursor-pointer"
-                      >
-                        ☀️ Musim Kemarau
-                      </button>
-                      <button
-                        onClick={() => { setSimGrass(120); setSimGrasshopper(120); setSimFrog(4); setSimSnake(2); }}
-                        className="px-3 py-1 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-[11px] cursor-pointer"
-                      >
-                        🚨 Ledakan Hama
-                      </button>
-                    </div>
-
-                  </div>
+                  )
                 )}
 
                 {/* 3. PUZZLE ORDERING GAME ENGINE */}
@@ -609,7 +740,7 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-700">
-                        📐 Susun urutan aliran energi rantai makanan dari awal ke akhir:
+                        📐 Susun urutan langkah atau tahapan dari awal ke akhir:
                       </span>
                       <button
                         onClick={handleCheckPuzzle}
@@ -671,10 +802,9 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
                   </div>
                 )}
 
-                {/* 4. LAB EXPERIMENT ENGINE (Filtration Apparatus) */}
+                {/* 4. LAB EXPERIMENT ENGINE */}
                 {activePlayingActivity.type === 'LAB' && (
                   <div className="space-y-5">
-                    
                     {/* Visual Apparatus Simulation Container */}
                     <div className="p-6 rounded-3xl bg-slate-900 text-white border border-slate-700 space-y-4">
                       <div className="flex items-center justify-between">
@@ -721,40 +851,22 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
                     {/* Interactive Lab Tools */}
                     <div className="space-y-2">
                       <p className="text-xs font-extrabold text-slate-700">🧪 Pasang Bahan Lapisan Filter:</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                        <button
-                          onClick={() => handleAddLabLayer('Kerikil & Pasir')}
-                          className={`p-3 rounded-2xl border font-bold text-xs transition-all cursor-pointer ${
-                            labLayers.includes('Kerikil & Pasir')
-                              ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
-                              : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 shadow-xs'
-                          }`}
-                        >
-                          🪨 + Pasir & Kerikil
-                        </button>
-                        <button
-                          onClick={() => handleAddLabLayer('Arang Aktif')}
-                          className={`p-3 rounded-2xl border font-bold text-xs transition-all cursor-pointer ${
-                            labLayers.includes('Arang Aktif')
-                              ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
-                              : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 shadow-xs'
-                          }`}
-                        >
-                          🖤 + Arang Aktif
-                        </button>
-                        <button
-                          onClick={() => handleAddLabLayer('Sabut Kelapa / Ijuk')}
-                          className={`p-3 rounded-2xl border font-bold text-xs transition-all cursor-pointer ${
-                            labLayers.includes('Sabut Kelapa / Ijuk')
-                              ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
-                              : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 shadow-xs'
-                          }`}
-                        >
-                          🌾 + Sabut & Ijuk
-                        </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                        {activeLabApparatus.map((app) => (
+                          <button
+                            key={app.id}
+                            onClick={() => handleAddLabLayer(app.name)}
+                            className={`p-3 rounded-2xl border font-bold text-xs transition-all cursor-pointer ${
+                              labLayers.includes(app.name)
+                                ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
+                                : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 shadow-xs'
+                            }`}
+                          >
+                            {app.icon || '🧪'} + {app.name}
+                          </button>
+                        ))}
                       </div>
                     </div>
-
                   </div>
                 )}
 

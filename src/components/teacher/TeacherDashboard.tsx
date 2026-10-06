@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, User, School, BookOpen, FileText, Video, Gamepad2, Bot, Code, Brain, Database, BarChart2, Award, MessageSquare, Megaphone, Settings, LogOut, Plus, Search, Edit3, Trash2, KeyRound, CheckCircle2, ChevronRight, Sparkles, AlertCircle, Play, Sliders, ShieldCheck, Download, RefreshCw, Layers, Check, HelpCircle, X, ExternalLink, Send, Star, Zap, Eye, Save, ToggleLeft, ToggleRight, MessageCircle, FileSpreadsheet, Cpu, GraduationCap, Trophy
 } from 'lucide-react';
 import { User as UserType } from '../../types/auth';
-import { Subject, ClassRoom, Material, QuestionBankItem, Assessment, Announcement, ReflectionEntry, AITutorConfig, InteractiveVideo, VideoCheckpoint } from '../../types/learning';
+import { Subject, ClassRoom, Material, QuestionBankItem, Assessment, Announcement, ReflectionEntry, AITutorConfig, InteractiveVideo, VideoCheckpoint, InteractiveActivityConfig } from '../../types/learning';
 import { createUser, updateUser, deleteUser } from '../../services/authService';
 import { saveSubjects, organizeAndCleanAllSubjects, deduplicateSubjects, getStoredCodingChallenges, saveCodingChallenges, CodingChallengeItem, getStoredVideos, saveVideos, syncVideosWithGAS, getStoredActivities, saveActivities, InteractiveActivity, getAllStudentsProgress, getStudentProgressForId, saveAllStudentsProgress, getStoredMaterials, saveMaterials, saveQuestionBank, saveAssessments, getStoredTtsSetting, saveTtsSetting } from '../../data/learningData';
 import { parseEmbedUrl } from '../journey/steps/VideoPlayerStep';
@@ -110,16 +110,24 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   });
 
   // Interactive Video state (Tersimpan di Database & Google Sheets "Videos")
-  const [localInteractiveVideos, setLocalInteractiveVideos] = useState<InteractiveVideo[]>(getStoredVideos());
+  const [localInteractiveVideos, setLocalInteractiveVideos] = useState<InteractiveVideo[]>(() => interactiveVideosList || getStoredVideos());
   const [isVideoSyncing, setIsVideoSyncing] = useState<boolean>(false);
   const [showSheetGuide, setShowSheetGuide] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (interactiveVideosList && interactiveVideosList.length > 0) {
+      setLocalInteractiveVideos(interactiveVideosList);
+    }
+  }, [interactiveVideosList]);
 
   // Sync videos from Google Apps Script Spreadsheet Database on mount
   useEffect(() => {
     setIsVideoSyncing(true);
     syncVideosWithGAS()
       .then((synced) => {
-        setLocalInteractiveVideos(synced);
+        if (synced && synced.length > 0) {
+          setLocalInteractiveVideos(synced);
+        }
       })
       .finally(() => {
         setIsVideoSyncing(false);
@@ -200,13 +208,49 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [subjectForm, setSubjectForm] = useState({ id: '', name: '', description: '', grade: 5, icon: '📚', color: 'from-blue-500 to-indigo-600', status: 'PUBLISHED' as 'PUBLISHED' | 'DRAFT' });
   const [materialForm, setMaterialForm] = useState({ subjectId: 'ipas', topicTitle: '', learningObjectives: '', description: '', contentBody: '', status: 'TERBIT' as any });
   const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '', targetClass: 'SEMUA' });
-  const [activityForm, setActivityForm] = useState({
+  const [activityForm, setActivityForm] = useState<{
+    title: string;
+    subjectId: string;
+    type: 'MATCHING' | 'SIMULATION' | 'PUZZLE' | 'LAB';
+    difficulty: 'LOTS' | 'MOTS' | 'HOTS';
+    points: number;
+    description: string;
+    config: InteractiveActivityConfig;
+  }>({
     title: '',
     subjectId: 'ipas',
-    type: 'MATCHING' as 'MATCHING' | 'SIMULATION' | 'PUZZLE' | 'LAB',
-    difficulty: 'MOTS' as 'LOTS' | 'MOTS' | 'HOTS',
+    type: 'MATCHING',
+    difficulty: 'MOTS',
     points: 100,
     description: '',
+    config: {
+      matchingPairs: [
+        { id: 'm1', left: '🌾 Tanaman Padi', right: '🌱 Produsen (Penghasil Makanan)' },
+        { id: 'm2', left: '🦗 Belalang Sawah', right: '🥗 Konsumen I (Herbivora)' },
+        { id: 'm3', left: '🐸 Katak Sawah', right: '🥩 Konsumen II (Karnivora)' },
+        { id: 'm4', left: '🍄 Jamur & Bakteri', right: '♻️ Dekomposer (Pengurai Alami)' },
+      ],
+      puzzleItems: [
+        { id: 'p1', label: '1. Energi Matahari ☀️', rank: 1 },
+        { id: 'p2', label: '2. Produsen (Padi 🌾)', rank: 2 },
+        { id: 'p3', label: '3. Konsumen I (Belalang 🦗)', rank: 3 },
+        { id: 'p4', label: '4. Konsumen II (Katak 🐸)', rank: 4 },
+        { id: 'p5', label: '5. Dekomposer (Jamur 🍄)', rank: 5 },
+      ],
+      simulationType: 'ecosystem',
+      simVariables: [
+        { key: 'grass', label: '🌾 Tanaman Padi (Produsen)', initial: 100, min: 10, max: 200, unit: 'Unit' },
+        { key: 'grasshopper', label: '🦗 Hama Belalang (Konsumen I)', initial: 50, min: 5, max: 150, unit: 'Ekor' },
+        { key: 'frog', label: '🐸 Katak Sawah (Konsumen II)', initial: 20, min: 2, max: 50, unit: 'Ekor' },
+        { key: 'snake', label: '🐍 Ular Predator (Konsumen III)', initial: 6, min: 1, max: 20, unit: 'Ekor' },
+      ],
+      labApparatus: [
+        { id: 'l1', name: 'Kerikil & Pasir Kasar', score: 25, icon: '🪨' },
+        { id: 'l2', name: 'Arang Aktif Karbon', score: 35, icon: '⬛' },
+        { id: 'l3', name: 'Sabut Kelapa / Ijuk Alami', score: 20, icon: '🥥' },
+        { id: 'l4', name: 'Kain Kasa Saringan Halus', score: 20, icon: '📜' },
+      ],
+    },
   });
   const [aiConfigForm, setAiConfigForm] = useState({
     tutorName: 'PRIMA AI Sains 5',
@@ -226,13 +270,15 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   });
   const [assessmentForm, setAssessmentForm] = useState({ title: '', subjectId: 'ipas', durationMinutes: 30, kktpTarget: 75, selectedQuestionIds: [] as string[] });
 
-  // AI Question Generation States
+  // AI Question Generation States with dedicated category configuration
   const [showAiGenerateModal, setShowAiGenerateModal] = useState(false);
   const [aiGenSubjectId, setAiGenSubjectId] = useState('ipas');
   const [aiGenTopic, setAiGenTopic] = useState('');
   const [aiGenNumPG, setAiGenNumPG] = useState(2);
-  const [aiGenNumPGK, setAiGenNumPGK] = useState(1);
-  const [aiGenNumBS, setAiGenNumBS] = useState(1);
+  const [aiGenNumPGK, setAiGenNumPGK] = useState(2);
+  const [aiGenNumBS, setAiGenNumBS] = useState(2);
+  const [aiGenCognitiveLevel, setAiGenCognitiveLevel] = useState<'ALL' | 'HOTS' | 'MOTS' | 'LOTS'>('ALL');
+  const [aiGenStimulusStyle, setAiGenStimulusStyle] = useState<'REAL_WORLD' | 'SCIENTIFIC' | 'STORY'>('REAL_WORLD');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiGenResult, setAiGenResult] = useState<QuestionBankItem[]>([]);
   const [aiGenError, setAiGenError] = useState<string | null>(null);
@@ -534,11 +580,21 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   // Video Handlers
   const handleStartEditVideo = (vid: InteractiveVideo) => {
     setEditingVideo(vid);
+    let cps: VideoCheckpoint[] = [];
+    if (Array.isArray(vid.checkpoints)) {
+      cps = [...vid.checkpoints];
+    } else if (typeof vid.checkpoints === 'string') {
+      try {
+        const p = JSON.parse(vid.checkpoints);
+        if (Array.isArray(p)) cps = p;
+      } catch (e) {}
+    }
+
     setVideoForm({
-      title: vid.title,
+      title: vid.title || '',
       subjectId: vid.subjectId || localSubjects[0]?.id || 'ipas',
-      videoUrl: vid.videoUrl,
-      checkpoints: vid.checkpoints ? [...vid.checkpoints] : [],
+      videoUrl: vid.videoUrl || '',
+      checkpoints: cps,
     });
     setCpForm({
       timeInSeconds: 30,
@@ -559,23 +615,23 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       return;
     }
 
-    const options = [cpForm.optionA, cpForm.optionB];
-    if (cpForm.optionC.trim()) options.push(cpForm.optionC);
-    if (cpForm.optionD.trim()) options.push(cpForm.optionD);
+    const options = [cpForm.optionA.trim(), cpForm.optionB.trim()];
+    if (cpForm.optionC.trim()) options.push(cpForm.optionC.trim());
+    if (cpForm.optionD.trim()) options.push(cpForm.optionD.trim());
 
     const newCp: VideoCheckpoint = {
       id: `cp-${Date.now()}`,
-      timeInSeconds: Number(cpForm.timeInSeconds) || 30,
-      question: cpForm.question,
+      timeInSeconds: Math.max(1, Number(cpForm.timeInSeconds) || 30),
+      question: cpForm.question.trim(),
       type: 'mc',
       options: options,
       correctAnswer: Number(cpForm.correctAnswer) || 0,
-      explanation: cpForm.explanation || 'Jawaban Anda telah tercatat.',
+      explanation: cpForm.explanation.trim() || 'Jawaban Anda telah tercatat.',
     };
 
     setVideoForm((prev) => ({
       ...prev,
-      checkpoints: [...prev.checkpoints, newCp].sort((a, b) => a.timeInSeconds - b.timeInSeconds),
+      checkpoints: [...(Array.isArray(prev.checkpoints) ? prev.checkpoints : []), newCp].sort((a, b) => a.timeInSeconds - b.timeInSeconds),
     }));
 
     setCpForm({
@@ -595,7 +651,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const handleRemoveCheckpointFromVideo = (cpId: string) => {
     setVideoForm((prev) => ({
       ...prev,
-      checkpoints: prev.checkpoints.filter((c) => c.id !== cpId),
+      checkpoints: (Array.isArray(prev.checkpoints) ? prev.checkpoints : []).filter((c) => c.id !== cpId),
     }));
     toast.success('Checkpoint berhasil dihapus dari video ini.');
   };
@@ -603,16 +659,21 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const handleSaveVideo = (e: React.FormEvent) => {
     e.preventDefault();
     let updated: InteractiveVideo[];
+    const safeCheckpoints = Array.isArray(videoForm.checkpoints) ? videoForm.checkpoints : [];
+    const targetSubjectId = videoForm.subjectId || localSubjects[0]?.id || 'ipas';
+    const cleanTitle = videoForm.title.trim() || 'Video Pembelajaran';
+    const cleanUrl = videoForm.videoUrl.trim();
+
     if (editingVideo) {
       updated = localInteractiveVideos.map((v) =>
         v.id === editingVideo.id
           ? {
               ...v,
-              title: videoForm.title,
-              subjectId: videoForm.subjectId,
-              videoUrl: videoForm.videoUrl,
-              checkpointsCount: videoForm.checkpoints.length,
-              checkpoints: videoForm.checkpoints,
+              title: cleanTitle,
+              subjectId: targetSubjectId,
+              videoUrl: cleanUrl,
+              checkpointsCount: safeCheckpoints.length,
+              checkpoints: safeCheckpoints,
             }
           : v
       );
@@ -621,12 +682,12 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     } else {
       const newVid: InteractiveVideo = {
         id: `vid-${Date.now()}`,
-        title: videoForm.title,
-        subjectId: videoForm.subjectId,
-        videoUrl: videoForm.videoUrl,
+        title: cleanTitle,
+        subjectId: targetSubjectId,
+        videoUrl: cleanUrl,
         grade: teacherGrade || 5,
-        checkpointsCount: videoForm.checkpoints.length,
-        checkpoints: videoForm.checkpoints,
+        checkpointsCount: safeCheckpoints.length,
+        checkpoints: safeCheckpoints,
         createdAt: new Date().toISOString(),
       };
       updated = [newVid, ...localInteractiveVideos];
@@ -651,7 +712,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   // Activity Handlers
-  const handleStartEditActivity = (act: any) => {
+  const handleStartEditActivity = (act: InteractiveActivity) => {
     setEditingActivity(act);
     setActivityForm({
       title: act.title,
@@ -660,6 +721,34 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       difficulty: act.difficulty || 'MOTS',
       points: act.points || 100,
       description: act.description || '',
+      config: act.config || {
+        matchingPairs: [
+          { id: 'm1', left: '🌾 Tanaman Padi', right: '🌱 Produsen (Penghasil Makanan)' },
+          { id: 'm2', left: '🦗 Belalang Sawah', right: '🥗 Konsumen I (Herbivora)' },
+          { id: 'm3', left: '🐸 Katak Sawah', right: '🥩 Konsumen II (Karnivora)' },
+          { id: 'm4', left: '🍄 Jamur & Bakteri', right: '♻️ Dekomposer (Pengurai Alami)' },
+        ],
+        puzzleItems: [
+          { id: 'p1', label: '1. Energi Matahari ☀️', rank: 1 },
+          { id: 'p2', label: '2. Produsen (Padi 🌾)', rank: 2 },
+          { id: 'p3', label: '3. Konsumen I (Belalang 🦗)', rank: 3 },
+          { id: 'p4', label: '4. Konsumen II (Katak 🐸)', rank: 4 },
+          { id: 'p5', label: '5. Dekomposer (Jamur 🍄)', rank: 5 },
+        ],
+        simulationType: act.subjectId?.toLowerCase() === 'matematika' ? 'math' : 'ecosystem',
+        simVariables: [
+          { key: 'grass', label: '🌾 Tanaman Padi (Produsen)', initial: 100, min: 10, max: 200, unit: 'Unit' },
+          { key: 'grasshopper', label: '🦗 Hama Belalang (Konsumen I)', initial: 50, min: 5, max: 150, unit: 'Ekor' },
+          { key: 'frog', label: '🐸 Katak Sawah (Konsumen II)', initial: 20, min: 2, max: 50, unit: 'Ekor' },
+          { key: 'snake', label: '🐍 Ular Predator (Konsumen III)', initial: 6, min: 1, max: 20, unit: 'Ekor' },
+        ],
+        labApparatus: [
+          { id: 'l1', name: 'Kerikil & Pasir Kasar', score: 25, icon: '🪨' },
+          { id: 'l2', name: 'Arang Aktif Karbon', score: 35, icon: '⬛' },
+          { id: 'l3', name: 'Sabut Kelapa / Ijuk Alami', score: 20, icon: '🥥' },
+          { id: 'l4', name: 'Kain Kasa Saringan Halus', score: 20, icon: '📜' },
+        ],
+      },
     });
     setShowAddActivityModal(true);
   };
@@ -678,11 +767,12 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               difficulty: activityForm.difficulty,
               points: Number(activityForm.points),
               description: activityForm.description,
+              config: activityForm.config,
             }
           : a
       );
       setEditingActivity(null);
-      toast.success('Aktivitas interaktif berhasil diperbarui & disimpan ke Database!');
+      toast.success('Aktivitas interaktif & konfigurasi simulasi berhasil diperbarui!');
     } else {
       const newAct: InteractiveActivity = {
         id: `act-${Date.now()}`,
@@ -692,10 +782,11 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         difficulty: activityForm.difficulty,
         points: Number(activityForm.points),
         description: activityForm.description,
+        config: activityForm.config,
         createdAt: new Date().toISOString(),
       };
       updated = [newAct, ...localActivities];
-      toast.success('Aktivitas Interaktif baru berhasil dibuat & disimpan ke Database!');
+      toast.success('Aktivitas Interaktif & konfigurasi berhasil dibuat & disimpan ke Database!');
     }
     setLocalActivities(updated);
     saveActivities(updated);
@@ -1304,6 +1395,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             numPG: aiGenNumPG,
             numPGK: aiGenNumPGK,
             numBS: aiGenNumBS,
+            cognitiveLevel: aiGenCognitiveLevel,
+            stimulusStyle: aiGenStimulusStyle,
             variationSeed: `${Date.now()}_${Math.random()}`,
           },
         },
@@ -1317,6 +1410,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             numPG: aiGenNumPG,
             numPGK: aiGenNumPGK,
             numBS: aiGenNumBS,
+            cognitiveLevel: aiGenCognitiveLevel,
+            stimulusStyle: aiGenStimulusStyle,
             variationSeed: `${Date.now()}_${Math.random()}`,
           },
         },
@@ -2097,14 +2192,26 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {localInteractiveVideos.map((vid) => {
-                  const { embedUrl, type: vType } = parseEmbedUrl(vid.videoUrl);
-                  const sub = localSubjects.find((s) => s.id === vid.subjectId);
-                  const subName = sub ? `${sub.icon || '📚'} ${sub.name}` : vid.subjectId.toUpperCase();
-                  const cpCount = vid.checkpoints?.length || vid.checkpointsCount || 0;
+                {localInteractiveVideos.map((vid, vIdx) => {
+                  if (!vid) return null;
+                  const { embedUrl, type: vType } = parseEmbedUrl(vid.videoUrl || '');
+                  const sub = localSubjects.find((s) => s && s.id === vid.subjectId);
+                  const subName = sub ? `${sub.icon || '📚'} ${sub.name}` : (vid.subjectId ? String(vid.subjectId).toUpperCase() : 'UMUM');
+                  
+                  let validCheckpoints: VideoCheckpoint[] = [];
+                  if (Array.isArray(vid.checkpoints)) {
+                    validCheckpoints = vid.checkpoints;
+                  } else if (typeof vid.checkpoints === 'string') {
+                    try {
+                      const parsed = JSON.parse(vid.checkpoints);
+                      if (Array.isArray(parsed)) validCheckpoints = parsed;
+                    } catch (e) {}
+                  }
+
+                  const cpCount = validCheckpoints.length || Number(vid.checkpointsCount) || 0;
 
                   return (
-                    <div key={vid.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm relative group hover:shadow-md transition-all">
+                    <div key={vid.id || `v-${vIdx}`} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm relative group hover:shadow-md transition-all">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-sky-100 text-sky-800 uppercase border border-sky-200">
                           Mapel: {subName}
@@ -2128,11 +2235,11 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       </div>
 
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${vType === 'youtube' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${vType === 'youtube' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
                             {vType === 'youtube' ? 'YouTube' : 'Google Drive'}
                           </span>
-                          <h4 className="font-heading font-extrabold text-slate-900 text-sm line-clamp-1">{vid.title}</h4>
+                          <h4 className="font-heading font-extrabold text-slate-900 text-sm truncate">{vid.title || 'Video Pembelajaran'}</h4>
                         </div>
                         <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
                           📍 {cpCount} Checkpoint
@@ -2140,21 +2247,27 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       </div>
 
                       <div className="rounded-2xl overflow-hidden aspect-video bg-slate-950 border border-slate-800 shadow">
-                        <iframe src={embedUrl} title={vid.title} className="w-full h-full border-0" allowFullScreen />
+                        <iframe
+                          src={embedUrl || (vid.videoUrl ? vid.videoUrl : 'about:blank')}
+                          title={vid.title || 'Video Interaktif'}
+                          className="w-full h-full border-0"
+                          allowFullScreen
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        />
                       </div>
 
                       {/* Attached Checkpoints Summary */}
-                      {vid.checkpoints && vid.checkpoints.length > 0 && (
+                      {validCheckpoints.length > 0 && (
                         <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-[11px] space-y-1">
                           <p className="font-extrabold text-amber-900 flex items-center gap-1">
                             <span>📍</span>
                             <span>Daftar Checkpoint Otomatis Pausa:</span>
                           </p>
-                          <div className="space-y-1 max-h-24 overflow-y-auto">
-                            {vid.checkpoints.map((cp, i) => (
-                              <div key={cp.id || i} className="text-[10px] text-amber-950 flex items-center justify-between gap-1 font-medium bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
-                                <span className="font-mono font-extrabold text-amber-800">⏱️ Detik ke-{cp.timeInSeconds}:</span>
-                                <span className="truncate flex-1 font-semibold">{cp.question}</span>
+                          <div className="space-y-1 max-h-28 overflow-y-auto">
+                            {validCheckpoints.map((cp, i) => (
+                              <div key={cp?.id || `cp-${i}`} className="text-[10px] text-amber-950 flex items-center justify-between gap-1 font-medium bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
+                                <span className="font-mono font-extrabold text-amber-800 shrink-0">⏱️ Detik ke-{cp?.timeInSeconds ?? 0}:</span>
+                                <span className="truncate flex-1 font-semibold">{cp?.question || 'Kuis Interaktif'}</span>
                               </div>
                             ))}
                           </div>
@@ -2162,8 +2275,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       )}
 
                       <div className="pt-1 text-[11px] text-slate-500 font-mono truncate bg-white p-2 rounded-xl border border-slate-200 flex items-center justify-between">
-                        <span className="truncate">{vid.videoUrl}</span>
-                        <a href={vid.videoUrl} target="_blank" rel="noreferrer" className="text-sky-600 hover:text-sky-800 font-bold ml-2 shrink-0">Buka ↗</a>
+                        <span className="truncate">{vid.videoUrl || '-'}</span>
+                        {vid.videoUrl && (
+                          <a href={vid.videoUrl} target="_blank" rel="noreferrer" className="text-sky-600 hover:text-sky-800 font-bold ml-2 shrink-0">Buka ↗</a>
+                        )}
                       </div>
                     </div>
                   );
@@ -2178,7 +2293,52 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
             <div className="flex items-center justify-between">
               <div><h3 className="font-heading text-xl font-bold text-slate-900">🎮 Aktivitas & Game Simulasi Interaktif</h3><p className="text-xs text-slate-500">Kelola aktivitas Matching, Simulasi Laboratorium, dan Puzzle.</p></div>
-              <button onClick={() => { setEditingActivity(null); setActivityForm({ title: '', subjectId: 'ipas', type: 'MATCHING', difficulty: 'MOTS', points: 100, description: '' }); setShowAddActivityModal(true); }} className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer"><Plus className="w-4 h-4" /><span>+ Buat Aktivitas Baru</span></button>
+              <button
+                onClick={() => {
+                  setEditingActivity(null);
+                  setActivityForm({
+                    title: '',
+                    subjectId: localSubjects[0]?.id || 'ipas',
+                    type: 'MATCHING',
+                    difficulty: 'MOTS',
+                    points: 100,
+                    description: '',
+                    config: {
+                      matchingPairs: [
+                        { id: 'm1', left: '🌾 Tanaman Padi', right: '🌱 Produsen (Penghasil Makanan)' },
+                        { id: 'm2', left: '🦗 Belalang Sawah', right: '🥗 Konsumen I (Herbivora)' },
+                        { id: 'm3', left: '🐸 Katak Sawah', right: '🥩 Konsumen II (Karnivora)' },
+                        { id: 'm4', left: '🍄 Jamur & Bakteri', right: '♻️ Dekomposer (Pengurai Alami)' },
+                      ],
+                      puzzleItems: [
+                        { id: 'p1', label: '1. Energi Matahari ☀️', rank: 1 },
+                        { id: 'p2', label: '2. Produsen (Padi 🌾)', rank: 2 },
+                        { id: 'p3', label: '3. Konsumen I (Belalang 🦗)', rank: 3 },
+                        { id: 'p4', label: '4. Konsumen II (Katak 🐸)', rank: 4 },
+                        { id: 'p5', label: '5. Dekomposer (Jamur 🍄)', rank: 5 },
+                      ],
+                      simulationType: 'ecosystem',
+                      simVariables: [
+                        { key: 'grass', label: '🌾 Tanaman Padi (Produsen)', initial: 100, min: 10, max: 200, unit: 'Unit' },
+                        { key: 'grasshopper', label: '🦗 Hama Belalang (Konsumen I)', initial: 50, min: 5, max: 150, unit: 'Ekor' },
+                        { key: 'frog', label: '🐸 Katak Sawah (Konsumen II)', initial: 20, min: 2, max: 50, unit: 'Ekor' },
+                        { key: 'snake', label: '🐍 Ular Predator (Konsumen III)', initial: 6, min: 1, max: 20, unit: 'Ekor' },
+                      ],
+                      labApparatus: [
+                        { id: 'l1', name: 'Kerikil & Pasir Kasar', score: 25, icon: '🪨' },
+                        { id: 'l2', name: 'Arang Aktif Karbon', score: 35, icon: '⬛' },
+                        { id: 'l3', name: 'Sabut Kelapa / Ijuk Alami', score: 20, icon: '🥥' },
+                        { id: 'l4', name: 'Kain Kasa Saringan Halus', score: 20, icon: '📜' },
+                      ],
+                    },
+                  });
+                  setShowAddActivityModal(true);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Buat Aktivitas Baru</span>
+              </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {localActivities.map((act) => {
@@ -3577,7 +3737,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                     <span>Pengaturan Checkpoint & Soal Interaktif (Video Otomatis Pausa)</span>
                   </span>
                   <span className="text-[10px] font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-full">
-                    {videoForm.checkpoints.length} Checkpoint Terpasang
+                    {(Array.isArray(videoForm.checkpoints) ? videoForm.checkpoints.length : 0)} Checkpoint Terpasang
                   </span>
                 </div>
 
@@ -3586,32 +3746,32 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 </p>
 
                 {/* List of Current Checkpoints */}
-                {videoForm.checkpoints.length > 0 && (
+                {Array.isArray(videoForm.checkpoints) && videoForm.checkpoints.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-[11px] font-bold text-amber-900">Daftar Checkpoint Saat Ini:</p>
                     <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                       {videoForm.checkpoints.map((cp, idx) => (
                         <div
-                          key={cp.id}
+                          key={cp.id || `cp-${idx}`}
                           className="p-2.5 bg-white rounded-xl border border-amber-200 flex items-start justify-between gap-2 shadow-xs"
                         >
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 font-mono">
-                                ⏱️ Detik ke-{cp.timeInSeconds} ({Math.floor(cp.timeInSeconds / 60)}m {cp.timeInSeconds % 60}s)
+                                ⏱️ Detik ke-{cp.timeInSeconds ?? 30} ({Math.floor((cp.timeInSeconds ?? 30) / 60)}m {(cp.timeInSeconds ?? 30) % 60}s)
                               </span>
                               <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                                Jawaban Benar: Opsi #{cp.correctAnswer + 1}
+                                Jawaban Benar: Opsi #{(cp.correctAnswer ?? 0) + 1}
                               </span>
                             </div>
                             <p className="font-bold text-slate-800 text-[11px] line-clamp-2">
-                              {idx + 1}. {cp.question}
+                              {idx + 1}. {cp.question || 'Pertanyaan Checkpoint'}
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={() => handleRemoveCheckpointFromVideo(cp.id)}
-                            className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shrink-0"
+                            className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shrink-0 cursor-pointer"
                             title="Hapus Checkpoint"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -3762,18 +3922,21 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         </div>
       )}
 
-      {/* Add Activity Modal */}
+      {/* Add / Edit Activity Modal */}
       {showAddActivityModal && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-lg w-full space-y-4 border border-slate-200 my-8 animate-fadeIn">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-2xl w-full space-y-4 border border-slate-200 my-8 animate-fadeIn max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
                   <Gamepad2 className="w-5 h-5" />
                 </div>
-                <h3 className="font-heading font-black text-xl text-slate-900">
-                  {editingActivity ? 'Edit Aktivitas Interaktif' : 'Buat Aktivitas Interaktif Baru'}
-                </h3>
+                <div>
+                  <h3 className="font-heading font-black text-xl text-slate-900">
+                    {editingActivity ? 'Edit Aktivitas Interaktif' : 'Buat Aktivitas Interaktif Baru'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">Konfigurasi materi simulasi dan game interaktif untuk siswa.</p>
+                </div>
               </div>
               <button
                 onClick={() => { setShowAddActivityModal(false); setEditingActivity(null); }}
@@ -3784,19 +3947,35 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             </div>
 
             <form onSubmit={handleSaveActivity} className="space-y-4 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Mata Pelajaran</label>
-                <select
-                  value={activityForm.subjectId}
-                  onChange={(e) => setActivityForm({ ...activityForm, subjectId: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500"
-                >
-                  {localSubjects.map((sub) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.icon || '📚'} {sub.name} (Kelas {sub.grade || 5})
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Mata Pelajaran</label>
+                  <select
+                    value={activityForm.subjectId}
+                    onChange={(e) => setActivityForm({ ...activityForm, subjectId: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                  >
+                    {localSubjects.map((sub) => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.icon || '📚'} {sub.name} (Kelas {sub.grade || 5})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Jenis Aktivitas</label>
+                  <select
+                    value={activityForm.type}
+                    onChange={(e) => setActivityForm({ ...activityForm, type: e.target.value as any })}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="MATCHING">MATCHING (Pencocokan Konsep)</option>
+                    <option value="SIMULATION">SIMULATION (Laboratorium Simulasi)</option>
+                    <option value="PUZZLE">PUZZLE (Urutan Tahapan)</option>
+                    <option value="LAB">LAB (Eksperimen Maya)</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -3813,20 +3992,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Jenis Aktivitas</label>
-                  <select
-                    value={activityForm.type}
-                    onChange={(e) => setActivityForm({ ...activityForm, type: e.target.value as any })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="MATCHING">MATCHING (Pencocokan)</option>
-                    <option value="SIMULATION">SIMULATION (Laboratorium)</option>
-                    <option value="PUZZLE">PUZZLE (Teka-teki)</option>
-                    <option value="LAB">LAB (Eksperimen Maya)</option>
-                  </select>
-                </div>
-
-                <div>
                   <label className="font-bold text-slate-700 block mb-1">Tingkat Kesulitan</label>
                   <select
                     value={activityForm.difficulty}
@@ -3838,31 +4003,374 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                     <option value="HOTS">HOTS (Tinggi)</option>
                   </select>
                 </div>
-              </div>
 
-              <div>
-                <label className="font-bold text-amber-800 block mb-1">Poin XP Reward</label>
-                <input
-                  type="number"
-                  min={10}
-                  max={500}
-                  required
-                  value={activityForm.points}
-                  onChange={(e) => setActivityForm({ ...activityForm, points: Number(e.target.value) })}
-                  className="w-full p-2.5 rounded-xl border border-amber-300 bg-amber-50/50 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500"
-                />
+                <div>
+                  <label className="font-bold text-amber-800 block mb-1">Poin XP Reward</label>
+                  <input
+                    type="number"
+                    min={10}
+                    max={500}
+                    required
+                    value={activityForm.points}
+                    onChange={(e) => setActivityForm({ ...activityForm, points: Number(e.target.value) })}
+                    className="w-full p-2.5 rounded-xl border border-amber-300 bg-amber-50/50 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Deskripsi & Petunjuk Pengerjaan</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   required
                   value={activityForm.description}
                   onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
                   placeholder="Petunjuk singkat bagi siswa yang akan memainkan simulasi ini..."
                   className="w-full p-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500"
                 />
+              </div>
+
+              {/* DYNAMIC CONFIGURATION ACCORDING TO TYPE */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-slate-800 text-[11px] flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>⚙️ Pengaturan Parameter & Konten Game (Tampilan Siswa):</span>
+                  </span>
+                </div>
+
+                {/* 1. MATCHING CONFIG */}
+                {activityForm.type === 'MATCHING' && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-slate-500">
+                      Siswa akan mencocokkan kartu di kolom kiri dengan kartu di kolom kanan.
+                    </p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {(activityForm.config.matchingPairs || []).map((pair, pIdx) => (
+                        <div key={pair.id || pIdx} className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200">
+                          <span className="text-[10px] font-mono font-bold text-slate-400 shrink-0">#{pIdx + 1}</span>
+                          <input
+                            type="text"
+                            placeholder="Teks Kartu Kiri (Konsep)"
+                            value={pair.left}
+                            onChange={(e) => {
+                              const updated = [...(activityForm.config.matchingPairs || [])];
+                              updated[pIdx] = { ...updated[pIdx], left: e.target.value };
+                              setActivityForm({
+                                ...activityForm,
+                                config: { ...activityForm.config, matchingPairs: updated },
+                              });
+                            }}
+                            className="flex-1 p-1.5 rounded-lg border border-slate-200 text-[11px] font-semibold"
+                          />
+                          <span className="text-slate-400 font-bold">➔</span>
+                          <input
+                            type="text"
+                            placeholder="Teks Kartu Kanan (Pasangan)"
+                            value={pair.right}
+                            onChange={(e) => {
+                              const updated = [...(activityForm.config.matchingPairs || [])];
+                              updated[pIdx] = { ...updated[pIdx], right: e.target.value };
+                              setActivityForm({
+                                ...activityForm,
+                                config: { ...activityForm.config, matchingPairs: updated },
+                              });
+                            }}
+                            className="flex-1 p-1.5 rounded-lg border border-slate-200 text-[11px] font-semibold"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = (activityForm.config.matchingPairs || []).filter((_, i) => i !== pIdx);
+                              setActivityForm({
+                                ...activityForm,
+                                config: { ...activityForm.config, matchingPairs: updated },
+                              });
+                            }}
+                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer"
+                            title="Hapus Pasangan"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = [
+                          ...(activityForm.config.matchingPairs || []),
+                          { id: `m-${Date.now()}`, left: 'Konsep Baru', right: 'Penjelasan/Pasangan' },
+                        ];
+                        setActivityForm({
+                          ...activityForm,
+                          config: { ...activityForm.config, matchingPairs: updated },
+                        });
+                      }}
+                      className="py-1.5 px-3 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold text-[10px] cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>+ Tambah Pasangan Kartu Baru</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* 2. SIMULATION CONFIG */}
+                {activityForm.type === 'SIMULATION' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Model Simulasi:</label>
+                      <select
+                        value={activityForm.config.simulationType || (activityForm.subjectId === 'matematika' ? 'math' : 'ecosystem')}
+                        onChange={(e) => {
+                          const sType = e.target.value as any;
+                          setActivityForm({
+                            ...activityForm,
+                            config: { ...activityForm.config, simulationType: sType },
+                          });
+                        }}
+                        className="w-full p-2 rounded-xl border border-slate-300 bg-white font-semibold text-[11px]"
+                      >
+                        <option value="ecosystem">🌿 Ekosistem & Rantai Makanan Interaktif</option>
+                        <option value="math">🔢 Laboratorium Matematika (Faktor Prima KPK & FPB)</option>
+                        <option value="custom">📊 Simulasi Variabel Kustom</option>
+                      </select>
+                    </div>
+
+                    {activityForm.config.simulationType === 'math' || activityForm.subjectId === 'matematika' ? (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-[11px] text-blue-900 space-y-1">
+                        <p className="font-bold">🔢 Mode Laboratorium Bilangan:</p>
+                        <p className="text-[10px] text-blue-800">
+                          Siswa akan mendapatkan slider interaktif untuk angka A dan B secara realtime dengan visualisasi kalkulasi KPK & FPB otomatis.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-bold text-slate-700 block">Nilai Awal Variabel Ekosistem:</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-white p-2 rounded-xl border border-slate-200 space-y-1">
+                            <span className="text-[10px] font-bold text-emerald-800">🌾 Produsen / Padi Awal</span>
+                            <input
+                              type="number"
+                              min={10}
+                              max={200}
+                              value={activityForm.config.simVariables?.find(v => v.key === 'grass')?.initial || 100}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                const updated = (activityForm.config.simVariables || []).map(v => v.key === 'grass' ? { ...v, initial: val } : v);
+                                setActivityForm({
+                                  ...activityForm,
+                                  config: { ...activityForm.config, simVariables: updated }
+                                });
+                              }}
+                              className="w-full p-1 border rounded text-[11px] font-bold text-center"
+                            />
+                          </div>
+
+                          <div className="bg-white p-2 rounded-xl border border-slate-200 space-y-1">
+                            <span className="text-[10px] font-bold text-green-800">🦗 Belalang Konsumen I</span>
+                            <input
+                              type="number"
+                              min={5}
+                              max={150}
+                              value={activityForm.config.simVariables?.find(v => v.key === 'grasshopper')?.initial || 50}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                const updated = (activityForm.config.simVariables || []).map(v => v.key === 'grasshopper' ? { ...v, initial: val } : v);
+                                setActivityForm({
+                                  ...activityForm,
+                                  config: { ...activityForm.config, simVariables: updated }
+                                });
+                              }}
+                              className="w-full p-1 border rounded text-[11px] font-bold text-center"
+                            />
+                          </div>
+
+                          <div className="bg-white p-2 rounded-xl border border-slate-200 space-y-1">
+                            <span className="text-[10px] font-bold text-sky-800">🐸 Katak Konsumen II</span>
+                            <input
+                              type="number"
+                              min={2}
+                              max={50}
+                              value={activityForm.config.simVariables?.find(v => v.key === 'frog')?.initial || 20}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                const updated = (activityForm.config.simVariables || []).map(v => v.key === 'frog' ? { ...v, initial: val } : v);
+                                setActivityForm({
+                                  ...activityForm,
+                                  config: { ...activityForm.config, simVariables: updated }
+                                });
+                              }}
+                              className="w-full p-1 border rounded text-[11px] font-bold text-center"
+                            />
+                          </div>
+
+                          <div className="bg-white p-2 rounded-xl border border-slate-200 space-y-1">
+                            <span className="text-[10px] font-bold text-purple-800">🐍 Ular Predator</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={20}
+                              value={activityForm.config.simVariables?.find(v => v.key === 'snake')?.initial || 6}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                const updated = (activityForm.config.simVariables || []).map(v => v.key === 'snake' ? { ...v, initial: val } : v);
+                                setActivityForm({
+                                  ...activityForm,
+                                  config: { ...activityForm.config, simVariables: updated }
+                                });
+                              }}
+                              className="w-full p-1 border rounded text-[11px] font-bold text-center"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3. PUZZLE CONFIG */}
+                {activityForm.type === 'PUZZLE' && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-slate-500">
+                      Tentukan urutan tahapan yang benar (Siswa akan menerima potongan acak dan harus mengurutkannya).
+                    </p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {(activityForm.config.puzzleItems || []).map((pItem, pIdx) => (
+                        <div key={pItem.id || pIdx} className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200">
+                          <span className="w-6 h-6 rounded-lg bg-indigo-50 font-bold text-indigo-700 text-[10px] flex items-center justify-center shrink-0">
+                            {pItem.rank || pIdx + 1}
+                          </span>
+                          <input
+                            type="text"
+                            placeholder="Deskripsi Langkah/Tahapan..."
+                            value={pItem.label}
+                            onChange={(e) => {
+                              const updated = [...(activityForm.config.puzzleItems || [])];
+                              updated[pIdx] = { ...updated[pIdx], label: e.target.value };
+                              setActivityForm({
+                                ...activityForm,
+                                config: { ...activityForm.config, puzzleItems: updated },
+                              });
+                            }}
+                            className="flex-1 p-1.5 rounded-lg border border-slate-200 text-[11px] font-semibold"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = (activityForm.config.puzzleItems || [])
+                                .filter((_, i) => i !== pIdx)
+                                .map((item, idx) => ({ ...item, rank: idx + 1 }));
+                              setActivityForm({
+                                ...activityForm,
+                                config: { ...activityForm.config, puzzleItems: updated },
+                              });
+                            }}
+                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer"
+                            title="Hapus Langkah"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const len = (activityForm.config.puzzleItems || []).length;
+                        const updated = [
+                          ...(activityForm.config.puzzleItems || []),
+                          { id: `p-${Date.now()}`, label: `${len + 1}. Langkah Baru`, rank: len + 1 },
+                        ];
+                        setActivityForm({
+                          ...activityForm,
+                          config: { ...activityForm.config, puzzleItems: updated },
+                        });
+                      }}
+                      className="py-1.5 px-3 rounded-xl bg-indigo-100 hover:bg-indigo-200 text-indigo-800 font-bold text-[10px] cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>+ Tambah Langkah Urutan Baru</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* 4. LAB CONFIG */}
+                {activityForm.type === 'LAB' && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-slate-500">
+                      Kelola daftar bahan filtrasi atau alat uji coba laboratorium.
+                    </p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {(activityForm.config.labApparatus || []).map((apparatus, lIdx) => (
+                        <div key={apparatus.id || lIdx} className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200">
+                          <input
+                            type="text"
+                            placeholder="Ikon (misal: 🪨)"
+                            value={apparatus.icon || '🧪'}
+                            onChange={(e) => {
+                              const updated = [...(activityForm.config.labApparatus || [])];
+                              updated[lIdx] = { ...updated[lIdx], icon: e.target.value };
+                              setActivityForm({
+                                ...activityForm,
+                                config: { ...activityForm.config, labApparatus: updated },
+                              });
+                            }}
+                            className="w-10 p-1.5 rounded-lg border border-slate-200 text-center text-sm"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Nama Bahan/Alat"
+                            value={apparatus.name}
+                            onChange={(e) => {
+                              const updated = [...(activityForm.config.labApparatus || [])];
+                              updated[lIdx] = { ...updated[lIdx], name: e.target.value };
+                              setActivityForm({
+                                ...activityForm,
+                                config: { ...activityForm.config, labApparatus: updated },
+                              });
+                            }}
+                            className="flex-1 p-1.5 rounded-lg border border-slate-200 text-[11px] font-semibold"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = (activityForm.config.labApparatus || []).filter((_, i) => i !== lIdx);
+                              setActivityForm({
+                                ...activityForm,
+                                config: { ...activityForm.config, labApparatus: updated },
+                              });
+                            }}
+                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer"
+                            title="Hapus Bahan"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = [
+                          ...(activityForm.config.labApparatus || []),
+                          { id: `l-${Date.now()}`, name: 'Bahan Tambahan Baru', score: 20, icon: '🧪' },
+                        ];
+                        setActivityForm({
+                          ...activityForm,
+                          config: { ...activityForm.config, labApparatus: updated },
+                        });
+                      }}
+                      className="py-1.5 px-3 rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-[10px] cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>+ Tambah Bahan Laboratorium</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-3 pt-2">
@@ -4434,47 +4942,193 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   />
                 </div>
 
-                {/* Quantities configuration */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                  <span className="text-[11px] font-black text-slate-800 block mb-1">
-                    📊 Konfigurasi Jumlah Soal yang Dihasilkan:
-                  </span>
+                {/* Cognitive Level & Stimulus Mode */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="block text-slate-700 font-extrabold text-[11px]">
+                      🎯 Target Tingkat Kognitif:
+                    </label>
+                    <select
+                      value={aiGenCognitiveLevel}
+                      onChange={(e) => setAiGenCognitiveLevel(e.target.value as any)}
+                      className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-bold text-slate-800 text-xs"
+                    >
+                      <option value="ALL">Kombinasi Seimbang (HOTS, MOTS, LOTS)</option>
+                      <option value="HOTS">Fokus HOTS (C4-C6 Analisis & Evaluasi)</option>
+                      <option value="MOTS">Fokus MOTS (C3 Penerapan & Relasi)</option>
+                      <option value="LOTS">Fokus LOTS (C1-C2 Pemahaman Dasar)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-slate-700 font-extrabold text-[11px]">
+                      📖 Gaya Teks Stimulus Wacana:
+                    </label>
+                    <select
+                      value={aiGenStimulusStyle}
+                      onChange={(e) => setAiGenStimulusStyle(e.target.value as any)}
+                      className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-bold text-slate-800 text-xs"
+                    >
+                      <option value="REAL_WORLD">Kontekstual Kehidupan Sehari-hari</option>
+                      <option value="SCIENTIFIC">Fakta Observasi & Eksperimen Sains</option>
+                      <option value="STORY">Cerita Narasi Petualangan Karakter</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Quantities configuration by category */}
+                <div className="p-4 bg-gradient-to-br from-slate-50 to-indigo-50/40 border border-slate-200 rounded-3xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-black text-slate-900 block">
+                        📊 Konfigurasi Jumlah Soal Setiap Kategori:
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        Atur berapa butir soal yang ingin dihasilkan AI untuk tiap jenis soal.
+                      </span>
+                    </div>
+                    <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-xs font-black border border-purple-200 shadow-xs">
+                      Total: {aiGenNumPG + aiGenNumPGK + aiGenNumBS} Soal
+                    </span>
+                  </div>
                   
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1 text-center bg-white p-2.5 rounded-xl border border-slate-200">
-                      <span className="text-[10px] font-black text-indigo-700 block">Pilihan Ganda (PG)</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="5"
-                        value={aiGenNumPG}
-                        onChange={(e) => setAiGenNumPG(Math.min(5, Math.max(0, Number(e.target.value))))}
-                        className="w-16 p-1.5 border border-slate-300 rounded-lg text-center font-bold font-mono"
-                      />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Category 1: PG */}
+                    <div className="bg-white p-3.5 rounded-2xl border border-indigo-100 shadow-xs space-y-2 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-black text-indigo-700 flex items-center gap-1">
+                            <span>🔘</span>
+                            <span>Pilihan Ganda</span>
+                          </span>
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">
+                            PG
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-normal leading-tight">
+                          1 pilihan benar dengan 4 opsi (A, B, C, D)
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setAiGenNumPG(Math.max(0, aiGenNumPG - 1))}
+                            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 flex items-center justify-center cursor-pointer"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            max="10"
+                            value={aiGenNumPG}
+                            onChange={(e) => setAiGenNumPG(Math.min(10, Math.max(0, Number(e.target.value))))}
+                            className="w-10 p-1 border border-slate-300 rounded-lg text-center font-black font-mono text-sm text-indigo-900"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setAiGenNumPG(Math.min(10, aiGenNumPG + 1))}
+                            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 flex items-center justify-center cursor-pointer"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400">Butir</span>
+                      </div>
                     </div>
 
-                    <div className="space-y-1 text-center bg-white p-2.5 rounded-xl border border-slate-200">
-                      <span className="text-[10px] font-black text-purple-700 block">Pilihan Ganda Kompleks (PGK)</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="5"
-                        value={aiGenNumPGK}
-                        onChange={(e) => setAiGenNumPGK(Math.min(5, Math.max(0, Number(e.target.value))))}
-                        className="w-16 p-1.5 border border-slate-300 rounded-lg text-center font-bold font-mono"
-                      />
+                    {/* Category 2: PGK */}
+                    <div className="bg-white p-3.5 rounded-2xl border border-purple-100 shadow-xs space-y-2 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-black text-purple-700 flex items-center gap-1">
+                            <span>☑️</span>
+                            <span>Pilihan Ganda K.</span>
+                          </span>
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700">
+                            PGK
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-normal leading-tight">
+                          Kotak centang (2+ opsi jawaban benar)
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setAiGenNumPGK(Math.max(0, aiGenNumPGK - 1))}
+                            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 flex items-center justify-center cursor-pointer"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            max="10"
+                            value={aiGenNumPGK}
+                            onChange={(e) => setAiGenNumPGK(Math.min(10, Math.max(0, Number(e.target.value))))}
+                            className="w-10 p-1 border border-slate-300 rounded-lg text-center font-black font-mono text-sm text-purple-900"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setAiGenNumPGK(Math.min(10, aiGenNumPGK + 1))}
+                            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 flex items-center justify-center cursor-pointer"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400">Butir</span>
+                      </div>
                     </div>
 
-                    <div className="space-y-1 text-center bg-white p-2.5 rounded-xl border border-slate-200">
-                      <span className="text-[10px] font-black text-amber-700 block">Benar / Salah (BS)</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="5"
-                        value={aiGenNumBS}
-                        onChange={(e) => setAiGenNumBS(Math.min(5, Math.max(0, Number(e.target.value))))}
-                        className="w-16 p-1.5 border border-slate-300 rounded-lg text-center font-bold font-mono"
-                      />
+                    {/* Category 3: BS */}
+                    <div className="bg-white p-3.5 rounded-2xl border border-amber-100 shadow-xs space-y-2 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-black text-amber-700 flex items-center gap-1">
+                            <span>⚖️</span>
+                            <span>Benar / Salah</span>
+                          </span>
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700">
+                            BS
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-normal leading-tight">
+                          Tabel 3 pernyataan stimulus evaluasi
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setAiGenNumBS(Math.max(0, aiGenNumBS - 1))}
+                            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 flex items-center justify-center cursor-pointer"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            max="10"
+                            value={aiGenNumBS}
+                            onChange={(e) => setAiGenNumBS(Math.min(10, Math.max(0, Number(e.target.value))))}
+                            className="w-10 p-1 border border-slate-300 rounded-lg text-center font-black font-mono text-sm text-amber-900"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setAiGenNumBS(Math.min(10, aiGenNumBS + 1))}
+                            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 flex items-center justify-center cursor-pointer"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400">Butir</span>
+                      </div>
                     </div>
                   </div>
                 </div>

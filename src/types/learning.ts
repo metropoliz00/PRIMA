@@ -204,6 +204,19 @@ export interface TeacherAnalytics {
   avgLearningTimeMinutes: number;
 }
 
+export interface InteractiveActivityConfig {
+  // Matching Game
+  matchingPairs?: Array<{ id: string; left: string; right: string }>;
+  // Puzzle Game
+  puzzleItems?: Array<{ id: string; label: string; rank: number }>;
+  // Simulation Game
+  simulationType?: 'ecosystem' | 'math' | 'grid' | 'custom';
+  simVariables?: Array<{ key: string; label: string; min: number; max: number; initial: number; unit?: string; icon?: string }>;
+  targetGoal?: string;
+  // Lab Game
+  labApparatus?: Array<{ id: string; name: string; score: number; icon?: string }>;
+}
+
 export interface InteractiveActivity {
   id: string;
   title: string;
@@ -212,5 +225,6 @@ export interface InteractiveActivity {
   difficulty: 'LOTS' | 'MOTS' | 'HOTS';
   points: number;
   description: string;
+  config?: InteractiveActivityConfig;
   createdAt?: string;
 }

@@ -447,75 +447,182 @@ Gunakan bahasa Indonesia yang profesional, ramah, dan mendukung pengajar.
 // AI Question Generator Endpoint for Teachers (PG, PGK, BS)
 app.post('/api/ai/generate-questions', async (req, res) => {
   try {
-    const { subjectId, topicTitle, grade, numPG, numPGK, numBS } = req.body;
+    const {
+      subjectId = 'ipas',
+      topicTitle = 'Harmoni Ekosistem',
+      grade = 5,
+      numPG = 2,
+      numPGK = 1,
+      numBS = 1,
+      cognitiveLevel = 'ALL',
+      stimulusStyle = 'REAL_WORLD',
+      variationSeed = `${Date.now()}_${Math.random()}`,
+    } = req.body;
+
+    const parsedPG = Math.max(0, Math.min(10, Number(numPG) || 0));
+    const parsedPGK = Math.max(0, Math.min(10, Number(numPGK) || 0));
+    const parsedBS = Math.max(0, Math.min(10, Number(numBS) || 0));
+
+    const totalRequested = parsedPG + parsedPGK + parsedBS;
+    if (totalRequested === 0) {
+      return res.json({ success: true, questions: [] });
+    }
+
+    const cognitiveInstruction =
+      cognitiveLevel === 'HOTS'
+        ? 'Semua soal WAJIB bertaraf HOTS (High Order Thinking Skills: menganalisis fenomena baru, memprediksi dampak, mengevaluasi solusi).'
+        : cognitiveLevel === 'MOTS'
+        ? 'Soal berfokus pada level MOTS (Penerapan konsep materi, menghubungkan sebab-akibat sederhana, dan membandingkan).'
+        : cognitiveLevel === 'LOTS'
+        ? 'Soal berfokus pada level LOTS (Pemahaman fakta dasar, definisi, dan identifikasi komponen).'
+        : 'Proporsikan level kognitif secara seimbang (50% HOTS, 30% MOTS, 20% LOTS).';
+
+    const stimulusInstruction =
+      stimulusStyle === 'SCIENTIFIC'
+        ? 'Gunakan teks stimulus berupa fakta observasi sains, eksperimen laboratorium cilik, atau laporan penelitian alam.'
+        : stimulusStyle === 'STORY'
+        ? 'Gunakan teks stimulus berupa cerita petualangan seru karakter anak sekolah dasar di lingkungan sekitarnya.'
+        : 'Gunakan teks stimulus berbasis studi kasus nyata kehidupan sehari-hari anak SD (di rumah, pasar, taman, sawah, atau sekolah).';
 
     const systemPrompt = `
-Kamu adalah pakar pembuat soal Asesmen Kompetensi Minimum (AKM) tingkat Sekolah Dasar (Kelas 4-6 SD).
-Tugasmu adalah membuat soal berkualitas tinggi berdasarkan topik: "${topicTitle || 'Umum'}" (Mata Pelajaran: "${subjectId || 'Umum'}", Kelas: ${grade || 5} SD).
+Kamu adalah pakar pembuat soal Asesmen Kompetensi Minimum (AKM) dan Kurikulum Merdeka tingkat Sekolah Dasar (Kelas 4-6 SD).
+Tugasmu adalah membuat butir-butir soal orisinal, segar, dan mendidik berdasarkan topik: "${topicTitle}" (Mata Pelajaran: "${subjectId}", Kelas: ${grade} SD).
 
-Buatlah soal baru dengan konfigurasi jumlah berikut secara presisi:
-- PG (Pilihan Ganda - 1 jawaban benar): ${Number(numPG) || 0} soal
-- PGK (Pilihan Ganda Kompleks - beberapa jawaban benar): ${Number(numPGK) || 0} soal
-- BS (Benar / Salah - 3 baris pernyataan tabel): ${Number(numBS) || 0} soal
+KONFIGURASI JUMLAH SOAL WAJIB (Harus tepat sesuai hitungan):
+- Pilihan Ganda (PG - 1 jawaban benar dengan 4 opsi A, B, C, D): ${parsedPG} soal
+- Pilihan Ganda Kompleks (PGK - kotak centang dengan minimal 2 jawaban benar dari 4 opsi A, B, C, D): ${parsedPGK} soal
+- Benar / Salah (BS - tabel evaluasi berisi 3 baris pernyataan): ${parsedBS} soal
 
-Setiap soal HARUS memiliki level berpikir ('LOTS', 'MOTS', atau 'HOTS') dan penjelasan mendalam yang ramah anak SD.
+PANDUAN KOGNITIF & STIMULUS:
+- ${cognitiveInstruction}
+- ${stimulusInstruction}
+- Seed variasi: ${variationSeed} (Pastikan soal unik dan berbeda dari soal standar pada buku umum).
 
-Format keluaran HARUS berupa JSON array murni tanpa pembuka/penutup markdown \`\`\`json atau teks pengantar lainnya. Struktur item harus mengikuti format berikut:
+Format keluaran HARUS berupa JSON array murni tanpa pembuka/penutup markdown \`\`\`json atau teks pengantar lainnya. Struktur setiap item:
 [
-  {
+  ${parsedPG > 0 ? `{
     "id": "q-ai-${Math.floor(Math.random() * 100000)}",
-    "subjectId": "${subjectId || 'ipas'}",
-    "grade": ${Number(grade) || 5},
+    "subjectId": "${subjectId}",
+    "grade": ${grade},
     "type": "PG",
-    "level": "MOTS",
-    "stimulus": "Teks stimulus wacana singkat terkait materi...",
-    "questionText": "Pertanyaan pilihan ganda...",
-    "options": ["Opsi 1", "Opsi 2", "Opsi 3", "Opsi 4"],
+    "level": "HOTS",
+    "stimulus": "Teks wacana stimulus yang menarik dan mendidik...",
+    "questionText": "Kalimat pertanyaan pilihan ganda yang jelas...",
+    "options": ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
     "correctAnswer": 0,
-    "explanation": "Penjelasan mengapa benar..."
-  },
-  {
+    "explanation": "Penjelasan pedagogis mengapa jawaban tersebut benar dan konsep sains/matematikanya..."
+  },` : ''}
+  ${parsedPGK > 0 ? `{
     "id": "q-ai-${Math.floor(Math.random() * 100000)}",
-    "subjectId": "${subjectId || 'ipas'}",
-    "grade": ${Number(grade) || 5},
+    "subjectId": "${subjectId}",
+    "grade": ${grade},
     "type": "PGK",
     "level": "HOTS",
-    "stimulus": "Stimulus...",
-    "questionText": "Pertanyaan pilihan ganda kompleks...",
+    "stimulus": "Teks stimulus wacana analisis...",
+    "questionText": "Berdasarkan stimulus di atas, manakah pernyataan yang BENAR? (Pilih lebih dari satu)",
     "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
     "correctAnswers": [0, 2],
-    "explanation": "Penjelasan..."
-  },
-  {
+    "explanation": "Penjelasan rinci mengapa opsi tersebut tepat..."
+  },` : ''}
+  ${parsedBS > 0 ? `{
     "id": "q-ai-${Math.floor(Math.random() * 100000)}",
-    "subjectId": "${subjectId || 'ipas'}",
-    "grade": ${Number(grade) || 5},
+    "subjectId": "${subjectId}",
+    "grade": ${grade},
     "type": "BS",
-    "level": "LOTS",
-    "questionText": "Pernyataan benar-salah tabel...",
+    "level": "MOTS",
+    "stimulus": "Teks stimulus wacana pengantar...",
+    "questionText": "Tentukan kebenaran dari setiap pernyataan berikut berdasarkan konsep materi:",
     "statements": [
-      { "id": "s1", "text": "Pernyataan 1", "isTrue": true },
-      { "id": "s2", "text": "Pernyataan 2", "isTrue": false },
-      { "id": "s3", "text": "Pernyataan 3", "isTrue": false }
+      { "id": "s1", "text": "Pernyataan 1 terkait konsep", "isTrue": true },
+      { "id": "s2", "text": "Pernyataan 2 terkait konsep", "isTrue": false },
+      { "id": "s3", "text": "Pernyataan 3 terkait konsep", "isTrue": true }
     ],
-    "explanation": "Penjelasan..."
-  }
+    "explanation": "Penjelasan kebenaran masing-masing pernyataan..."
+  }` : ''}
 ]
 `;
 
-    const replyText = await callGeminiAPI(systemPrompt, apiKey);
-    let cleaned = replyText.trim();
-    if (cleaned.startsWith('```json')) {
-      cleaned = cleaned.substring(7);
-    } else if (cleaned.startsWith('```')) {
-      cleaned = cleaned.substring(3);
+    let questions: any[] = [];
+    if (apiKey) {
+      try {
+        const replyText = await callGeminiAPI(systemPrompt, apiKey, { temperature: 0.95 });
+        let cleaned = replyText.trim();
+        if (cleaned.startsWith('```json')) cleaned = cleaned.substring(7);
+        else if (cleaned.startsWith('```')) cleaned = cleaned.substring(3);
+        if (cleaned.endsWith('```')) cleaned = cleaned.substring(0, cleaned.length - 3);
+        cleaned = cleaned.trim();
+        const parsed = JSON.parse(cleaned);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          questions = parsed;
+        }
+      } catch (geminiErr) {
+        console.warn('Gemini question generation error, generating fallback:', geminiErr);
+      }
     }
-    if (cleaned.endsWith('```')) {
-      cleaned = cleaned.substring(0, cleaned.length - 3);
-    }
-    cleaned = cleaned.trim();
 
-    const questions = JSON.parse(cleaned);
+    if (questions.length === 0) {
+      // Dynamic fallback questions generator
+      const fallbackList: any[] = [];
+      for (let i = 0; i < parsedPG; i++) {
+        fallbackList.push({
+          id: `q-ai-${Date.now()}-pg-${i}`,
+          subjectId,
+          grade: Number(grade) || 5,
+          type: 'PG',
+          level: cognitiveLevel === 'HOTS' ? 'HOTS' : 'MOTS',
+          stimulus: `Dalam pembelajaran materi "${topicTitle}", siswa diajak mengamati hubungan antara konsep teori dengan kejadian nyata di lingkungan sekitar.`,
+          questionText: `Berdasarkan kajian materi "${topicTitle}", manakah kesimpulan yang paling tepat mengenai prinsip dasar yang berlaku?`,
+          options: [
+            `Menerapkan prinsip utama ${topicTitle} secara kritis dan solutif dalam kehidupan nyata`,
+            'Hanya menghafal definisi tanpa memahami proses interaksinya',
+            'Konsep tersebut tidak memiliki pengaruh terhadap keseimbangan lingkungan',
+            'Menghindari penerapan karena terlalu rumit untuk dipelajari',
+          ],
+          correctAnswer: 0,
+          explanation: `Pilihan A tepat karena tujuan pembelajaran ${topicTitle} adalah melatih nalar kritis dan pemahaman aplikatif di dunia nyata.`,
+        });
+      }
+
+      for (let i = 0; i < parsedPGK; i++) {
+        fallbackList.push({
+          id: `q-ai-${Date.now()}-pgk-${i}`,
+          subjectId,
+          grade: Number(grade) || 5,
+          type: 'PGK',
+          level: 'HOTS',
+          stimulus: `Sebuah eksperimen dilakukan untuk menguji efektivitas penerapan konsep "${topicTitle}" pada berbagai kondisi yang berbeda.`,
+          questionText: `Pilihlah DUA atau lebih pernyataan yang BENAR mengenai penerapan konsep "${topicTitle}" berikut:`,
+          options: [
+            `Pemahaman mendalam tentang ${topicTitle} membantu memecahkan masalah sehari-hari`,
+            'Semua variabel dalam eksperimen tidak saling memengaruhi',
+            `Penerapan konsep ${topicTitle} menjaga keseimbangan dan keteraturan sistem`,
+            'Hasil pengamatan tidak perlu dicatat secara objektif',
+          ],
+          correctAnswers: [0, 2],
+          explanation: `Pernyataan 1 dan 3 benar karena ${topicTitle} merupakan konsep terstruktur yang aplikatif dan menjaga keteraturan sistem.`,
+        });
+      }
+
+      for (let i = 0; i < parsedBS; i++) {
+        fallbackList.push({
+          id: `q-ai-${Date.now()}-bs-${i}`,
+          subjectId,
+          grade: Number(grade) || 5,
+          type: 'BS',
+          level: 'LOTS',
+          stimulus: `Tinjau fakta-fakta penting seputar topik "${topicTitle}" pada tabel evaluasi berikut:`,
+          questionText: `Tentukan apakah setiap pernyataan berikut BENAR atau SALAH berdasarkan konsep "${topicTitle}":`,
+          statements: [
+            { id: 's1', text: `Konsep ${topicTitle} dapat diamati buktinya dalam kehidupan nyata.`, isTrue: true },
+            { id: 's2', text: `Perubahan satu komponen tidak memengaruhi komponen lainnya dalam topik ini.`, isTrue: false },
+            { id: 's3', text: `Sikap ilmiah dan rasa ingin tahu sangat dibutuhkan saat mempelajari ${topicTitle}.`, isTrue: true },
+          ],
+          explanation: `Pernyataan 1 dan 3 benar, sedangkan pernyataan 2 salah karena setiap komponen saling terkait dalam suatu sistem.`,
+        });
+      }
+      questions = fallbackList;
+    }
+
     res.json({ success: true, questions });
   } catch (error: any) {
     console.error('Error generating AI questions:', error);

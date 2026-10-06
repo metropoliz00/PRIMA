@@ -1,4 +1,5 @@
-import { Subject, StudentProgress, Badge, TeacherAnalytics, CodingBlock, InteractiveVideo, QuestionBankItem, Assessment, Material, Topic } from '../types/learning';
+import { Subject, StudentProgress, Badge, TeacherAnalytics, CodingBlock, InteractiveVideo, VideoCheckpoint, InteractiveActivity, InteractiveActivityConfig, QuestionBankItem, Assessment, Material, Topic } from '../types/learning';
+export type { InteractiveActivity, InteractiveActivityConfig };
 import { INITIAL_QUESTION_BANK, INITIAL_ASSESSMENTS, INITIAL_MATERIALS } from './initialData';
 import { getRemoteSubjects, createRemoteSubject, updateRemoteSubject, getRemoteVideos, createRemoteVideo, updateRemoteVideo, pushAppData, fetchAppData, cleanupRemoteDuplicates } from '../services/appscript';
 
@@ -800,27 +801,50 @@ export function getStoredVideos(): InteractiveVideo[] {
     if (data) {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Auto-fix broken old sample URLs in localStorage
-        const needsUpdate = parsed.some(
-          (v: any) =>
-            v.videoUrl?.includes('kYJ_f_Y_vS4') ||
-            v.videoUrl?.includes('344M7R9L730') ||
-            !v.videoUrl
-        );
-        if (needsUpdate) {
-          const updated = parsed.map((v: any) => {
-            if (v.id === 'vid-ipas-1' || v.videoUrl?.includes('kYJ_f_Y_vS4')) {
-              return { ...v, videoUrl: 'https://www.youtube.com/watch?v=LqgYLUaigYU', title: 'Rantai Makanan & Jaring-Jaring Makanan Ekosistem Sawah', checkpoints: INITIAL_VIDEOS[0].checkpoints };
-            }
-            if (v.id === 'vid-mat-1' || v.videoUrl?.includes('344M7R9L730')) {
-              return { ...v, videoUrl: 'https://www.youtube.com/watch?v=4jI9QzXzU5I', title: 'Bab 1 KPK dan FPB Kurikulum Merdeka Kelas 5', checkpoints: INITIAL_VIDEOS[1].checkpoints };
-            }
-            return v;
-          });
+        // Auto-fix broken old sample URLs in localStorage and normalize records
+        const updated = parsed.map((v: any) => {
+          if (!v || typeof v !== 'object') return null;
+
+          let vUrl = v.videoUrl || '';
+          let vTitle = v.title || 'Video Interaktif';
+          let checkpoints: VideoCheckpoint[] = [];
+
+          if (Array.isArray(v.checkpoints)) {
+            checkpoints = v.checkpoints;
+          } else if (typeof v.checkpoints === 'string') {
+            try {
+              const p = JSON.parse(v.checkpoints);
+              if (Array.isArray(p)) checkpoints = p;
+            } catch (e) {}
+          }
+
+          if (v.id === 'vid-ipas-1' || vUrl.includes('kYJ_f_Y_vS4')) {
+            vUrl = 'https://www.youtube.com/watch?v=LqgYLUaigYU';
+            vTitle = 'Rantai Makanan & Jaring-Jaring Makanan Ekosistem Sawah';
+            if (checkpoints.length === 0) checkpoints = INITIAL_VIDEOS[0].checkpoints || [];
+          } else if (v.id === 'vid-mat-1' || vUrl.includes('344M7R9L730')) {
+            vUrl = 'https://www.youtube.com/watch?v=4jI9QzXzU5I';
+            vTitle = 'Bab 1 KPK dan FPB Kurikulum Merdeka Kelas 5';
+            if (checkpoints.length === 0) checkpoints = INITIAL_VIDEOS[1].checkpoints || [];
+          }
+
+          return {
+            ...v,
+            id: v.id || `vid-${Date.now()}`,
+            title: vTitle,
+            subjectId: v.subjectId || 'ipas',
+            videoUrl: vUrl,
+            grade: v.grade !== undefined && v.grade !== null ? Number(v.grade) : 5,
+            checkpointsCount: checkpoints.length || Number(v.checkpointsCount) || 0,
+            checkpoints: checkpoints,
+            createdAt: v.createdAt || new Date().toISOString(),
+          };
+        }).filter(Boolean) as InteractiveVideo[];
+
+        if (updated.length > 0) {
           localStorage.setItem('prima_interactive_videos', JSON.stringify(updated));
           return updated;
         }
-        return parsed;
       }
     }
   } catch (e) {
@@ -831,17 +855,33 @@ export function getStoredVideos(): InteractiveVideo[] {
 
 export function saveVideos(videos: InteractiveVideo[]): void {
   try {
-    localStorage.setItem('prima_interactive_videos', JSON.stringify(videos));
+    const cleanVideos = (videos || []).filter(Boolean).map((v) => {
+      const cps = Array.isArray(v.checkpoints) ? v.checkpoints : [];
+      return {
+        ...v,
+        id: v.id || `vid-${Date.now()}`,
+        title: v.title || 'Video Pembelajaran',
+        subjectId: v.subjectId || 'ipas',
+        videoUrl: v.videoUrl || '',
+        grade: v.grade !== undefined ? Number(v.grade) : 5,
+        checkpointsCount: cps.length || Number(v.checkpointsCount) || 0,
+        checkpoints: cps,
+        createdAt: v.createdAt || new Date().toISOString(),
+      };
+    });
+
+    localStorage.setItem('prima_interactive_videos', JSON.stringify(cleanVideos));
     // Asynchronously update remote Videos in Google Sheets via GAS
-    videos.forEach((vid) => {
+    cleanVideos.forEach((vid) => {
       createRemoteVideo({
         id: vid.id,
         title: vid.title,
         subjectId: vid.subjectId,
         videoUrl: vid.videoUrl,
-        grade: vid.grade || 5,
-        checkpointsCount: vid.checkpointsCount || (vid.checkpoints?.length || 1),
-        createdAt: vid.createdAt || new Date().toISOString(),
+        grade: vid.grade,
+        checkpointsCount: vid.checkpointsCount,
+        checkpoints: JSON.stringify(vid.checkpoints || []),
+        createdAt: vid.createdAt,
       }).catch(() => {});
     });
   } catch (e) {
@@ -853,20 +893,38 @@ export async function syncVideosWithGAS(): Promise<InteractiveVideo[]> {
   try {
     const remote = await getRemoteVideos();
     if (remote && Array.isArray(remote) && remote.length > 0) {
-      const validRemote = remote.filter((v: any) => v.id && v.title && v.videoUrl);
+      const validRemote = remote.filter((v: any) => v && v.id && v.title);
       if (validRemote.length > 0) {
         const local = getStoredVideos();
         // Merge remote with local checkpoints
-        const merged = validRemote.map((r: any) => {
-          const l = local.find((x) => x.id === r.id);
+        const merged: InteractiveVideo[] = validRemote.map((r: any) => {
+          const l = local.find((x) => x && x.id === r.id);
+          let parsedCheckpoints: VideoCheckpoint[] = [];
+          if (l && Array.isArray(l.checkpoints) && l.checkpoints.length > 0) {
+            parsedCheckpoints = l.checkpoints;
+          } else if (Array.isArray(r.checkpoints)) {
+            parsedCheckpoints = r.checkpoints;
+          } else if (typeof r.checkpoints === 'string') {
+            try {
+              const p = JSON.parse(r.checkpoints);
+              if (Array.isArray(p)) parsedCheckpoints = p;
+            } catch (e) {}
+          }
+
           return {
-            ...r,
-            checkpoints: (l && l.checkpoints && l.checkpoints.length > 0) ? l.checkpoints : (r.checkpoints || []),
+            id: r.id,
+            title: r.title || 'Video Interaktif',
+            subjectId: r.subjectId || 'ipas',
+            videoUrl: r.videoUrl || (l ? l.videoUrl : ''),
+            grade: r.grade !== undefined ? Number(r.grade) : 5,
+            checkpointsCount: parsedCheckpoints.length || Number(r.checkpointsCount) || 0,
+            checkpoints: parsedCheckpoints,
+            createdAt: r.createdAt || new Date().toISOString(),
           };
         });
         // Retain local videos that might not be on remote yet
         local.forEach((l) => {
-          if (!merged.some((m) => m.id === l.id)) {
+          if (l && l.id && !merged.some((m) => m.id === l.id)) {
             merged.push(l);
           }
         });
@@ -1115,17 +1173,6 @@ export function saveCodingChallenges(challenges: CodingChallengeItem[]): void {
   }
 }
 
-export interface InteractiveActivity {
-  id: string;
-  title: string;
-  subjectId: string;
-  type: 'MATCHING' | 'SIMULATION' | 'PUZZLE' | 'LAB';
-  difficulty: 'LOTS' | 'MOTS' | 'HOTS';
-  points: number;
-  description: string;
-  createdAt?: string;
-}
-
 export const INITIAL_ACTIVITIES: InteractiveActivity[] = [
   {
     id: 'act-1',
@@ -1135,6 +1182,16 @@ export const INITIAL_ACTIVITIES: InteractiveActivity[] = [
     difficulty: 'HOTS',
     points: 150,
     description: 'Eksperimen variabel kontrol tikus, ular, dan tanaman padi dalam ekosistem sawah.',
+    config: {
+      simulationType: 'ecosystem',
+      targetGoal: 'Jaga keseimbangan populasi agar harmonis (Skor > 80%)',
+      simVariables: [
+        { key: 'grass', label: 'Rumput (Produsen)', min: 0, max: 200, initial: 100, unit: 'Unit', icon: '🌱' },
+        { key: 'grasshopper', label: 'Belalang (Konsumen I)', min: 0, max: 150, initial: 50, unit: 'Ekor', icon: '🦗' },
+        { key: 'frog', label: 'Katak (Konsumen II)', min: 0, max: 60, initial: 20, unit: 'Ekor', icon: '🐸' },
+        { key: 'snake', label: 'Ular (Konsumen III)', min: 0, max: 30, initial: 6, unit: 'Ekor', icon: '🐍' },
+      ],
+    },
   },
   {
     id: 'act-2',
@@ -1144,6 +1201,15 @@ export const INITIAL_ACTIVITIES: InteractiveActivity[] = [
     difficulty: 'MOTS',
     points: 100,
     description: 'Pasangkan komponen lingkungan dengan kelompok yang tepat secara cepat dan cermat.',
+    config: {
+      matchingPairs: [
+        { id: 'm1', left: '🌾 Tanaman Padi', right: '🌱 Produsen (Penghasil Makanan)' },
+        { id: 'm2', left: '🦗 Belalang Sawah', right: '🥗 Konsumen I (Herbivora)' },
+        { id: 'm3', left: '🐸 Katak Sawah', right: '🥩 Konsumen II (Karnivora)' },
+        { id: 'm4', left: '🍄 Jamur & Bakteri', right: '♻️ Dekomposer (Pengurai Alami)' },
+        { id: 'm5', left: '☀️ Cahaya Matahari', right: '⚡ Sumber Energi Utama Ekosistem' },
+      ],
+    },
   },
   {
     id: 'act-3',
@@ -1153,6 +1219,50 @@ export const INITIAL_ACTIVITIES: InteractiveActivity[] = [
     difficulty: 'MOTS',
     points: 120,
     description: 'Susun lapisan kerikil, ijuk, arang, dan pasir untuk menyaring air keruh.',
+    config: {
+      labApparatus: [
+        { id: 'l1', name: 'Kerikil & Pasir Kasar', score: 25, icon: '🪨' },
+        { id: 'l2', name: 'Arang Aktif Karbon', score: 35, icon: '⬛' },
+        { id: 'l3', name: 'Sabut Kelapa / Ijuk Alami', score: 20, icon: '🥥' },
+        { id: 'l4', name: 'Kain Kasa Saringan Halus', score: 20, icon: '📜' },
+      ],
+    },
+  },
+  {
+    id: 'act-4',
+    title: 'Matching Game: Nilai Tempat & Pecahan Desimal',
+    subjectId: 'matematika',
+    type: 'MATCHING',
+    difficulty: 'MOTS',
+    points: 110,
+    description: 'Pasangkan bentuk pecahan biasa dengan pecahan desimal dan persentase yang senilai.',
+    config: {
+      matchingPairs: [
+        { id: 'mm1', left: '1/2 (Satu Per Dua)', right: '0,5 atau 50%' },
+        { id: 'mm2', left: '1/4 (Satu Per Empat)', right: '0,25 atau 25%' },
+        { id: 'mm3', left: '3/4 (Tiga Per Empat)', right: '0,75 atau 75%' },
+        { id: 'mm4', left: '1/5 (Satu Per Lima)', right: '0,2 atau 20%' },
+        { id: 'mm5', left: '4/5 (Empat Per Lima)', right: '0,8 atau 80%' },
+      ],
+    },
+  },
+  {
+    id: 'act-5',
+    title: 'Puzzle Urutan: Aliran Energi Rantai Makanan',
+    subjectId: 'ipas',
+    type: 'PUZZLE',
+    difficulty: 'MOTS',
+    points: 100,
+    description: 'Susun urutan aliran energi makhluk hidup dari tingkat trofik produsen hingga dekomposer.',
+    config: {
+      puzzleItems: [
+        { id: 'p1', label: '1. Energi Sinar Matahari ☀️', rank: 1 },
+        { id: 'p2', label: '2. Produsen (Padi 🌾)', rank: 2 },
+        { id: 'p3', label: '3. Konsumen I (Belalang 🦗)', rank: 3 },
+        { id: 'p4', label: '4. Konsumen II (Katak 🐸)', rank: 4 },
+        { id: 'p5', label: '5. Dekomposer (Jamur 🍄)', rank: 5 },
+      ],
+    },
   },
 ];
 
@@ -1172,6 +1282,20 @@ export function getStoredActivities(): InteractiveActivity[] {
 export function saveActivities(activities: InteractiveActivity[]): void {
   try {
     localStorage.setItem('prima_interactive_activities', JSON.stringify(activities));
+    activities.forEach((act) => {
+      const payload = {
+        id: act.id,
+        title: act.title,
+        subjectId: act.subjectId,
+        type: act.type,
+        difficulty: act.difficulty,
+        points: act.points,
+        description: act.description,
+        config: JSON.stringify(act.config || {}),
+        lastUpdated: new Date().toISOString(),
+      };
+      pushAppData('Activities', 'create', payload).catch(e => console.warn('[GAS Sync] Activities sync failed:', e));
+    });
   } catch (e) {
     console.error('Error saving activities', e);
   }
@@ -1371,9 +1495,10 @@ export function createTopicFromMaterial(mat: Material, subjectGrade: number = 5)
         isCompleted: false,
         isUnlocked: false,
         content: {
-          type: 'ecosystem',
+          type: (mat.subjectId?.toLowerCase() === 'matematika' || mat.topicTitle.toLowerCase().includes('kpk') || mat.topicTitle.toLowerCase().includes('fpb') || mat.topicTitle.toLowerCase().includes('faktor') || mat.topicTitle.toLowerCase().includes('angka')) ? 'math' : 'ecosystem',
           title: `Laboratorium Simulasi: ${mat.topicTitle}`,
-          description: mat.description,
+          description: mat.description || `Uji coba dan manipulasi variabel interaktif untuk memahami konsep ${mat.topicTitle}.`,
+          initialData: (mat.subjectId?.toLowerCase() === 'matematika' || mat.topicTitle.toLowerCase().includes('kpk')) ? { numA: 12, numB: 18 } : { grass: 100, grasshopper: 50, frog: 20, snake: 6 },
         },
       },
       {
