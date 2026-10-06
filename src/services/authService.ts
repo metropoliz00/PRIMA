@@ -9,14 +9,15 @@ export function getStoredUsers(): User[] {
   try {
     const raw = localStorage.getItem(USERS_KEY);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
     }
   } catch (e) {
     console.error('Failed to load users from localStorage', e);
   }
-  // Fallback to initial demo users
-  localStorage.setItem(USERS_KEY, JSON.stringify(DEMO_USERS));
-  return DEMO_USERS;
+  return [];
 }
 
 /**
@@ -25,81 +26,74 @@ export function getStoredUsers(): User[] {
 export async function syncUsersWithGAS(): Promise<User[]> {
   try {
     const remote = await getRemoteUsers();
-    if (remote && Array.isArray(remote) && remote.length > 0) {
+    if (remote && Array.isArray(remote)) {
       // Filter out empty rows or test entries without valid role
-      const validRemote = remote.filter((u: any) => u.username && u.role) as User[];
-      if (validRemote.length > 0) {
-        const local = getStoredUsers();
-        // Merge: keep remote users and any unique local users, while preserving enriched local fields
-        const map = new Map<string, User>();
-        local.forEach((u) => map.set(u.username.toLowerCase(), u));
-        
-        validRemote.forEach((u: any) => {
-          const key = u.username.toLowerCase();
-          const existing = map.get(key);
-          const school = typeof u.schoolName === 'string' && u.schoolName.trim().length > 0
-            ? u.schoolName
-            : typeof u['Nama Sekolah'] === 'string' && u['Nama Sekolah'].trim().length > 0
-              ? u['Nama Sekolah']
-              : typeof existing?.schoolName === 'string'
-                ? existing.schoolName
-                : '';
-
-          const rawTeaching = u.teachingClass || u.teaching_class || u['Kelas'] || u.kelas;
-          const teaching = typeof rawTeaching === 'string' && rawTeaching.trim().length > 0
-            ? rawTeaching
-            : Array.isArray(rawTeaching)
-              ? rawTeaching.join(', ')
-              : typeof existing?.teachingClass === 'string'
-                ? existing.teachingClass
-                : '';
-
-          // Ambil grade murni dari database tanpa hardcode
-          const gradeVal = u.grade !== undefined && u.grade !== null && !isNaN(Number(u.grade)) && Number(u.grade) > 0
-            ? Number(u.grade)
-            : (existing?.grade !== undefined && existing?.grade !== null && !isNaN(Number(existing.grade)) && Number(existing.grade) > 0)
-              ? Number(existing.grade)
-              : undefined;
-          
-          if (existing) {
-            map.set(key, {
-              ...existing,
-              ...u,
-              grade: gradeVal,
-              schoolName: school,
-              teachingClass: teaching,
-              nip: u.nip || existing.nip,
-              avatar: u.avatar || existing.avatar,
-            });
-          } else {
-            map.set(key, {
-              ...u,
-              grade: gradeVal,
-              schoolName: school,
-              teachingClass: teaching,
-            });
-          }
-        });
-
-        const merged = Array.from(map.values());
-        saveUsers(merged);
-
-        // Also refresh active session if logged in
-        const current = getCurrentUser();
-        if (current) {
-          const updatedSession = map.get(current.username.toLowerCase());
-          if (updatedSession) {
-            setCurrentUserSession(updatedSession);
-          }
-        }
-        return merged;
-      }
-    } else {
-      // If remote is empty, seed initial demo users to Google Sheets
+      const validRemote = remote.filter((u: any) => u && u.username && u.role) as User[];
+      
       const local = getStoredUsers();
-      for (const u of local) {
-        createRemoteUser(u).catch(() => {});
+      const map = new Map<string, User>();
+      local.forEach((u) => {
+        if (u && u.username) map.set(u.username.toLowerCase(), u);
+      });
+      
+      const syncedUsers: User[] = validRemote.map((u: any) => {
+        const key = u.username.toLowerCase();
+        const existing = map.get(key);
+        const school = typeof u.schoolName === 'string' && u.schoolName.trim().length > 0
+          ? u.schoolName
+          : typeof u['Nama Sekolah'] === 'string' && u['Nama Sekolah'].trim().length > 0
+            ? u['Nama Sekolah']
+            : typeof existing?.schoolName === 'string'
+              ? existing.schoolName
+              : '';
+
+        const rawTeaching = u.teachingClass || u.teaching_class || u['Kelas'] || u.kelas;
+        const teaching = typeof rawTeaching === 'string' && rawTeaching.trim().length > 0
+          ? rawTeaching
+          : Array.isArray(rawTeaching)
+            ? rawTeaching.join(', ')
+            : typeof existing?.teachingClass === 'string'
+              ? existing.teachingClass
+              : '';
+
+        const gradeVal = u.grade !== undefined && u.grade !== null && !isNaN(Number(u.grade)) && Number(u.grade) > 0
+          ? Number(u.grade)
+          : (existing?.grade !== undefined && existing?.grade !== null && !isNaN(Number(existing.grade)) && Number(existing.grade) > 0)
+            ? Number(existing.grade)
+            : undefined;
+        
+        return {
+          id: u.id || existing?.id || `usr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          name: u.name || existing?.name || u.username,
+          username: u.username,
+          passwordHash: u.passwordHash || existing?.passwordHash || u.password || '',
+          role: u.role as UserRole,
+          status: (u.status as any) || 'ACTIVE',
+          email: u.email || existing?.email || '',
+          avatar: u.avatar || existing?.avatar || '/prima_avatar_1791033365222.jpg',
+          grade: gradeVal,
+          studentNumber: u.studentNumber || existing?.studentNumber || '',
+          nip: u.nip || existing?.nip || '',
+          schoolName: school,
+          teachingClass: teaching,
+          subjectsHandled: Array.isArray(u.subjectsHandled) ? u.subjectsHandled : existing?.subjectsHandled || [],
+          classesHandled: Array.isArray(u.classesHandled) ? u.classesHandled : existing?.classesHandled || [],
+          createdAt: u.createdAt || existing?.createdAt || new Date().toISOString(),
+          updatedAt: u.updatedAt || new Date().toISOString(),
+        };
+      });
+
+      saveUsers(syncedUsers);
+
+      // Also refresh active session if logged in
+      const current = getCurrentUser();
+      if (current) {
+        const updatedSession = syncedUsers.find(u => u.username.toLowerCase() === current.username.toLowerCase());
+        if (updatedSession) {
+          setCurrentUserSession(updatedSession);
+        }
       }
+      return syncedUsers;
     }
   } catch (err) {
     console.warn('[Sync] Failed to sync users with Google Apps Script', err);

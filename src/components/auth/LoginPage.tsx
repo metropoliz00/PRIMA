@@ -86,9 +86,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onBackToLa
               className="w-14 h-14 mx-auto rounded-2xl object-contain shadow-md transition-all duration-500 ease-out hover:scale-110 hover:rotate-6 hover:brightness-105 active:scale-95 cursor-pointer"
             />
 
-            <h1 className="font-heading text-3xl font-black text-slate-900 tracking-tight">
-              MASUK
-            </h1>
+            <div className="inline-block">
+              <h1 className="font-heading text-3xl sm:text-4xl font-black tracking-tight bg-gradient-to-r from-indigo-700 via-sky-600 to-emerald-600 bg-clip-text text-transparent drop-shadow-xs">
+                MASUK
+              </h1>
+              <div className="h-1 w-12 mx-auto mt-1 rounded-full bg-gradient-to-r from-indigo-600 via-sky-500 to-emerald-500" />
+            </div>
+
             <div className="flex flex-col items-center justify-center w-full text-center space-y-0.5">
               <p className="text-xs sm:text-sm font-extrabold text-slate-800 leading-snug whitespace-nowrap">
                 <span className="text-emerald-600 font-black">P</span>embelajaran{' '}

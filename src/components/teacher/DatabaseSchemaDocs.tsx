@@ -72,15 +72,15 @@ export const SHEET_SCHEMAS: SheetSchemaInfo[] = [
   },
   {
     sheetName: 'Videos',
-    moduleName: 'Video Interaktif & Checkpoint Pausa',
-    description: 'Menyimpan tautan video YouTube/Drive dan daftar checkpoint kuis jeda pausa otomatis.',
+    moduleName: 'Video Interaktif & Checkpoint Pause',
+    description: 'Menyimpan tautan video YouTube/Drive dan daftar checkpoint kuis jeda pause otomatis.',
     headers: [
       { colLetter: 'A', colName: 'id', dataType: 'String', isRequired: true, description: 'ID unik video', sampleValue: 'vid-01' },
       { colLetter: 'B', colName: 'title', dataType: 'String', isRequired: true, description: 'Judul video pembelajaran', sampleValue: 'Petualangan Rantai Makanan Sawah' },
       { colLetter: 'C', colName: 'subjectId', dataType: 'String', isRequired: true, description: 'ID mata pelajaran terhubung', sampleValue: 'ipas' },
       { colLetter: 'D', colName: 'videoUrl', dataType: 'String', isRequired: true, description: 'URL YouTube / Google Drive Preview', sampleValue: 'https://www.youtube.com/watch?v=kYJ_f_Y_vS4' },
       { colLetter: 'E', colName: 'grade', dataType: 'Number', isRequired: false, description: 'Tingkat kelas', sampleValue: '5' },
-      { colLetter: 'F', colName: 'checkpointsCount', dataType: 'Number', isRequired: false, description: 'Jumlah kuis jeda pausa', sampleValue: '2' },
+      { colLetter: 'F', colName: 'checkpointsCount', dataType: 'Number', isRequired: false, description: 'Jumlah kuis jeda pause', sampleValue: '2' },
       { colLetter: 'G', colName: 'checkpoints', dataType: 'JSON Array', isRequired: false, description: 'String JSON daftar checkpoint [{timeInSeconds, question, options, correctAnswer}]', sampleValue: '[{"timeInSeconds":15,"question":"Siapa produsen?","options":["Padi","Belalang"],"correctAnswer":0}]' },
       { colLetter: 'H', colName: 'createdAt', dataType: 'DateTime', isRequired: false, description: 'Tanggal pembuatan', sampleValue: '2026-10-04' },
       { colLetter: 'I', colName: 'lastUpdated', dataType: 'DateTime', isRequired: false, description: 'Waktu pembaruan terakhir', sampleValue: '2026-10-04T07:00:00.000Z' },

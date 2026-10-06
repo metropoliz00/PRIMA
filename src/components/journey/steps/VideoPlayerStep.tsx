@@ -117,16 +117,32 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({
   // Load candidate videos from props or storage
   const allVideos = videosList && videosList.length > 0 ? videosList : getStoredVideos();
 
-  // Find videos configured for this subject
-  const subjectVideos = subjectId
-    ? allVideos.filter((v) => {
-        const vSub = (v.subjectId || '').toLowerCase().trim();
-        const curSub = subjectId.toLowerCase().trim();
-        return vSub === curSub || curSub.includes(vSub) || vSub.includes(curSub);
-      })
-    : allVideos;
+  // Find videos configured for this subject with strict deduplication
+  const candidateVideos = React.useMemo(() => {
+    const rawList = videosList && videosList.length > 0 ? videosList : getStoredVideos();
+    const subjectList = subjectId
+      ? rawList.filter((v) => {
+          if (!v) return false;
+          const vSub = (v.subjectId || '').toLowerCase().trim();
+          const curSub = subjectId.toLowerCase().trim();
+          return vSub === curSub || curSub.includes(vSub) || vSub.includes(curSub);
+        })
+      : rawList;
 
-  const candidateVideos = subjectVideos.length > 0 ? subjectVideos : allVideos;
+    const baseList = subjectList.length > 0 ? subjectList : rawList;
+    const seen = new Set<string>();
+    const unique: InteractiveVideo[] = [];
+
+    for (const v of baseList) {
+      if (!v) continue;
+      const vidKey = v.id || v.videoUrl || `vid-idx-${unique.length}`;
+      if (seen.has(vidKey)) continue;
+      seen.add(vidKey);
+      unique.push({ ...v, id: vidKey });
+    }
+
+    return unique;
+  }, [videosList, subjectId]);
   const [selectedVideoId, setSelectedVideoId] = useState<string>('');
 
   useEffect(() => {
@@ -611,11 +627,11 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({
                 <span className="text-[11px] font-semibold text-slate-500">Klik video untuk mengganti</span>
               </div>
               <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                {candidateVideos.map((v) => {
+                {candidateVideos.map((v, vIdx) => {
                   const isSelected = activeVideo?.id === v.id;
                   return (
                     <button
-                      key={v.id}
+                      key={`candidate-vid-${v.id}-${vIdx}`}
                       onClick={() => {
                         setSelectedVideoId(v.id);
                         setIsPlaying(false);
@@ -968,7 +984,7 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({
                   title={isPlaying ? 'Pause Video' : 'Putar Video'}
                 >
                   {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white" />}
-                  <span className="hidden sm:inline">{isPlaying ? 'Pausa' : 'Putar'}</span>
+                  <span className="hidden sm:inline">{isPlaying ? 'Pause' : 'Putar'}</span>
                 </button>
 
                 <button

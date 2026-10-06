@@ -48,10 +48,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [localSubjects, setLocalSubjects] = useState<Subject[]>(() => deduplicateSubjects(subjectsList));
 
   useEffect(() => {
-    if (subjectsList && subjectsList.length > 0) {
+    if (subjectsList) {
       setLocalSubjects(deduplicateSubjects(subjectsList));
     }
   }, [subjectsList]);
+
+  useEffect(() => {
+    if (classesList) {
+      setLocalClasses(classesList);
+    }
+  }, [classesList]);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [subjectForm, setSubjectForm] = useState({ name: '', description: '', grade: 5 });

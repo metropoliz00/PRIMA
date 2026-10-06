@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
 
@@ -15,44 +16,87 @@ app.use(express.json({ limit: '10mb' }));
 
 const apiKey = process.env.GEMINI_API_KEY || '';
 
-async function callGeminiAPI(promptText: string, key: string, options?: { temperature?: number; topP?: number }): Promise<string> {
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || '',
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
+    },
+  },
+});
+
+async function callGeminiAPI(promptText: string, key?: string, options?: { temperature?: number; topP?: number; responseMimeType?: string }): Promise<string> {
+  const currentKey = key || process.env.GEMINI_API_KEY || '';
   const models = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
-  
-  for (const model of models) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-      const response = await fetch(url, {
-        method: 'POST',
+
+  if (currentKey) {
+    const aiInstance = currentKey === process.env.GEMINI_API_KEY ? ai : new GoogleGenAI({
+      apiKey: currentKey,
+      httpOptions: {
         headers: {
-          'Content-Type': 'application/json',
           'User-Agent': 'aistudio-build',
         },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: promptText }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: options?.temperature ?? 0.95,
-            topP: options?.topP ?? 0.95,
-          }
-        })
-      });
+      },
+    });
 
-      const data = await response.json();
-      if (data && data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-        return data.candidates[0].content.parts[0].text;
+    for (const model of models) {
+      try {
+        const response = await aiInstance.models.generateContent({
+          model,
+          contents: promptText,
+          config: {
+            temperature: options?.temperature ?? 0.85,
+            topP: options?.topP ?? 0.95,
+            ...(options?.responseMimeType ? { responseMimeType: options?.responseMimeType } : {}),
+          },
+        });
+
+        if (response && response.text) {
+          return response.text;
+        }
+      } catch (err: any) {
+        console.warn(`[GoogleGenAI SDK] Model ${model} error:`, err?.message || err);
       }
-      if (data && data.error) {
-        console.warn(`Model ${model} error:`, data.error.message);
-      }
-    } catch (err) {
-      console.warn(`Model ${model} fetch exception:`, err);
     }
   }
+
+  // REST fallback
+  if (currentKey) {
+    for (const model of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${currentKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'aistudio-build',
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [{ text: promptText }],
+              },
+            ],
+            generationConfig: {
+              temperature: options?.temperature ?? 0.85,
+              topP: options?.topP ?? 0.95,
+            },
+          }),
+        });
+
+        const data = await response.json();
+        if (data && data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+          return data.candidates[0].content.parts[0].text;
+        }
+        if (data && data.error) {
+          console.warn(`[REST Fallback] Model ${model} error:`, data.error.message);
+        }
+      } catch (err) {
+        console.warn(`[REST Fallback] Model ${model} fetch exception:`, err);
+      }
+    }
+  }
+
   throw new Error('All Gemini models failed');
 }
 
@@ -454,6 +498,9 @@ app.post('/api/ai/generate-questions', async (req, res) => {
       numPG = 2,
       numPGK = 1,
       numBS = 1,
+      numMudah,
+      numSedang,
+      numSulit,
       cognitiveLevel = 'ALL',
       stimulusStyle = 'REAL_WORLD',
       variationSeed = `${Date.now()}_${Math.random()}`,
@@ -468,7 +515,7 @@ app.post('/api/ai/generate-questions', async (req, res) => {
       return res.json({ success: true, questions: [] });
     }
 
-    const cognitiveInstruction =
+    let cognitiveInstruction =
       cognitiveLevel === 'HOTS'
         ? 'Semua soal WAJIB bertaraf HOTS (High Order Thinking Skills: menganalisis fenomena baru, memprediksi dampak, mengevaluasi solusi).'
         : cognitiveLevel === 'MOTS'
@@ -476,6 +523,13 @@ app.post('/api/ai/generate-questions', async (req, res) => {
         : cognitiveLevel === 'LOTS'
         ? 'Soal berfokus pada level LOTS (Pemahaman fakta dasar, definisi, dan identifikasi komponen).'
         : 'Proporsikan level kognitif secara seimbang (50% HOTS, 30% MOTS, 20% LOTS).';
+
+    if (numMudah !== undefined || numSedang !== undefined || numSulit !== undefined) {
+      const pM = Number(numMudah) || 0;
+      const pS = Number(numSedang) || 0;
+      const pH = Number(numSulit) || 0;
+      cognitiveInstruction = `Buat persis: ${pM} butir bertaraf Mudah (LOTS C1-C2), ${pS} butir bertaraf Sedang (MOTS C3), dan ${pH} butir bertaraf Sulit (HOTS C4-C6). Berikan tag "level": "LOTS", "MOTS", atau "HOTS" pada setiap item JSON.`;
+    }
 
     const stimulusInstruction =
       stimulusStyle === 'SCIENTIFIC'

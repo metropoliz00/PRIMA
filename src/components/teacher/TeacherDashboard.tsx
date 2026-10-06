@@ -75,10 +75,46 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [localSubjects, setLocalSubjects] = useState<Subject[]>(() => deduplicateSubjects(subjectsList));
 
   useEffect(() => {
-    if (subjectsList && subjectsList.length > 0) {
+    if (subjectsList) {
       setLocalSubjects(deduplicateSubjects(subjectsList));
     }
   }, [subjectsList]);
+
+  useEffect(() => {
+    if (materialsList) setLocalMaterials(materialsList);
+  }, [materialsList]);
+
+  useEffect(() => {
+    if (questionBankList) setLocalQuestionBank(questionBankList);
+  }, [questionBankList]);
+
+  useEffect(() => {
+    if (assessmentsList) setLocalAssessments(assessmentsList);
+  }, [assessmentsList]);
+
+  useEffect(() => {
+    if (announcementsList) setLocalAnnouncements(announcementsList);
+  }, [announcementsList]);
+
+  useEffect(() => {
+    if (aiConfigsList) setLocalAiConfigs(aiConfigsList);
+  }, [aiConfigsList]);
+
+  useEffect(() => {
+    if (reflectionsList) setLocalReflections(reflectionsList);
+  }, [reflectionsList]);
+
+  useEffect(() => {
+    if (classesList) setLocalClasses(classesList);
+  }, [classesList]);
+
+  useEffect(() => {
+    if (activitiesList) setLocalActivities(activitiesList);
+  }, [activitiesList]);
+
+  useEffect(() => {
+    if (codingChallengesList) setLocalCodingChallenges(codingChallengesList);
+  }, [codingChallengesList]);
   const [localCodingChallenges, setLocalCodingChallenges] = useState<CodingChallengeItem[]>(codingChallengesList || getStoredCodingChallenges());
   const [isSyncingLeaderboard, setIsSyncingLeaderboard] = useState(false);
 
@@ -110,13 +146,26 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   });
 
   // Interactive Video state (Tersimpan di Database & Google Sheets "Videos")
-  const [localInteractiveVideos, setLocalInteractiveVideos] = useState<InteractiveVideo[]>(() => interactiveVideosList || getStoredVideos());
+  const deduplicateVideos = (vids: InteractiveVideo[]): InteractiveVideo[] => {
+    const seen = new Set<string>();
+    const res: InteractiveVideo[] = [];
+    for (const v of vids || []) {
+      if (!v) continue;
+      const key = v.id || v.videoUrl || `vid-idx-${res.length}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      res.push({ ...v, id: key });
+    }
+    return res;
+  };
+
+  const [localInteractiveVideos, setLocalInteractiveVideos] = useState<InteractiveVideo[]>(() => deduplicateVideos(interactiveVideosList || getStoredVideos()));
   const [isVideoSyncing, setIsVideoSyncing] = useState<boolean>(false);
   const [showSheetGuide, setShowSheetGuide] = useState<boolean>(false);
 
   useEffect(() => {
     if (interactiveVideosList && interactiveVideosList.length > 0) {
-      setLocalInteractiveVideos(interactiveVideosList);
+      setLocalInteractiveVideos(deduplicateVideos(interactiveVideosList));
     }
   }, [interactiveVideosList]);
 
@@ -126,7 +175,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     syncVideosWithGAS()
       .then((synced) => {
         if (synced && synced.length > 0) {
-          setLocalInteractiveVideos(synced);
+          setLocalInteractiveVideos(deduplicateVideos(synced));
         }
       })
       .finally(() => {
@@ -138,8 +187,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     setIsVideoSyncing(true);
     try {
       const synced = await syncVideosWithGAS();
-      setLocalInteractiveVideos(synced);
-      toast.success(`Sinkronisasi Database selesai. ${synced.length} video aktif.`);
+      const cleanSynced = deduplicateVideos(synced);
+      setLocalInteractiveVideos(cleanSynced);
+      toast.success(`Sinkronisasi Database selesai. ${cleanSynced.length} video aktif.`);
     } catch (err) {
       toast.error('Gagal menyinkronkan data video dengan Google Spreadsheet.');
     } finally {
@@ -1986,23 +2036,26 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               </button>
             </div>
             <div className="space-y-4">
-              {localMaterials.map((mat) => {
+              {localMaterials.map((mat, matIdx) => {
                 const sub = localSubjects.find((s) => s.id === mat.subjectId);
                 return (
-                  <div key={mat.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 hover:shadow-sm transition-shadow">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                  <div key={`mat-card-${mat.id || matIdx}-${matIdx}`} className="p-4 sm:p-5 bg-slate-50 rounded-2xl sm:rounded-3xl border border-slate-200 space-y-3.5 hover:shadow-md transition-shadow">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 sm:pb-0 border-b sm:border-b-0 border-slate-200/70">
+                      {/* Left side: Badges & Title */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-indigo-100 text-indigo-800 border border-indigo-200 inline-flex items-center gap-1 shrink-0">
                           {sub ? `${sub.icon} ${sub.name}` : (mat.subjectId?.toUpperCase() || 'UMUM')}
                         </span>
-                        <span className="text-xs font-bold text-indigo-600 uppercase">
+                        <span className="text-xs sm:text-sm font-black text-indigo-900 uppercase tracking-wide">
                           {mat.topicTitle}
                         </span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${mat.status === 'TERBIT' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
-                          {mat.status === 'TERBIT' ? '● TERBIT (Aktif di Misi Murid)' : '○ DRAFT'}
+                        <span className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold shrink-0 border ${mat.status === 'TERBIT' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-200 text-slate-700 border-slate-300'}`}>
+                          {mat.status === 'TERBIT' ? '● TERBIT (Aktif di Murid)' : '○ DRAFT'}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1">
+
+                      {/* Right side: Toggle & Action Buttons */}
+                      <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
                         <button
                           onClick={() => {
                             const newStatus = mat.status === 'TERBIT' ? 'DRAFT' : 'TERBIT';
@@ -2011,13 +2064,38 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                             saveMaterials(updated);
                             toast.success(`Status materi ${mat.topicTitle} diubah menjadi ${newStatus}.`);
                           }}
-                          className="cursor-pointer mr-2"
-                          title="Ubah Status Publikasi"
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-bold text-xs cursor-pointer transition-all shadow-2xs ${
+                            mat.status === 'TERBIT'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                              : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                          }`}
+                          title="Klik untuk mengubah status publikasi"
                         >
-                          {mat.status === 'TERBIT' ? <ToggleRight className="w-7 h-7 text-emerald-500" /> : <ToggleLeft className="w-7 h-7 text-slate-400" />}
+                          <span className="text-[11px] font-extrabold">
+                            {mat.status === 'TERBIT' ? 'Status: Terbit' : 'Status: Draft'}
+                          </span>
+                          {mat.status === 'TERBIT' ? (
+                            <ToggleRight className="w-5 h-5 text-emerald-600 shrink-0" />
+                          ) : (
+                            <ToggleLeft className="w-5 h-5 text-slate-400 shrink-0" />
+                          )}
                         </button>
-                        <button onClick={() => handleStartEditMaterial(mat)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit Materi"><Edit3 className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => handleDeleteMaterial(mat.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Materi"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleStartEditMaterial(mat)}
+                            className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 cursor-pointer transition-colors shadow-2xs"
+                            title="Edit Materi"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMaterial(mat.id)}
+                            className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 cursor-pointer transition-colors shadow-2xs"
+                            title="Hapus Materi"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <h4 className="font-heading font-bold text-base text-slate-900">{mat.learningObjectives}</h4>
@@ -2041,10 +2119,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-heading text-xl font-bold text-slate-900">🎬 Kelola Video Interaktif</h3>
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold flex items-center gap-1 border border-emerald-200">
-                    <Database className="w-3 h-3 text-emerald-600" />
-                    <span>Database: Sheet "Videos"</span>
-                  </span>
                   {isVideoSyncing && (
                     <span className="text-[10px] text-indigo-600 font-bold flex items-center gap-1 animate-pulse">
                       <RefreshCw className="w-3 h-3 animate-spin" />
@@ -2053,7 +2127,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   )}
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Tautan video YouTube / Google Drive tersimpan di Database Spreadsheet dan langsung muncul di langkah pembelajaran murid.
+                  Tautan video YouTube / Google Drive pembelajaran yang terintegrasi dengan kuis checkpoint interaktif untuk siswa.
                 </p>
               </div>
 
@@ -2095,58 +2169,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   <span>+ Input Link Video</span>
                 </button>
               </div>
-            </div>
-
-            {/* Toggle Petunjuk Database Spreadsheet */}
-            <div className="bg-sky-50/80 rounded-2xl border border-sky-200/80 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sky-900 font-bold text-xs">
-                  <Database className="w-4 h-4 text-sky-600" />
-                  <span>Petunjuk Format Database Google Spreadsheet (Sheet "Videos")</span>
-                </div>
-                <button
-                  onClick={() => setShowSheetGuide(!showSheetGuide)}
-                  className="text-xs font-bold text-sky-700 hover:text-sky-900 underline cursor-pointer"
-                >
-                  {showSheetGuide ? 'Sembunyikan Panduan ▲' : 'Lihat Format Kolom ▼'}
-                </button>
-              </div>
-
-              {showSheetGuide && (
-                <div className="pt-2 border-t border-sky-200 text-xs text-sky-950 space-y-3 animate-fadeIn">
-                  <p className="text-[11px] leading-relaxed">
-                    Jika tab/sheet <strong>"Videos"</strong> belum ada pada Google Spreadsheet Anda, buatlah tab baru dengan detail struktur berikut:
-                  </p>
-                  
-                  <div className="bg-white p-3 rounded-xl border border-sky-200 space-y-2 overflow-x-auto font-mono text-[11px]">
-                    <div className="font-bold text-sky-800">Nama Sheet (Tab): <span className="bg-sky-100 text-sky-900 px-2 py-0.5 rounded">Videos</span></div>
-                    <div className="font-bold text-slate-700">Baris 1 (Header Kolom Wajib):</div>
-                    <div className="p-2 bg-slate-900 text-emerald-400 rounded-lg text-[10px] tracking-wide whitespace-nowrap">
-                      id | title | subjectId | videoUrl | grade | checkpointsCount | createdAt
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                    <div className="p-2.5 bg-white/80 rounded-xl border border-sky-200 space-y-1">
-                      <p className="font-bold text-sky-900">📌 Penjelasan Kolom:</p>
-                      <ul className="list-disc list-inside space-y-0.5 text-slate-700">
-                        <li><code>id</code> : ID unik video (misal: <code>vid-01</code>)</li>
-                        <li><code>title</code> : Judul video interaktif</li>
-                        <li><code>subjectId</code> : ID Mapel (<code>ipas</code>, <code>matematika</code>, dll)</li>
-                        <li><code>videoUrl</code> : URL YouTube / Google Drive / MP4</li>
-                      </ul>
-                    </div>
-                    <div className="p-2.5 bg-white/80 rounded-xl border border-sky-200 space-y-1">
-                      <p className="font-bold text-sky-900">⚙️ Kolom Tambahan:</p>
-                      <ul className="list-disc list-inside space-y-0.5 text-slate-700">
-                        <li><code>grade</code> : Tingkat Kelas (misal: <code>5</code>)</li>
-                        <li><code>checkpointsCount</code> : Jumlah kuis jeda (misal: <code>1</code>)</li>
-                        <li><code>createdAt</code> : Tanggal input (misal: <code>2026-10-03</code>)</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Video List or Clean Empty State */}
@@ -2192,7 +2214,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {localInteractiveVideos.map((vid, vIdx) => {
+                {deduplicateVideos(localInteractiveVideos).map((vid, vIdx) => {
                   if (!vid) return null;
                   const { embedUrl, type: vType } = parseEmbedUrl(vid.videoUrl || '');
                   const sub = localSubjects.find((s) => s && s.id === vid.subjectId);
@@ -2211,7 +2233,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   const cpCount = validCheckpoints.length || Number(vid.checkpointsCount) || 0;
 
                   return (
-                    <div key={vid.id || `v-${vIdx}`} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm relative group hover:shadow-md transition-all">
+                    <div key={`video-card-${vid.id}-${vIdx}`} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm relative group hover:shadow-md transition-all">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-sky-100 text-sky-800 uppercase border border-sky-200">
                           Mapel: {subName}
@@ -2261,7 +2283,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                         <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-[11px] space-y-1">
                           <p className="font-extrabold text-amber-900 flex items-center gap-1">
                             <span>📍</span>
-                            <span>Daftar Checkpoint Otomatis Pausa:</span>
+                            <span>Daftar Checkpoint Otomatis Pause:</span>
                           </p>
                           <div className="space-y-1 max-h-28 overflow-y-auto">
                             {validCheckpoints.map((cp, i) => (
@@ -2341,11 +2363,11 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              {localActivities.map((act) => {
+              {localActivities.map((act, actIdx) => {
                 const sub = localSubjects.find((s) => s.id === act.subjectId);
                 const subName = sub ? sub.name : act.subjectId.toUpperCase();
                 return (
-                  <div key={act.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-3 relative group hover:border-slate-300 transition-all flex flex-col justify-between">
+                  <div key={`act-card-${act.id || actIdx}-${actIdx}`} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-3 relative group hover:border-slate-300 transition-all flex flex-col justify-between">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase">{act.type}</span>
@@ -2427,28 +2449,28 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             {/* AI Tutor Configurations List */}
             <div className="space-y-4">
               <h4 className="font-heading font-bold text-lg text-slate-900">Daftar Konfigurasi AI Tutor Mata Pelajaran</h4>
-              {localAiConfigs.map((cfg) => (
-                <div key={cfg.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-3 relative group">
-                  <div className="flex items-center justify-between">
+              {localAiConfigs.map((cfg, cfgIdx) => (
+                <div key={`ai-cfg-${cfg.id || cfgIdx}-${cfgIdx}`} className="p-5 sm:p-6 bg-slate-50 rounded-2xl sm:rounded-3xl border border-slate-200 space-y-3 relative group hover:shadow-md transition-shadow">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 sm:pb-0 border-b sm:border-b-0 border-slate-200/70">
                     <div>
                       <span className="text-xs font-bold text-indigo-600 uppercase">Mapel: {cfg.subjectId} | Topik: {cfg.topicTitle}</span>
                       <h4 className="font-heading font-black text-slate-900 text-lg mt-0.5">{cfg.tutorName}</h4>
                     </div>
-                    <div className="flex gap-2">
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => handleStartEditAiConfig(cfg)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit AI"><Edit3 className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => handleDeleteAiConfig(cfg.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus AI"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2">
+                      <div className="flex gap-1">
+                        <button onClick={() => handleStartEditAiConfig(cfg)} className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 cursor-pointer shadow-2xs transition-colors" title="Edit AI"><Edit3 className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteAiConfig(cfg.id)} className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 cursor-pointer shadow-2xs transition-colors" title="Hapus AI"><Trash2 className="w-4 h-4" /></button>
                       </div>
                       <button
                         onClick={() => setShowAiSandboxModal(cfg)}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow cursor-pointer"
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
                       >
                         <MessageCircle className="w-4 h-4" />
                         <span>Uji Coba Sandbox AI</span>
                       </button>
                     </div>
                   </div>
-                  <div className="text-xs space-y-1 text-slate-600 bg-white p-3 rounded-2xl border border-slate-200">
+                  <div className="text-xs space-y-1 text-slate-600 bg-white p-3.5 rounded-2xl border border-slate-200">
                     <p><strong>🎯 Tujuan Pembelajaran:</strong> {cfg.learningGoal}</p>
                     <p><strong>🗣️ Gaya Komunikasi:</strong> {cfg.communicationStyle}</p>
                     <p><strong>🛡️ Aturan Menjawab & Scaffolding:</strong> {cfg.rulesAndScaffolding}</p>
@@ -2555,11 +2577,11 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {localCodingChallenges.map((cod) => {
+              {localCodingChallenges.map((cod, codIdx) => {
                 const sub = localSubjects.find((s) => s.id === cod.subjectId);
                 return (
-                  <div key={cod.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-3 relative group hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between">
+                  <div key={`cod-card-${cod.id || codIdx}-${codIdx}`} className="p-5 sm:p-6 bg-slate-50 rounded-2xl sm:rounded-3xl border border-slate-200 space-y-3 relative group hover:shadow-md transition-shadow">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 sm:pb-0 border-b sm:border-b-0 border-slate-200/70">
                       <div className="flex items-center gap-2">
                         <span className="text-2xl p-2 bg-white rounded-xl border shadow-xs">{cod.characterIcon || '🤖'}</span>
                         <div>
@@ -2571,13 +2593,13 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                      <div className="flex items-center justify-between sm:justify-end gap-2">
+                        <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-xl">
                           Maks {cod.allowedBlocksCount} Balok
                         </span>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
-                          <button onClick={() => handleStartEditCoding(cod)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit Challenge"><Edit3 className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => handleDeleteCoding(cod.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Challenge"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <div className="flex gap-1 ml-1">
+                          <button onClick={() => handleStartEditCoding(cod)} className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 cursor-pointer shadow-2xs transition-colors" title="Edit Challenge"><Edit3 className="w-4 h-4" /></button>
+                          <button onClick={() => handleDeleteCoding(cod.id)} className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 cursor-pointer shadow-2xs transition-colors" title="Hapus Challenge"><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </div>
                     </div>
@@ -2670,14 +2692,14 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   </p>
                 </div>
               ) : (
-                filteredAssessments.map((ass) => {
+                filteredAssessments.map((ass, assIdx) => {
                   const subObj = localSubjects.find((s) => s.id.toLowerCase() === ass.subjectId.toLowerCase());
                   const subName = subObj ? `${subObj.icon || '📚'} ${subObj.name} (Kelas ${subObj.grade || 5})` : ass.subjectId.toUpperCase();
                   const isExpanded = expandedAssessmentId === ass.id;
                   const questionsList = ass.questions || [];
 
                   return (
-                    <div key={ass.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm hover:border-slate-300 transition-all">
+                    <div key={`ass-card-${ass.id || assIdx}-${assIdx}`} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm hover:border-slate-300 transition-all">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -2966,7 +2988,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   );
 
                   return (
-                    <div key={qb.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm hover:border-slate-300 transition-all">
+                    <div key={`qb-card-${qb.id || idx}-${idx}`} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 shadow-sm hover:border-slate-300 transition-all">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="w-6 h-6 rounded-full bg-purple-600 text-white font-black text-xs flex items-center justify-center">
@@ -3734,7 +3756,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 <div className="flex items-center justify-between border-b border-amber-200 pb-2">
                   <span className="font-extrabold text-amber-900 text-xs flex items-center gap-1.5">
                     <span>📍</span>
-                    <span>Pengaturan Checkpoint & Soal Interaktif (Video Otomatis Pausa)</span>
+                    <span>Pengaturan Checkpoint & Soal Interaktif (Video Otomatis Pause)</span>
                   </span>
                   <span className="text-[10px] font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-full">
                     {(Array.isArray(videoForm.checkpoints) ? videoForm.checkpoints.length : 0)} Checkpoint Terpasang
@@ -3791,7 +3813,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="font-bold text-slate-700 block mb-0.5">Waktu Pausa (Detik)</label>
+                      <label className="font-bold text-slate-700 block mb-0.5">Waktu Pause (Detik)</label>
                       <input
                         type="number"
                         min={5}

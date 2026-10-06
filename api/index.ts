@@ -1,32 +1,52 @@
 import express from 'express';
 import type { Request, Response } from 'express';
+import { GoogleGenAI } from '@google/genai';
 
 const app = express();
 app.use(express.json());
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+
+const ai = new GoogleGenAI({
+  apiKey: GEMINI_API_KEY,
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
+    },
+  },
+});
 
 async function callGemini(promptText: string): Promise<string> {
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
+  const models = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
   for (const model of models) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'User-Agent': 'prima-ai-server'
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }]
-        })
-      });
-      const data = await response.json();
-      if (data && data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-        return data.candidates[0].content.parts[0].text;
+      if (GEMINI_API_KEY) {
+        const response = await ai.models.generateContent({
+          model,
+          contents: promptText,
+        });
+        if (response && response.text) {
+          return response.text;
+        }
       }
-      if (data && data.error) {
-        console.warn(`Model ${model} error:`, data.error.message);
+
+      // REST fallback
+      if (GEMINI_API_KEY) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'User-Agent': 'aistudio-build'
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: promptText }] }]
+          })
+        });
+        const data = await response.json();
+        if (data && data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+          return data.candidates[0].content.parts[0].text;
+        }
       }
     } catch (err) {
       console.warn(`Model ${model} fetch exception:`, err);

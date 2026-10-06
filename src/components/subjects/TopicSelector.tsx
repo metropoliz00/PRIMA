@@ -42,7 +42,7 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({
             Misi Belajar Belum Tersedia
           </h3>
           <p className="text-xs text-slate-500">
-            Guru belum menambahkan topik pembelajaran untuk mata pelajaran ini. Silakan pilih mata pelajaran lain seperti IPAS atau Matematika untuk melihat demo interaktif lengkap.
+            Guru belum menambahkan materi/topik pembelajaran untuk mata pelajaran ini di database. Silakan pilih mata pelajaran lain yang telah diterbitkan.
           </p>
           <button
             onClick={onBack}

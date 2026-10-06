@@ -61,30 +61,38 @@ import {
   syncProgressWithGAS,
   getStoredQuestionBank,
   saveQuestionBank,
+  syncQuestionsWithGAS,
   getStoredAssessments,
   saveAssessments,
+  syncAssessmentsWithGAS,
   getStoredCodingChallenges,
   saveCodingChallenges,
+  syncCodingChallengesWithGAS,
   CodingChallengeItem,
   getStoredMaterials,
   saveMaterials,
+  syncMaterialsWithGAS,
   syncMaterialsWithSubjects,
   getStoredActivities,
   saveActivities,
+  syncActivitiesWithGAS,
   InteractiveActivity,
   getStoredVideos,
   saveVideos,
   syncVideosWithGAS,
+  getStoredClasses,
+  saveClasses,
+  syncClassesWithGAS,
+  getStoredAnnouncements,
+  saveAnnouncements,
+  syncAnnouncementsWithGAS,
+  getStoredReflections,
+  saveReflections,
+  syncReflectionsWithGAS,
+  getStoredAiConfigs,
+  saveAiConfigs,
+  syncAiConfigsWithGAS,
 } from './data/learningData';
-import {
-  INITIAL_CLASSES,
-  INITIAL_MATERIALS,
-  INITIAL_QUESTION_BANK,
-  INITIAL_ASSESSMENTS,
-  INITIAL_ANNOUNCEMENTS,
-  INITIAL_REFLECTIONS,
-  INITIAL_AI_CONFIGS,
-} from './data/initialData';
 
 function MainAppContent() {
   const { user, role, isAuthenticated, logout, usersList, refreshUsers } = useAuth();
@@ -97,15 +105,15 @@ function MainAppContent() {
   const [showLogoutModal, setShowLogoutModal] = useState<boolean>(false);
 
   // Learning & Management Datasets
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>(getStoredSubjects());
   const [progress, setProgress] = useState<StudentProgress>(getStoredStudentProgress());
-  const [classesList] = useState<ClassRoom[]>(INITIAL_CLASSES);
+  const [classesList, setClassesList] = useState<ClassRoom[]>(getStoredClasses());
   const [materialsList, setMaterialsList] = useState<Material[]>(getStoredMaterials());
   const [questionBankList, setQuestionBankList] = useState<QuestionBankItem[]>(getStoredQuestionBank());
   const [assessmentsList, setAssessmentsList] = useState<Assessment[]>(getStoredAssessments());
-  const [announcementsList] = useState<Announcement[]>(INITIAL_ANNOUNCEMENTS);
-  const [reflectionsList] = useState<ReflectionEntry[]>(INITIAL_REFLECTIONS);
-  const [aiConfigsList] = useState<AITutorConfig[]>(INITIAL_AI_CONFIGS);
+  const [announcementsList, setAnnouncementsList] = useState<Announcement[]>(getStoredAnnouncements());
+  const [reflectionsList, setReflectionsList] = useState<ReflectionEntry[]>(getStoredReflections());
+  const [aiConfigsList, setAiConfigsList] = useState<AITutorConfig[]>(getStoredAiConfigs());
   const [codingChallengesList, setCodingChallengesList] = useState<CodingChallengeItem[]>(getStoredCodingChallenges());
   const [activitiesList, setActivitiesList] = useState<InteractiveActivity[]>(getStoredActivities());
   const [videosList, setVideosList] = useState<InteractiveVideo[]>(getStoredVideos());
@@ -123,25 +131,63 @@ function MainAppContent() {
     setSubjects(syncedSubs);
     if (syncedSubs.length > 0) {
       setSelectedSubject(syncedSubs[0]);
-      if (syncedSubs[0].topics.length > 0) {
+      if (syncedSubs[0].topics && syncedSubs[0].topics.length > 0) {
         setSelectedTopic(syncedSubs[0].topics[0]);
       }
     }
 
-    // Synchronize with Google Apps Script Sheets DB
+    // Synchronize all entities with Google Apps Script Sheets Database
     syncSubjectsWithGAS().then((synced) => {
-      const mergedWithMats = syncMaterialsWithSubjects(synced, loadedMats);
-      setSubjects(mergedWithMats);
-      if (mergedWithMats.length > 0 && !selectedSubject) {
-        setSelectedSubject(mergedWithMats[0]);
-      }
-    });
+      setSubjects((prev) => {
+        const mergedWithMats = syncMaterialsWithSubjects(synced, materialsList);
+        if (mergedWithMats.length > 0 && !selectedSubject) {
+          setSelectedSubject(mergedWithMats[0]);
+        }
+        return mergedWithMats;
+      });
+    }).catch(() => {});
 
-    // Synchronize videos from Google Apps Script Sheets DB
     syncVideosWithGAS().then((synced) => {
-      if (synced && synced.length > 0) {
-        setVideosList(synced);
+      if (synced) setVideosList(synced);
+    }).catch(() => {});
+
+    syncMaterialsWithGAS().then((synced) => {
+      if (synced) {
+        setMaterialsList(synced);
+        setSubjects((prev) => syncMaterialsWithSubjects(prev, synced));
       }
+    }).catch(() => {});
+
+    syncQuestionsWithGAS().then((synced) => {
+      if (synced) setQuestionBankList(synced);
+    }).catch(() => {});
+
+    syncAssessmentsWithGAS().then((synced) => {
+      if (synced) setAssessmentsList(synced);
+    }).catch(() => {});
+
+    syncCodingChallengesWithGAS().then((synced) => {
+      if (synced) setCodingChallengesList(synced);
+    }).catch(() => {});
+
+    syncActivitiesWithGAS().then((synced) => {
+      if (synced) setActivitiesList(synced);
+    }).catch(() => {});
+
+    syncClassesWithGAS().then((synced) => {
+      if (synced) setClassesList(synced);
+    }).catch(() => {});
+
+    syncAnnouncementsWithGAS().then((synced) => {
+      if (synced) setAnnouncementsList(synced);
+    }).catch(() => {});
+
+    syncReflectionsWithGAS().then((synced) => {
+      if (synced) setReflectionsList(synced);
+    }).catch(() => {});
+
+    syncAiConfigsWithGAS().then((synced) => {
+      if (synced) setAiConfigsList(synced);
     }).catch(() => {});
   }, []);
 

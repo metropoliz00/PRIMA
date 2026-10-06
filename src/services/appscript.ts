@@ -122,5 +122,11 @@ export const getRemoteSettings = () => fetchAppData('Settings');
 export const createRemoteSetting = (settingData: any) => pushAppData('Settings', 'create', settingData);
 export const updateRemoteSetting = (settingData: any) => pushAppData('Settings', 'update', settingData);
 
+// Activities (Aktivitas Interaktif & Simulasi)
+export const getRemoteActivities = () => fetchAppData('Activities');
+export const createRemoteActivity = (activityData: any) => pushAppData('Activities', 'create', activityData);
+export const updateRemoteActivity = (activityData: any) => pushAppData('Activities', 'update', activityData);
+
 // Assessments (Asesmen Kuis)
 export const updateRemoteAssessment = (assessmentData: any) => pushAppData('Assessments', 'update', assessmentData);
+
