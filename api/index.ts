@@ -187,70 +187,13 @@ Struktur item: { id, subjectId, grade, type ("PG"|"PGK"|"BS"), level ("LOTS"|"MO
       }
     }
 
-    if (questions.length === 0) {
-      for (let i = 0; i < parsedPG; i++) {
-        questions.push({
-          id: `q-ai-${Date.now()}-pg-${i}`,
-          subjectId,
-          grade: Number(grade) || 5,
-          type: 'PG',
-          level: 'MOTS',
-          stimulus: `Pengamatan mendalam mengenai konsep "${topicTitle}" di lingkungan sekitar.`,
-          questionText: `Berdasarkan pembelajaran "${topicTitle}", manakah kesimpulan yang paling tepat mengenai prinsip dasar yang berlaku?`,
-          options: [
-            `Menerapkan prinsip utama ${topicTitle} secara bijak dan solutif di kehidupan nyata`,
-            'Hanya menghafal istilah tanpa memahami hubungan sebab-akibat',
-            'Prinsip ini sama sekali tidak memiliki dampak terhadap kehidupan sekitar',
-            'Mengabaikan keterkaitan konsep karena dianggap tidak berpengaruh',
-          ],
-          correctAnswer: 0,
-          explanation: `Pemahaman tentang ${topicTitle} melatih nalar kritis dan pemecahan masalah kontekstual.`,
-          hint: `Pikirkan kata kunci utama dari materi ${topicTitle}.`,
-        });
-      }
-      for (let i = 0; i < parsedPGK; i++) {
-        questions.push({
-          id: `q-ai-${Date.now()}-pgk-${i}`,
-          subjectId,
-          grade: Number(grade) || 5,
-          type: 'PGK',
-          level: 'HOTS',
-          stimulus: `Analisis penerapan konsep "${topicTitle}" dalam kehidupan nyata.`,
-          questionText: `Pilihlah DUA atau lebih pernyataan yang BENAR mengenai konsep "${topicTitle}" berikut:`,
-          options: [
-            `Pemahaman mendalam tentang "${topicTitle}" melatih penalaran kritis`,
-            'Komponen dalam materi ini tidak saling memengaruhi',
-            `Penerapan konsep "${topicTitle}" menjaga keseimbangan sistem`,
-            'Hasil pengamatan tidak perlu dicatat secara objektif',
-          ],
-          correctAnswers: [0, 2],
-          explanation: `Pernyataan 1 dan 3 benar karena ${topicTitle} menjaga keteraturan sistem.`,
-          hint: 'Pilihlah minimal 2 opsi yang benar dan ilmiah.',
-        });
-      }
-      for (let i = 0; i < parsedBS; i++) {
-        questions.push({
-          id: `q-ai-${Date.now()}-bs-${i}`,
-          subjectId,
-          grade: Number(grade) || 5,
-          type: 'BS',
-          level: 'LOTS',
-          stimulus: `Tinjau pernyataan seputar konsep "${topicTitle}":`,
-          questionText: `Tentukan apakah setiap pernyataan berikut BENAR atau SALAH:`,
-          statements: [
-            { id: 's1', text: `Konsep "${topicTitle}" dapat diterapkan di kehidupan nyata.`, isTrue: true },
-            { id: 's2', text: `Perubahan satu komponen tidak memengaruhi komponen lainnya.`, isTrue: false },
-            { id: 's3', text: `Sikap ilmiah sangat dibutuhkan saat mempelajari ${topicTitle}.`, isTrue: true },
-          ],
-          explanation: `Pernyataan 1 dan 3 benar, pernyataan 2 salah.`,
-          hint: 'Ingat kembali hubungan sebab-akibat antarkomponen.',
-        });
-      }
+    if (questions.length > 0) {
+      return res.json({ success: true, questions });
+    } else {
+      return res.status(500).json({ success: false, error: 'Layanan Gemini AI tidak dapat menghasilkan soal saat ini.' });
     }
-
-    res.json({ success: true, questions });
   } catch (error: any) {
-    res.json({ success: true, questions: [] });
+    return res.status(500).json({ success: false, error: error?.message || 'Gagal generate soal dari Gemini AI.' });
   }
 });
 

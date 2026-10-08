@@ -674,171 +674,19 @@ Format keluaran HARUS berupa JSON array murni tanpa pembuka/penutup markdown \`\
       }
     }
 
-    if (questions.length === 0) {
-      // High-quality dynamic fallback questions generator based on topic and pedagogical distribution
-      const fallbackList: any[] = [];
-      const topicLower = (topicTitle || '').toLowerCase();
-      const isScience = subjectId === 'ipas' || topicLower.includes('ekosistem') || topicLower.includes('energi') || topicLower.includes('alam');
-      const isMath = subjectId === 'matematika' || topicLower.includes('kpk') || topicLower.includes('pecahan') || topicLower.includes('bangun');
-
-      // 1. Generate PG Questions
-      for (let i = 0; i < parsedPG; i++) {
-        let level: 'LOTS' | 'MOTS' | 'HOTS' = 'MOTS';
-        if (numMudah !== undefined && i < (numMudah || 0)) level = 'LOTS';
-        else if (numSulit !== undefined && i >= totalRequested - (numSulit || 0)) level = 'HOTS';
-
-        let stimulus = `Dalam eksplorasi materi "${topicTitle}", siswa melakukan pengamatan tentang keterkaitan antarkonsep di lingkungan nyata.`;
-        let questionText = `Berdasarkan pengamatan materi "${topicTitle}", manakah kesimpulan yang paling tepat mengenai prinsip dasar yang berlaku?`;
-        let options = [
-          `Menerapkan prinsip utama ${topicTitle} secara bijak dan solutif di kehidupan nyata`,
-          `Hanya menghafal istilah tanpa memahami hubungan sebab-akibat`,
-          `Prinsip ini sama sekali tidak memiliki dampak terhadap kehidupan sekitar`,
-          `Mengabaikan keterkaitan konsep karena dianggap tidak berpengaruh`,
-        ];
-        let explanation = `Pilihan pertama tepat karena pembelajaran ${topicTitle} bertujuan melatih nalar kritis dan pemahaman aplikatif di dunia nyata.`;
-
-        if (isScience) {
-          if (i === 0) {
-            stimulus = `Sekelompok siswa mengamati ekosistem di sekitar sekolah. Mereka mencatat hubungan antara komponen hidup (biotik) dan tak hidup (abiotik) yang membentuk keharmonisan "${topicTitle}".`;
-            questionText = `Jika salah satu komponen utama dalam "${topicTitle}" mengalami penurunan drastis, dampak langsung apa yang paling mungkin terjadi?`;
-            options = [
-              'Keseimbangan sistem terganggu dan memengaruhi kelangsungan komponen lainnya',
-              'Seluruh komponen lain tetap berfungsi normal tanpa ada perubahan sedikit pun',
-              'Populasi semua makhluk hidup secara otomatis langsung berlipat ganda',
-              'Sistem akan langsung musnah secara seketika dalam hitungan detik',
-            ];
-            explanation = 'Setiap komponen dalam suatu sistem saling terkait. Gangguan pada satu komponen akan memengaruhi kestabilan komponen lain.';
-          } else {
-            stimulus = `Pada pengamatan lingkungan terkait "${topicTitle}", ditemukan bahwa interaksi yang seimbang memberikan manfaat besar bagi keberlanjutan alam.`;
-            questionText = `Tindakan nyata apa yang paling mencerminkan penerapan prinsip "${topicTitle}" dalam kehidupan sehari-hari siswa?`;
-            options = [
-              'Menjaga kelestarian lingkungan dan memanfaatkan sumber daya secara bertanggung jawab',
-              'Membuang sampah di saluran air tanpa memedulikan aliran sungai',
-              'Mengeksploitasi sumber daya alam secara berlebihan tanpa pembaharuan',
-              'Membiarkan kerusakan lingkungan karena merasa bukan tanggung jawab pribadi',
-            ];
-            explanation = 'Penerapan konsep materi diarahkan pada pembentukan sikap peduli lingkungan dan tanggung jawab moral siswa.';
-          }
-        } else if (isMath) {
-          stimulus = `Dalam permasalahan matematika kontekstual seputar "${topicTitle}", siswa diajak memecahkan masalah kuantitatif yang ditemui sehari-hari.`;
-          questionText = `Strategi pemecahan masalah apa yang paling efektif untuk menyelesaikan persoalan "${topicTitle}"?`;
-          options = [
-            'Mengidentifikasi informasi yang diketahui, pola bilangan/rumus, lalu menghitung secara runtut',
-            'Langsung menebak hasil akhir tanpa melakukan langkah perhitungan',
-            'Mengabaikan data yang diketahui dan menggunakan rumus sembarang',
-            'Menghitung tanpa memeriksa kembali kesesuaian satuan hasil akhir',
-          ];
-          explanation = 'Langkah sistematis: memahami masalah, merencanakan penyelesaian, menghitung, dan memeriksa kembali.';
-        }
-
-        fallbackList.push({
-          id: `q-ai-${Date.now()}-pg-${i}`,
-          subjectId,
-          grade: Number(grade) || 5,
-          type: 'PG',
-          level,
-          stimulus,
-          questionText,
-          options,
-          correctAnswer: 0,
-          explanation,
-          hint: `Perhatikan kata kunci pada teks stimulus materi ${topicTitle}.`,
-        });
-      }
-
-      // 2. Generate PGK Questions (Multiple Answers)
-      for (let i = 0; i < parsedPGK; i++) {
-        let stimulus = `Sebuah studi kasus dilakukan untuk menganalisis penerapan konsep "${topicTitle}" dalam situasi nyata sehari-hari.`;
-        let questionText = `Pilihlah DUA atau lebih pernyataan yang BENAR mengenai konsep "${topicTitle}" berikut: (Pilih lebih dari satu)`;
-        let options = [
-          `Pemahaman mendalam tentang "${topicTitle}" melatih kemampuan bernalar kritis dan memecahkan masalah`,
-          'Setiap komponen dalam konsep ini berdiri sendiri tanpa ada keterkaitan dengan komponen lain',
-          `Penerapan konsep "${topicTitle}" membantu menjaga keteraturan dan keharmonisan sistem`,
-          'Hasil observasi tidak memerlukan pembuktian secara objektif',
-        ];
-        let explanation = `Pernyataan 1 dan 3 benar karena ${topicTitle} merupakan konsep terstruktur yang aplikatif dan menjaga keteraturan sistem.`;
-
-        if (isScience) {
-          stimulus = `Hasil pengamatan lingkungan menunjukkan bahwa keharmonisan "${topicTitle}" sangat bergantung pada peran aktif setiap makhluk hidup di dalamnya.`;
-          questionText = `Berdasarkan analisis tersebut, manakah DUA pernyataan yang paling tepat mengenai keterkaitan antarkomponen?`;
-          options = [
-            `Keseimbangan ${topicTitle} terjaga apabila aliran energi dan interaksi berjalan secara alami`,
-            'Makhluk hidup dapat bertahan hidup secara mandiri tanpa bergantung pada lingkungannya',
-            `Aktivitas manusia yang ramah lingkungan berkontribusi positif merawat kelestarian ${topicTitle}`,
-            'Komponen abiotik seperti air dan tanah tidak berpengaruh bagi makhluk hidup',
-          ];
-          explanation = 'Pilihan 1 dan 3 benar. Keberlanjutan ekosistem memerlukan interaksi seimbang dan dukungan lingkungan abiotik serta tindakan manusia yang arif.';
-        }
-
-        fallbackList.push({
-          id: `q-ai-${Date.now()}-pgk-${i}`,
-          subjectId,
-          grade: Number(grade) || 5,
-          type: 'PGK',
-          level: 'HOTS',
-          stimulus,
-          questionText,
-          options,
-          correctAnswers: [0, 2],
-          explanation,
-          hint: 'Ada minimal 2 jawaban yang tepat. Cermati kalimat yang logis dan selaras dengan fakta ilmiah.',
-        });
-      }
-
-      // 3. Generate BS Questions (Benar / Salah)
-      for (let i = 0; i < parsedBS; i++) {
-        let stimulus = `Tinjau fakta-fakta penting seputar topik "${topicTitle}" pada tabel evaluasi konsep berikut:`;
-        let questionText = `Tentukan apakah setiap pernyataan berikut BENAR atau SALAH berdasarkan pemahaman konsep "${topicTitle}":`;
-        let statements = [
-          { id: 's1', text: `Konsep "${topicTitle}" dapat dibuktikan dan diamati dampaknya dalam kehidupan nyata.`, isTrue: true },
-          { id: 's2', text: `Perubahan pada satu elemen tidak akan pernah memengaruhi elemen lainnya dalam topik ini.`, isTrue: false },
-          { id: 's3', text: `Sikap ilmiah, ketelitian, dan rasa ingin tahu sangat dibutuhkan saat mempelajari ${topicTitle}.`, isTrue: true },
-        ];
-        let explanation = `Pernyataan 1 dan 3 bernilai BENAR karena materi ${topicTitle} aplikatif dan menuntut sikap ilmiah. Pernyataan 2 bernilai SALAH karena setiap elemen saling berinteraksi.`;
-
-        fallbackList.push({
-          id: `q-ai-${Date.now()}-bs-${i}`,
-          subjectId,
-          grade: Number(grade) || 5,
-          type: 'BS',
-          level: 'LOTS',
-          stimulus,
-          questionText,
-          statements,
-          explanation,
-          hint: 'Teliti setiap pernyataan satu per satu. Ingat kembali hubungan sebab-akibat materi.',
-        });
-      }
-
-      questions = fallbackList;
+    if (questions.length > 0) {
+      return res.json({ success: true, questions });
+    } else {
+      return res.status(500).json({
+        success: false,
+        error: 'Layanan Gemini AI tidak dapat menghasilkan soal saat ini. Silakan pastikan API key aktif atau coba beberapa saat lagi.',
+      });
     }
-
-    res.json({ success: true, questions });
   } catch (error: any) {
-    console.error('Error generating AI questions:', error);
-    // Even in case of unexpected exception, never return 500 error, return safe questions
-    res.json({
-      success: true,
-      questions: [
-        {
-          id: `q-ai-${Date.now()}-safe-1`,
-          subjectId: req.body?.subjectId || 'ipas',
-          grade: Number(req.body?.grade) || 5,
-          type: 'PG',
-          level: 'MOTS',
-          stimulus: `Pengamatan mendalam mengenai konsep "${req.body?.topicTitle || 'Materi Belajar'}" di kehidupan nyata.`,
-          questionText: `Manakah kesimpulan yang paling tepat mengenai prinsip dasar dari "${req.body?.topicTitle || 'Materi Belajar'}"?`,
-          options: [
-            `Menerapkan prinsip utama secara bertanggung jawab dan bijaksana`,
-            'Menghafal definisi tanpa memahami proses interaksinya',
-            'Konsep tersebut tidak memiliki pengaruh terhadap lingkungan',
-            'Menghindari penerapan karena terlalu rumit',
-          ],
-          correctAnswer: 0,
-          explanation: `Pemahaman konsep melatih nalar kritis dan pemecahan masalah kontekstual.`,
-          hint: 'Pilihlah jawaban yang paling mencerminkan nalar kritis dan sikap positif.',
-        }
-      ],
+    console.error('Error in /api/ai/generate-questions:', error);
+    return res.status(500).json({
+      success: false,
+      error: `Terjadi kesalahan saat memproses permintaan AI: ${error?.message || 'Gagal generate soal.'}`,
     });
   }
 });

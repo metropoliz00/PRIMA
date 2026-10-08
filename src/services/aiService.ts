@@ -523,50 +523,57 @@ export function getClientQuestionsFallback(params: GenerateAssessmentQuestionsPa
 export async function generateAssessmentQuestions(params: GenerateAssessmentQuestionsParams): Promise<AssessmentQuestion[]> {
   const dynamicSeed = `${Date.now()}_${Math.random()}`;
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 9000);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-    const res = await fetch('/api/ai/generate-questions', {
+  let res: Response;
+  try {
+    res = await fetch('/api/ai/generate-questions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...params, variationSeed: dynamicSeed }),
       signal: controller.signal,
     });
+  } catch (err: any) {
     clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data && Array.isArray(data.questions) && data.questions.length > 0) {
-        return data.questions.map((q: any, idx: number) => {
-          const rawType = (q.type || 'PG').toUpperCase();
-          const qType = rawType === 'PGK' ? 'PGK' : rawType === 'BS' ? 'BS' : 'PG';
-          return {
-            id: q.id || `q-ai-${Date.now()}-${idx}`,
-            subjectId: q.subjectId || params.subjectId || 'ipas',
-            grade: Number(q.grade) || Number(params.grade) || 5,
-            type: qType,
-            level: q.level || (idx % 3 === 0 ? 'HOTS' : idx % 2 === 0 ? 'MOTS' : 'LOTS'),
-            stimulus: q.stimulus || `Stimulus observasi materi ${params.topicTitle || 'Misi Belajar'}.`,
-            questionText: q.questionText || q.question || `Pertanyaan pembelajaran seputar ${params.topicTitle || 'materi'}:`,
-            options: Array.isArray(q.options) && q.options.length >= 2 ? q.options : ['Opsi A', 'Opsi B', 'Opsi C', 'Opsi D'],
-            correctAnswer: typeof q.correctAnswer === 'number' ? q.correctAnswer : 0,
-            correctAnswers: Array.isArray(q.correctAnswers) ? q.correctAnswers : [0, 2],
-            statements: Array.isArray(q.statements) && q.statements.length > 0 ? q.statements : [
-              { id: 's1', text: `Konsep ${params.topicTitle || 'materi'} terbukti nyata di lingkungan.`, isTrue: true },
-              { id: 's2', text: `Komponen sistem ini tidak memiliki keterkaitan sama sekali.`, isTrue: false },
-              { id: 's3', text: `Sikap cermat dan ilmiah sangat penting dalam pembelajaran ini.`, isTrue: true }
-            ],
-            explanation: q.explanation || `Penjelasan pedagogis materi ${params.topicTitle || ''}.`,
-            hint: q.hint || `Pikirkan konsep inti pembelajaran ${params.topicTitle || ''}.`,
-          };
-        });
-      }
+    if (err.name === 'AbortError') {
+      throw new Error('Koneksi generator Gemini AI mengalami batas waktu (timeout). Silakan coba lagi.');
     }
-  } catch (err) {
-    console.warn('Backend question generator notice, utilizing smart client generator:', err);
+    throw new Error('Gagal menghubungi layanan Gemini AI. Pastikan koneksi internet Anda aktif.');
+  }
+  clearTimeout(timeoutId);
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Gagal memproses soal dari AI (${res.status}): ${errText || 'Terjadi kesalahan server.'}`);
   }
 
-  // Resilient instant client fallback: 100% guarantee of questions for the user!
-  return getClientQuestionsFallback(params);
+  const data = await res.json().catch(() => null);
+  if (!data || !data.success || !Array.isArray(data.questions) || data.questions.length === 0) {
+    throw new Error(data?.error || 'Gemini AI tidak dapat memproses soal untuk topik ini. Silakan coba lagi.');
+  }
+
+  return data.questions.map((q: any, idx: number) => {
+    const rawType = (q.type || 'PG').toUpperCase();
+    const qType = rawType === 'PGK' ? 'PGK' : rawType === 'BS' ? 'BS' : 'PG';
+    return {
+      id: q.id || `q-ai-${Date.now()}-${idx}`,
+      subjectId: q.subjectId || params.subjectId || 'ipas',
+      grade: Number(q.grade) || Number(params.grade) || 5,
+      type: qType,
+      level: q.level || (idx % 3 === 0 ? 'HOTS' : idx % 2 === 0 ? 'MOTS' : 'LOTS'),
+      stimulus: q.stimulus || `Stimulus observasi materi ${params.topicTitle || 'Misi Belajar'}.`,
+      questionText: q.questionText || q.question || `Pertanyaan pembelajaran seputar ${params.topicTitle || 'materi'}:`,
+      options: Array.isArray(q.options) && q.options.length >= 2 ? q.options : ['Opsi A', 'Opsi B', 'Opsi C', 'Opsi D'],
+      correctAnswer: typeof q.correctAnswer === 'number' ? q.correctAnswer : 0,
+      correctAnswers: Array.isArray(q.correctAnswers) ? q.correctAnswers : [0, 2],
+      statements: Array.isArray(q.statements) && q.statements.length > 0 ? q.statements : [
+        { id: 's1', text: `Konsep ${params.topicTitle || 'materi'} terbukti nyata di lingkungan.`, isTrue: true },
+        { id: 's2', text: `Komponen sistem ini tidak memiliki keterkaitan sama sekali.`, isTrue: false },
+        { id: 's3', text: `Sikap cermat dan ilmiah sangat penting dalam pembelajaran ini.`, isTrue: true }
+      ],
+      explanation: q.explanation || `Penjelasan pedagogis materi ${params.topicTitle || ''}.`,
+      hint: q.hint || `Pikirkan konsep inti pembelajaran ${params.topicTitle || ''}.`,
+    };
+  });
 }

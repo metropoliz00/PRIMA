@@ -1632,8 +1632,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     } catch (err: any) {
       clearInterval(stepInterval);
       console.error(err);
-      setAiGenError('Koneksi AI sedang padat, menggunakan bank soal cerdas terverifikasi.');
-      toast.error('Gagal generate soal dengan AI.');
+      const errMsg = err?.message || 'Gagal generate soal dari Gemini AI. Silakan coba lagi.';
+      setAiGenError(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsAiGenerating(false);
     }
