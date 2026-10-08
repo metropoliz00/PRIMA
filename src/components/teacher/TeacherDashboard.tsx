@@ -41,7 +41,7 @@ import {
   getStoredTtsSetting,
   saveTtsSetting,
 } from '../../data/learningData';
-import { VideoPlayerStep, parseEmbedUrl } from '../journey/steps/VideoPlayerStep';
+import { VideoPlayerStep, parseEmbedUrl, VideoErrorBoundary } from '../journey/steps/VideoPlayerStep';
 import { pushAppData } from '../../services/appscript';
 import { DatabaseSchemaDocs } from './DatabaseSchemaDocs';
 import { generateAssessmentQuestions } from '../../services/aiService';
@@ -4287,20 +4287,22 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 </span>
               </div>
 
-              <VideoPlayerStep
-                content={{
-                  videoUrl: previewVideo.videoUrl,
-                  title: previewVideo.title,
-                  checkpoints: parseCheckpoints(previewVideo.checkpoints),
-                }}
-                subjectId={previewVideo.subjectId}
-                videosList={[previewVideo]}
-                topicTitle={previewVideo.title}
-                onNext={() => {
-                  toast.success('Simulasi video selesai!');
-                  setPreviewVideo(null);
-                }}
-              />
+              <VideoErrorBoundary>
+                <VideoPlayerStep
+                  content={{
+                    videoUrl: previewVideo.videoUrl || '',
+                    title: previewVideo.title || 'Video Interaktif',
+                    checkpoints: parseCheckpoints(previewVideo.checkpoints),
+                  }}
+                  subjectId={previewVideo.subjectId || 'ipas'}
+                  videosList={[previewVideo]}
+                  topicTitle={previewVideo.title || ''}
+                  onNext={() => {
+                    toast.success('Simulasi video selesai!');
+                    setPreviewVideo(null);
+                  }}
+                />
+              </VideoErrorBoundary>
             </div>
           </div>
         </div>

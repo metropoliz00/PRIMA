@@ -16,6 +16,51 @@ declare global {
   }
 }
 
+// Error Boundary for Video Player
+export class VideoErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; errorMessage: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, errorMessage: '' };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return {
+      hasError: true,
+      errorMessage: error?.message || 'Terjadi kesalahan saat memuat player video.',
+    };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('VideoErrorBoundary caught error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl text-center space-y-3 text-white">
+          <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 mx-auto flex items-center justify-center font-bold text-xl">
+            ⚠️
+          </div>
+          <h4 className="font-heading font-extrabold text-white text-base">Gagal Memuat Video Interaktif</h4>
+          <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
+            Terjadi kendala teknis saat memproses format video: <span className="font-mono text-amber-300">{this.state.errorMessage}</span>
+          </p>
+          <button
+            onClick={() => this.setState({ hasError: false, errorMessage: '' })}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-xs shadow-md cursor-pointer hover:bg-indigo-500 transition-colors"
+          >
+            Coba Lagi
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 interface VideoPlayerStepProps {
   content: any;
   subjectId?: string;
@@ -119,12 +164,12 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({
 
   // Find videos configured for this subject with strict deduplication
   const candidateVideos = React.useMemo(() => {
-    const rawList = videosList && videosList.length > 0 ? videosList : getStoredVideos();
+    const rawList = Array.isArray(videosList) && videosList.length > 0 ? videosList : getStoredVideos();
     const subjectList = subjectId
       ? rawList.filter((v) => {
           if (!v) return false;
-          const vSub = (v.subjectId || '').toLowerCase().trim();
-          const curSub = subjectId.toLowerCase().trim();
+          const vSub = String(v.subjectId || '').toLowerCase().trim();
+          const curSub = String(subjectId || '').toLowerCase().trim();
           return vSub === curSub || curSub.includes(vSub) || vSub.includes(curSub);
         })
       : rawList;
@@ -147,16 +192,17 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({
 
   useEffect(() => {
     if (candidateVideos.length > 0) {
+      const topicStr = String(topicTitle || '').toLowerCase();
       const matchTopic = topicTitle
-        ? candidateVideos.find(
-            (v) =>
-              v.title.toLowerCase().includes(topicTitle.toLowerCase()) ||
-              topicTitle.toLowerCase().includes(v.title.toLowerCase())
-          )
+        ? candidateVideos.find((v) => {
+            if (!v || !v.title) return false;
+            const vtStr = String(v.title).toLowerCase();
+            return vtStr.includes(topicStr) || topicStr.includes(vtStr);
+          })
         : null;
 
       setSelectedVideoId((prev) => {
-        if (prev && candidateVideos.some((v) => v.id === prev)) return prev;
+        if (prev && candidateVideos.some((v) => v && v.id === prev)) return prev;
         return matchTopic ? matchTopic.id : candidateVideos[0].id;
       });
     }
@@ -352,18 +398,26 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({
       ytPlayerMountRef.current.id = mountId;
 
       try {
+        const originUrl = typeof window !== 'undefined' && window.location.origin && window.location.origin.startsWith('http')
+          ? window.location.origin
+          : undefined;
+
+        const playerVarsConfig: any = {
+          autoplay: 0,
+          controls: 1,
+          modestbranding: 1,
+          rel: 0,
+          enablejsapi: 1,
+          fs: 1,
+          iv_load_policy: 3,
+        };
+        if (originUrl) {
+          playerVarsConfig.origin = originUrl;
+        }
+
         ytPlayerRef.current = new window.YT.Player(mountId, {
           videoId: ytVideoId,
-          playerVars: {
-            autoplay: 0,
-            controls: 1,
-            modestbranding: 1,
-            rel: 0,
-            enablejsapi: 1,
-            fs: 1,
-            iv_load_policy: 3,
-            origin: typeof window !== 'undefined' ? window.location.origin : '',
-          },
+          playerVars: playerVarsConfig,
           events: {
             onReady: (event: any) => {
               if (!isMounted) return;

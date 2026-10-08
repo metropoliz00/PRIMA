@@ -487,17 +487,48 @@ export function parseCheckpoints(raw: any): VideoCheckpoint[] {
     }
   }
   if (!Array.isArray(list)) return [];
-  return list.map((cp, idx) => ({
-    id: cp?.id || `cp-${idx}-${Date.now()}`,
-    timeInSeconds: Math.max(1, Number(cp?.timeInSeconds) || 30),
-    question: String(cp?.question || '').trim(),
-    type: 'mc' as const,
-    options: Array.isArray(cp?.options)
-      ? cp.options.map(String)
-      : (typeof cp?.options === 'string' ? JSON.parse(cp.options || '[]') : ['Pilihan A', 'Pilihan B']),
-    correctAnswer: Math.max(0, Number(cp?.correctAnswer) || 0),
-    explanation: String(cp?.explanation || 'Jawaban Anda telah dicatat.').trim(),
-  })).filter((cp) => cp.question !== '');
+
+  const result: VideoCheckpoint[] = [];
+
+  for (let idx = 0; idx < list.length; idx++) {
+    const cp = list[idx];
+    if (!cp || typeof cp !== 'object') continue;
+
+    const question = String(cp.question || '').trim();
+    if (!question) continue;
+
+    let safeOptions: string[] = ['Pilihan A', 'Pilihan B'];
+    if (Array.isArray(cp.options)) {
+      safeOptions = cp.options.map((opt: any) => String(opt ?? '').trim()).filter(Boolean);
+    } else if (typeof cp.options === 'string') {
+      try {
+        const parsedOpts = JSON.parse(cp.options);
+        if (Array.isArray(parsedOpts)) {
+          safeOptions = parsedOpts.map((opt: any) => String(opt ?? '').trim()).filter(Boolean);
+        } else {
+          safeOptions = cp.options.split(',').map((s: string) => s.trim()).filter(Boolean);
+        }
+      } catch (e) {
+        safeOptions = cp.options.split(',').map((s: string) => s.trim()).filter(Boolean);
+      }
+    }
+
+    if (safeOptions.length < 2) {
+      safeOptions = ['Pilihan A', 'Pilihan B'];
+    }
+
+    result.push({
+      id: cp.id ? String(cp.id) : `cp-${idx}-${Date.now()}`,
+      timeInSeconds: Math.max(1, Number(cp.timeInSeconds) || 30),
+      question,
+      type: (cp.type === 'true_false' ? 'true_false' : 'mc') as VideoCheckpoint['type'],
+      options: safeOptions,
+      correctAnswer: Math.max(0, Math.min(safeOptions.length - 1, Number(cp.correctAnswer) || 0)),
+      explanation: String(cp.explanation || 'Jawaban Anda telah dicatat.').trim(),
+    });
+  }
+
+  return result;
 }
 
 export function sanitizeVideosList(videos: any[]): InteractiveVideo[] {
