@@ -3872,10 +3872,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         </div>
       )}
 
-      {/* Add Video Modal */}
+      {/* Add Video Modal (Landscape Layout) */}
       {showAddVideoModal && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-lg w-full space-y-4 border border-slate-200 my-8 animate-fadeIn">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-5xl w-full space-y-4 border border-slate-200 my-6 animate-fadeIn max-h-[92vh] overflow-y-auto bg-white">
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-sky-100 text-sky-700 rounded-xl">
@@ -3887,501 +3887,359 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               </div>
               <button
                 onClick={() => { setShowAddVideoModal(false); setEditingVideo(null); }}
-                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveVideo} className="space-y-4 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Mata Pelajaran</label>
-                <select
-                  value={videoForm.subjectId}
-                  onChange={(e) => setVideoForm({ ...videoForm, subjectId: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500"
-                >
-                  {localSubjects.map((sub) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.icon || '📚'} {sub.name} (Kelas {sub.grade || 5})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <form onSubmit={handleSaveVideo} className="text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                
+                {/* Left Column: Video Metadata Form */}
+                <div className="md:col-span-5 space-y-4 bg-slate-50/80 p-4 sm:p-5 rounded-2xl border border-slate-200">
+                  <h4 className="font-extrabold text-slate-900 text-sm border-b pb-2">Informasi Utama Video</h4>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Judul Video Pembelajaran</label>
-                <input
-                  type="text"
-                  required
-                  value={videoForm.title}
-                  onChange={(e) => setVideoForm({ ...videoForm, title: e.target.value })}
-                  placeholder="Contoh: Petualangan Ekosistem Hutan Tropis"
-                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-indigo-900 block mb-1">
-                  Tautan Video (YouTube / Google Drive) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="url"
-                  required
-                  value={videoForm.videoUrl}
-                  onChange={(e) => setVideoForm({ ...videoForm, videoUrl: e.target.value })}
-                  placeholder="https://www.youtube.com/watch?v=... atau https://drive.google.com/file/d/..."
-                  className="w-full p-2.5 rounded-xl border border-indigo-300 bg-indigo-50/50 font-mono text-slate-900 focus:ring-2 focus:ring-indigo-500"
-                />
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Mendukung URL YouTube (termasuk Shorts & Embed) serta link Google Drive Preview.
-                </p>
-              </div>
-
-              {/* CHECKPOINT CONFIGURATION SECTION */}
-              <div className="p-4 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-3">
-                <div className="flex items-center justify-between border-b border-amber-200 pb-2">
-                  <span className="font-extrabold text-amber-900 text-xs flex items-center gap-1.5">
-                    <span>📍</span>
-                    <span>Pengaturan Checkpoint & Soal Interaktif (Video Otomatis Pause)</span>
-                  </span>
-                  <span className="text-[10px] font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-full">
-                    {(Array.isArray(videoForm.checkpoints) ? videoForm.checkpoints.length : 0)} Checkpoint Terpasang
-                  </span>
-                </div>
-
-                <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
-                  Atur detik tertentu saat video diputar di mana video akan <strong>otomatis PAUSE</strong> untuk menampilkan soal kuis buatan Anda kepada siswa.
-                </p>
-
-                {/* List of Current Checkpoints */}
-                {Array.isArray(videoForm.checkpoints) && videoForm.checkpoints.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-bold text-amber-900">Daftar Checkpoint Saat Ini:</p>
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                      {videoForm.checkpoints.map((cp, idx) => (
-                        <div
-                          key={cp.id || `cp-${idx}`}
-                          className={`p-2.5 rounded-xl border flex items-start justify-between gap-2 shadow-xs transition-colors ${
-                            editingCpId === cp.id
-                              ? 'bg-amber-100/90 border-amber-400 ring-2 ring-amber-300'
-                              : 'bg-white border-amber-200'
-                          }`}
-                        >
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 font-mono flex items-center gap-1">
-                                <span>⏱️</span>
-                                <span>Menit {Math.floor((cp.timeInSeconds ?? 30) / 60)} : {String((cp.timeInSeconds ?? 30) % 60).padStart(2, '0')}</span>
-                                <span className="text-amber-700 font-normal">({cp.timeInSeconds ?? 30}s)</span>
-                              </span>
-                              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                                Kunci: {String.fromCharCode(65 + (cp.correctAnswer ?? 0))}
-                              </span>
-                            </div>
-                            <p className="font-bold text-slate-800 text-[11px] line-clamp-2">
-                              {idx + 1}. {cp.question || 'Pertanyaan Checkpoint'}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handleStartEditCheckpoint(cp)}
-                              className="p-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer"
-                              title="Edit Checkpoint Ini"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveCheckpointFromVideo(cp.id)}
-                              className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
-                              title="Hapus Checkpoint"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Mata Pelajaran</label>
+                    <select
+                      value={videoForm.subjectId}
+                      onChange={(e) => setVideoForm({ ...videoForm, subjectId: e.target.value })}
+                      className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500"
+                    >
+                      {localSubjects.map((sub) => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.icon || '📚'} {sub.name} (Kelas {sub.grade || 5})
+                        </option>
                       ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Add / Edit Checkpoint Form Fields */}
-                <div className={`pt-2 border-t border-amber-200 space-y-2.5 p-3 rounded-xl transition-all ${editingCpId ? 'bg-amber-100/60 border-2 border-amber-300' : 'bg-white/60'}`}>
-                  <div className="flex items-center justify-between">
-                    <p className="font-bold text-slate-900 text-xs flex items-center gap-1">
-                      <span>{editingCpId ? '✏️' : '➕'}</span>
-                      <span>{editingCpId ? 'Edit Checkpoint Kuis' : 'Tambah Checkpoint Kuis Baru'}</span>
-                    </p>
-                    {editingCpId && (
-                      <button
-                        type="button"
-                        onClick={handleCancelEditCheckpoint}
-                        className="text-[10px] text-slate-500 hover:text-slate-800 underline font-semibold cursor-pointer"
-                      >
-                        Batal Edit
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Waktu Menit & Detik Input Card */}
-                    <div className="p-3.5 bg-gradient-to-br from-amber-50 to-orange-50/70 rounded-2xl border-2 border-amber-300 space-y-3 shadow-xs">
-                      <div className="flex items-center justify-between">
-                        <label className="font-extrabold text-amber-950 block text-xs flex items-center gap-1.5">
-                          <span>⏱️ Waktu Pause Video</span>
-                          <span className="text-[10px] bg-amber-200/90 text-amber-900 px-2 py-0.5 rounded-full font-bold">
-                            Menit & Detik
-                          </span>
-                        </label>
-                        <span className="text-[11px] font-mono font-black text-amber-950 bg-amber-200 px-2.5 py-0.5 rounded-lg border border-amber-400">
-                          {String(Number(cpForm.timeMinutes) || 0).padStart(2, '0')}:{String(Number(cpForm.timeSeconds) || 0).padStart(2, '0')}
-                          <span className="text-amber-700 font-semibold text-[10px] ml-1">
-                            ({(Number(cpForm.timeMinutes) || 0) * 60 + (Number(cpForm.timeSeconds) || 0)} dtk)
-                          </span>
-                        </span>
-                      </div>
-
-                      {/* Penulisan Input Menit & Detik dengan Tombol Stepper */}
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* Kolom Menit */}
-                        <div className="bg-white p-2 rounded-xl border border-amber-200 shadow-xs space-y-1">
-                          <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wide block">
-                            Menit (0-180)
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const curM = Math.max(0, (Number(cpForm.timeMinutes) || 0) - 1);
-                                setCpForm({
-                                  ...cpForm,
-                                  timeMinutes: curM,
-                                  timeText: `${String(curM).padStart(2, '0')}:${String(Number(cpForm.timeSeconds) || 0).padStart(2, '0')}`
-                                });
-                              }}
-                              className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm flex items-center justify-center cursor-pointer transition-colors"
-                              title="Kurangi 1 Menit"
-                            >
-                              -
-                            </button>
-                            <input
-                              type="number"
-                              min={0}
-                              max={180}
-                              value={cpForm.timeMinutes === 0 ? '0' : (cpForm.timeMinutes || '')}
-                              onChange={(e) => {
-                                const val = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
-                                setCpForm({
-                                  ...cpForm,
-                                  timeMinutes: val as any,
-                                  timeText: `${String(Number(val) || 0).padStart(2, '0')}:${String(Number(cpForm.timeSeconds) || 0).padStart(2, '0')}`
-                                });
-                              }}
-                              className="w-full text-center font-mono font-extrabold text-slate-900 text-base focus:outline-none bg-slate-50 py-0.5 rounded border border-slate-200"
-                              placeholder="0"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const curM = (Number(cpForm.timeMinutes) || 0) + 1;
-                                setCpForm({
-                                  ...cpForm,
-                                  timeMinutes: curM,
-                                  timeText: `${String(curM).padStart(2, '0')}:${String(Number(cpForm.timeSeconds) || 0).padStart(2, '0')}`
-                                });
-                              }}
-                              className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm flex items-center justify-center cursor-pointer transition-colors"
-                              title="Tambah 1 Menit"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Kolom Detik */}
-                        <div className="bg-white p-2 rounded-xl border border-amber-200 shadow-xs space-y-1">
-                          <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wide block">
-                            Detik (0-59)
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const curS = Math.max(0, (Number(cpForm.timeSeconds) || 0) - 5);
-                                setCpForm({
-                                  ...cpForm,
-                                  timeSeconds: curS,
-                                  timeText: `${String(Number(cpForm.timeMinutes) || 0).padStart(2, '0')}:${String(curS).padStart(2, '0')}`
-                                });
-                              }}
-                              className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm flex items-center justify-center cursor-pointer transition-colors"
-                              title="Kurangi 5 Detik"
-                            >
-                              -
-                            </button>
-                            <input
-                              type="number"
-                              min={0}
-                              max={59}
-                              value={cpForm.timeSeconds === 0 ? '0' : (cpForm.timeSeconds || '')}
-                              onChange={(e) => {
-                                const val = e.target.value === '' ? '' : Math.max(0, Math.min(59, Number(e.target.value)));
-                                setCpForm({
-                                  ...cpForm,
-                                  timeSeconds: val as any,
-                                  timeText: `${String(Number(cpForm.timeMinutes) || 0).padStart(2, '0')}:${String(Number(val) || 0).padStart(2, '0')}`
-                                });
-                              }}
-                              className="w-full text-center font-mono font-extrabold text-slate-900 text-base focus:outline-none bg-slate-50 py-0.5 rounded border border-slate-200"
-                              placeholder="30"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const curS = Math.min(59, (Number(cpForm.timeSeconds) || 0) + 5);
-                                setCpForm({
-                                  ...cpForm,
-                                  timeSeconds: curS,
-                                  timeText: `${String(Number(cpForm.timeMinutes) || 0).padStart(2, '0')}:${String(curS).padStart(2, '0')}`
-                                });
-                              }}
-                              className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm flex items-center justify-center cursor-pointer transition-colors"
-                              title="Tambah 5 Detik"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Input Cepat Ketik Format MM:SS */}
-                      <div className="bg-white/80 p-2 rounded-xl border border-amber-200/90 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-bold text-slate-700">
-                            ⚡ Atau Ketik Langsung (Format MM:SS atau Detik):
-                          </label>
-                          <span className="text-[9px] text-amber-800 font-medium">Contoh: 02:30 atau 150</span>
-                        </div>
-                        <input
-                          type="text"
-                          value={cpForm.timeText || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val.includes(':')) {
-                              const parts = val.split(':').map((p) => Number(p) || 0);
-                              if (parts.length === 2) {
-                                setCpForm({
-                                  ...cpForm,
-                                  timeText: val,
-                                  timeMinutes: Math.max(0, parts[0]),
-                                  timeSeconds: Math.max(0, Math.min(59, parts[1])),
-                                });
-                                return;
-                              }
-                            } else if (!isNaN(Number(val)) && val.trim() !== '') {
-                              const total = Number(val);
-                              if (total >= 0) {
-                                setCpForm({
-                                  ...cpForm,
-                                  timeText: val,
-                                  timeMinutes: Math.floor(total / 60),
-                                  timeSeconds: total % 60,
-                                });
-                                return;
-                              }
-                            }
-                            setCpForm({ ...cpForm, timeText: val });
-                          }}
-                          placeholder="Ketik misal 02:30 (otomatis jadi 2 Menit 30 Detik)"
-                          className="w-full text-xs font-mono font-bold text-slate-900 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-300"
-                        />
-                      </div>
-
-                      {/* Quick Presets Buttons */}
-                      <div className="space-y-1 pt-0.5">
-                        <span className="text-[10px] text-amber-950 font-extrabold block">
-                          🚀 Pilihan Waktu Cepat (1-Klik):
-                        </span>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {[
-                            { label: '00:30 (30d)', m: 0, s: 30 },
-                            { label: '01:00 (1m)', m: 1, s: 0 },
-                            { label: '01:30 (1m 30d)', m: 1, s: 30 },
-                            { label: '02:00 (2m)', m: 2, s: 0 },
-                            { label: '02:30 (2m 30d)', m: 2, s: 30 },
-                            { label: '03:00 (3m)', m: 3, s: 0 },
-                            { label: '05:00 (5m)', m: 5, s: 0 },
-                            { label: '+30 dtk', delta: 30 },
-                            { label: '+1 mnt', delta: 60 },
-                          ].map((preset) => (
-                            <button
-                              key={preset.label}
-                              type="button"
-                              onClick={() => {
-                                if ('delta' in preset && preset.delta !== undefined) {
-                                  const curTotal = (Number(cpForm.timeMinutes) || 0) * 60 + (Number(cpForm.timeSeconds) || 0);
-                                  const newTotal = curTotal + preset.delta;
-                                  const newM = Math.floor(newTotal / 60);
-                                  const newS = newTotal % 60;
-                                  setCpForm({
-                                    ...cpForm,
-                                    timeMinutes: newM,
-                                    timeSeconds: newS,
-                                    timeText: `${String(newM).padStart(2, '0')}:${String(newS).padStart(2, '0')}`,
-                                  });
-                                } else if ('m' in preset && 's' in preset) {
-                                  setCpForm({
-                                    ...cpForm,
-                                    timeMinutes: preset.m,
-                                    timeSeconds: preset.s,
-                                    timeText: `${String(preset.m).padStart(2, '0')}:${String(preset.s).padStart(2, '0')}`,
-                                  });
-                                }
-                              }}
-                              className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-950 text-[10px] font-bold hover:bg-amber-100 hover:border-amber-400 transition-colors shadow-2xs cursor-pointer"
-                            >
-                              {preset.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Live Status Hint */}
-                      <div className="text-[10px] text-amber-900 bg-amber-100/70 p-2 rounded-lg border border-amber-200/80 font-medium">
-                        💡 Video akan <strong>otomatis dijeda</strong> saat video mencapai <strong>Menit ke-{Number(cpForm.timeMinutes) || 0} lewat {Number(cpForm.timeSeconds) || 0} detik</strong> (total detik ke-{(Number(cpForm.timeMinutes) || 0) * 60 + (Number(cpForm.timeSeconds) || 0)}) untuk memunculkan kuis interaktif ini.
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="font-bold text-slate-700 block mb-0.5">Kunci Jawaban Benar</label>
-                      <select
-                        value={cpForm.correctAnswer}
-                        onChange={(e) => setCpForm({ ...cpForm, correctAnswer: Number(e.target.value) })}
-                        className="w-full p-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-900 focus:ring-2 focus:ring-sky-500"
-                      >
-                        <option value={0}>A (Pilihan 1)</option>
-                        <option value={1}>B (Pilihan 2)</option>
-                        <option value={2}>C (Pilihan 3)</option>
-                        <option value={3}>D (Pilihan 4)</option>
-                      </select>
-                      <p className="text-[10px] text-slate-500 mt-1">
-                        Siswa harus memilih opsi ini untuk dapat melanjutkan video.
-                      </p>
-                    </div>
+                    </select>
                   </div>
 
                   <div>
-                    <label className="font-bold text-slate-700 block mb-0.5">Teks Pertanyaan Kuis</label>
+                    <label className="font-bold text-slate-700 block mb-1">Judul Video Pembelajaran</label>
                     <input
                       type="text"
-                      value={cpForm.question}
-                      onChange={(e) => setCpForm({ ...cpForm, question: e.target.value })}
-                      placeholder="Contoh: Apakah fungsi utama tanaman padi pada rantai makanan?"
-                      className="w-full p-2 rounded-lg border border-slate-300 bg-white font-semibold text-slate-900"
+                      required
+                      value={videoForm.title}
+                      onChange={(e) => setVideoForm({ ...videoForm, title: e.target.value })}
+                      placeholder="Contoh: Ekosistem Hutan Tropis"
+                      className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500"
                     />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="font-bold text-slate-600 block mb-0.5">Pilihan A</label>
-                      <input
-                        type="text"
-                        value={cpForm.optionA}
-                        onChange={(e) => setCpForm({ ...cpForm, optionA: e.target.value })}
-                        placeholder="Opsi A"
-                        className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-slate-600 block mb-0.5">Pilihan B</label>
-                      <input
-                        type="text"
-                        value={cpForm.optionB}
-                        onChange={(e) => setCpForm({ ...cpForm, optionB: e.target.value })}
-                        placeholder="Opsi B"
-                        className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-slate-600 block mb-0.5">Pilihan C</label>
-                      <input
-                        type="text"
-                        value={cpForm.optionC}
-                        onChange={(e) => setCpForm({ ...cpForm, optionC: e.target.value })}
-                        placeholder="Opsi C (Opsional)"
-                        className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-slate-600 block mb-0.5">Pilihan D</label>
-                      <input
-                        type="text"
-                        value={cpForm.optionD}
-                        onChange={(e) => setCpForm({ ...cpForm, optionD: e.target.value })}
-                        placeholder="Opsi D (Opsional)"
-                        className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
-                      />
-                    </div>
                   </div>
 
                   <div>
-                    <label className="font-bold text-slate-600 block mb-0.5">Penjelasan & Pembahasan Jawaban</label>
+                    <label className="font-bold text-indigo-900 block mb-1">
+                      Tautan Video (YouTube / Drive) <span className="text-red-500">*</span>
+                    </label>
                     <input
-                      type="text"
-                      value={cpForm.explanation}
-                      onChange={(e) => setCpForm({ ...cpForm, explanation: e.target.value })}
-                      placeholder="Pembahasan singkat setelah siswa menjawab..."
-                      className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
+                      type="url"
+                      required
+                      value={videoForm.videoUrl}
+                      onChange={(e) => setVideoForm({ ...videoForm, videoUrl: e.target.value })}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      className="w-full p-2.5 rounded-xl border border-indigo-300 bg-white font-mono text-slate-900 focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
 
-                  <div className="flex items-center gap-2 pt-1">
-                    {editingCpId && (
-                      <button
-                        type="button"
-                        onClick={handleCancelEditCheckpoint}
-                        className="py-2 px-3 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
-                      >
-                        Batal
-                      </button>
-                    )}
+                  <div className="flex items-center gap-3 pt-3">
                     <button
                       type="button"
-                      onClick={handleAddCheckpointToVideo}
-                      className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold text-xs shadow-xs cursor-pointer transition-colors"
+                      onClick={() => { setShowAddVideoModal(false); setEditingVideo(null); }}
+                      className="flex-1 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 font-bold text-slate-700 cursor-pointer transition-colors"
                     >
-                      {editingCpId ? '💾 Simpan Perubahan Checkpoint Ini' : '➕ Tambahkan Checkpoint Ini Ke Video'}
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold cursor-pointer shadow-md transition-all hover:shadow-lg"
+                    >
+                      {editingVideo ? 'Simpan' : 'Tambah Video'}
                     </button>
                   </div>
                 </div>
-              </div>
 
-              <div className="p-3 bg-sky-50 rounded-2xl border border-sky-200 text-[11px] text-sky-900 space-y-1">
-                <p className="font-bold flex items-center gap-1">
-                  <Database className="w-3.5 h-3.5 text-sky-700" />
-                  <span>Penyimpanan Database Otomatis:</span>
-                </p>
-                <p className="text-[10px] text-sky-800">
-                  Data ini akan disimpan ke Database Lokal dan dikirim ke Sheet <code>Videos</code> pada Google Spreadsheet Anda.
-                </p>
-              </div>
+                {/* Right Column: Checkpoint Configuration */}
+                <div className="md:col-span-7 space-y-4">
+                  <div className="p-4 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-3">
+                    <div className="flex items-center justify-between border-b border-amber-200 pb-2">
+                      <span className="font-extrabold text-amber-900 text-xs flex items-center gap-1.5">
+                        <span>📍</span>
+                        <span>Pengaturan Checkpoint Kuis</span>
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-full">
+                        {(Array.isArray(videoForm.checkpoints) ? videoForm.checkpoints.length : 0)} Checkpoint
+                      </span>
+                    </div>
 
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowAddVideoModal(false); setEditingVideo(null); }}
-                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 cursor-pointer transition-colors"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold cursor-pointer shadow-md transition-all hover:shadow-lg"
-                >
-                  {editingVideo ? 'Simpan Perubahan ke Database' : 'Simpan Video ke Database'}
-                </button>
+                    {/* List of Current Checkpoints */}
+                    {Array.isArray(videoForm.checkpoints) && videoForm.checkpoints.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                          {videoForm.checkpoints.map((cp, idx) => (
+                            <div
+                              key={cp.id || `cp-${idx}`}
+                              className={`p-2.5 rounded-xl border flex items-start justify-between gap-2 shadow-xs transition-colors ${
+                                editingCpId === cp.id
+                                  ? 'bg-amber-100/90 border-amber-400 ring-2 ring-amber-300'
+                                  : 'bg-white border-amber-200'
+                              }`}
+                            >
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 font-mono">
+                                    ⏱️ {Math.floor((cp.timeInSeconds ?? 30) / 60)}m {String((cp.timeInSeconds ?? 30) % 60).padStart(2, '0')}s
+                                  </span>
+                                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                                    Kunci: {String.fromCharCode(65 + (cp.correctAnswer ?? 0))}
+                                  </span>
+                                </div>
+                                <p className="font-bold text-slate-800 text-[11px] line-clamp-1">
+                                  {idx + 1}. {cp.question || 'Pertanyaan Checkpoint'}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditCheckpoint(cp)}
+                                  className="p-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer"
+                                  title="Edit Checkpoint Ini"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveCheckpointFromVideo(cp.id)}
+                                  className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                                  title="Hapus Checkpoint"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add / Edit Checkpoint Form Fields */}
+                    <div className={`pt-2 border-t border-amber-200 space-y-2.5 p-3 rounded-xl transition-all ${editingCpId ? 'bg-amber-100/60 border-2 border-amber-300' : 'bg-white/60'}`}>
+                      <div className="flex items-center justify-between">
+                        <p className="font-bold text-slate-900 text-xs flex items-center gap-1">
+                          <span>{editingCpId ? '✏️' : '➕'}</span>
+                          <span>{editingCpId ? 'Edit Checkpoint Kuis' : 'Tambah Checkpoint Kuis'}</span>
+                        </p>
+                        {editingCpId && (
+                          <button
+                            type="button"
+                            onClick={handleCancelEditCheckpoint}
+                            className="text-[10px] text-slate-500 hover:text-slate-800 underline font-semibold cursor-pointer"
+                          >
+                            Batal Edit
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Waktu Menit & Detik Steppers + Input MM:SS */}
+                      <div className="p-3 bg-white rounded-xl border border-amber-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="font-extrabold text-amber-950 text-xs flex items-center gap-1">
+                            <span>⏱️ Waktu Pause Video</span>
+                          </label>
+                          <span className="text-xs font-mono font-black text-amber-950 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                            {String(Number(cpForm.timeMinutes) || 0).padStart(2, '0')}:{String(Number(cpForm.timeSeconds) || 0).padStart(2, '0')}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 space-y-1">
+                            <span className="text-[10px] font-extrabold text-slate-700 block">Menit</span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const curM = Math.max(0, (Number(cpForm.timeMinutes) || 0) - 1);
+                                  setCpForm({
+                                    ...cpForm,
+                                    timeMinutes: curM,
+                                    timeText: `${String(curM).padStart(2, '0')}:${String(Number(cpForm.timeSeconds) || 0).padStart(2, '0')}`
+                                  });
+                                }}
+                                className="w-6 h-6 rounded bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center cursor-pointer"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                min={0}
+                                max={180}
+                                value={cpForm.timeMinutes === 0 ? '0' : (cpForm.timeMinutes || '')}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
+                                  setCpForm({
+                                    ...cpForm,
+                                    timeMinutes: val as any,
+                                    timeText: `${String(Number(val) || 0).padStart(2, '0')}:${String(Number(cpForm.timeSeconds) || 0).padStart(2, '0')}`
+                                  });
+                                }}
+                                className="w-full text-center font-mono font-bold text-slate-900 text-xs focus:outline-none bg-white rounded border"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const curM = (Number(cpForm.timeMinutes) || 0) + 1;
+                                  setCpForm({
+                                    ...cpForm,
+                                    timeMinutes: curM,
+                                    timeText: `${String(curM).padStart(2, '0')}:${String(Number(cpForm.timeSeconds) || 0).padStart(2, '0')}`
+                                  });
+                                }}
+                                className="w-6 h-6 rounded bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center cursor-pointer"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 space-y-1">
+                            <span className="text-[10px] font-extrabold text-slate-700 block">Detik</span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const curS = Math.max(0, (Number(cpForm.timeSeconds) || 0) - 5);
+                                  setCpForm({
+                                    ...cpForm,
+                                    timeSeconds: curS,
+                                    timeText: `${String(Number(cpForm.timeMinutes) || 0).padStart(2, '0')}:${String(curS).padStart(2, '0')}`
+                                  });
+                                }}
+                                className="w-6 h-6 rounded bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center cursor-pointer"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                min={0}
+                                max={59}
+                                value={cpForm.timeSeconds === 0 ? '0' : (cpForm.timeSeconds || '')}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? '' : Math.max(0, Math.min(59, Number(e.target.value)));
+                                  setCpForm({
+                                    ...cpForm,
+                                    timeSeconds: val as any,
+                                    timeText: `${String(Number(cpForm.timeMinutes) || 0).padStart(2, '0')}:${String(Number(val) || 0).padStart(2, '0')}`
+                                  });
+                                }}
+                                className="w-full text-center font-mono font-bold text-slate-900 text-xs focus:outline-none bg-white rounded border"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const curS = Math.min(59, (Number(cpForm.timeSeconds) || 0) + 5);
+                                  setCpForm({
+                                    ...cpForm,
+                                    timeSeconds: curS,
+                                    timeText: `${String(Number(cpForm.timeMinutes) || 0).padStart(2, '0')}:${String(curS).padStart(2, '0')}`
+                                  });
+                                }}
+                                className="w-6 h-6 rounded bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center cursor-pointer"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-0.5">Pertanyaan Kuis</label>
+                        <input
+                          type="text"
+                          value={cpForm.question}
+                          onChange={(e) => setCpForm({ ...cpForm, question: e.target.value })}
+                          placeholder="Pertanyaan..."
+                          className="w-full p-2 rounded-lg border border-slate-300 bg-white font-semibold text-slate-900"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <input
+                            type="text"
+                            value={cpForm.optionA}
+                            onChange={(e) => setCpForm({ ...cpForm, optionA: e.target.value })}
+                            placeholder="Opsi A"
+                            className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            value={cpForm.optionB}
+                            onChange={(e) => setCpForm({ ...cpForm, optionB: e.target.value })}
+                            placeholder="Opsi B"
+                            className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            value={cpForm.optionC}
+                            onChange={(e) => setCpForm({ ...cpForm, optionC: e.target.value })}
+                            placeholder="Opsi C"
+                            className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            value={cpForm.optionD}
+                            onChange={(e) => setCpForm({ ...cpForm, optionD: e.target.value })}
+                            placeholder="Opsi D"
+                            className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-0.5">Kunci Jawaban</label>
+                          <select
+                            value={cpForm.correctAnswer}
+                            onChange={(e) => setCpForm({ ...cpForm, correctAnswer: Number(e.target.value) })}
+                            className="w-full p-1.5 rounded-lg border border-slate-300 bg-white font-bold text-slate-900"
+                          >
+                            <option value={0}>A (Pilihan 1)</option>
+                            <option value={1}>B (Pilihan 2)</option>
+                            <option value={2}>C (Pilihan 3)</option>
+                            <option value={3}>D (Pilihan 4)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-0.5">Penjelasan</label>
+                          <input
+                            type="text"
+                            value={cpForm.explanation}
+                            onChange={(e) => setCpForm({ ...cpForm, explanation: e.target.value })}
+                            placeholder="Pembahasan..."
+                            className="w-full p-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={handleAddCheckpointToVideo}
+                          className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold text-xs shadow-xs cursor-pointer transition-colors"
+                        >
+                          {editingCpId ? 'Simpan Checkpoint' : 'Tambahkan Checkpoint'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </form>
           </div>

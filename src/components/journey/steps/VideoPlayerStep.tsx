@@ -847,104 +847,113 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({
               </div>
             )}
 
-            {/* Checkpoint Question Modal Overlay (No Timestamp Spoiler) */}
+            {/* Checkpoint Question Modal Overlay (Landscape Layout) */}
             {activeCheckpoint && (
-              <div className="absolute inset-0 z-40 bg-slate-950/95 backdrop-blur-md p-4 sm:p-8 flex flex-col justify-center items-center text-white space-y-4 sm:space-y-5 animate-fadeIn overflow-y-auto">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 text-xs font-bold shadow-lg">
-                  <HelpCircle className="w-4 h-4 text-amber-400" />
-                  <span>🎯 Checkpoint Kuis Interaktif — Video Dijeda Otomatis</span>
-                </div>
+              <div className="absolute inset-0 z-40 bg-slate-950/95 backdrop-blur-md p-3 sm:p-6 flex items-center justify-center text-white animate-fadeIn overflow-y-auto">
+                <div className="w-full max-w-4xl bg-slate-900/95 border border-slate-700/80 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-4">
+                  {/* Landscape 2-Column Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6 items-start">
+                    {/* Left Column: Question Statement & Explanation Feedback */}
+                    <div className="md:col-span-5 space-y-3.5">
+                      <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-wider">
+                        <HelpCircle className="w-4 h-4" />
+                        <span>Kuis Interaktif</span>
+                      </div>
 
-                <div className="max-w-xl text-center space-y-2">
-                  <h4 className="font-heading font-extrabold text-base sm:text-xl text-white leading-relaxed">
-                    {activeCheckpoint.question}
-                  </h4>
-                  <p className="text-[11px] text-slate-400">
-                    Pilih salah satu jawaban yang paling tepat untuk melanjutkan pemutaran video.
-                  </p>
-                </div>
+                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-white leading-snug">
+                        {activeCheckpoint.question}
+                      </h4>
 
-                {/* Question Options */}
-                <div className="w-full max-w-lg space-y-2 sm:space-y-2.5">
-                  {activeCheckpoint.options.map((opt, idx) => {
-                    const isSel = selectedOption === idx;
-                    const isCorrect = idx === activeCheckpoint.correctAnswer;
-                    let btnStyle = 'bg-slate-900/90 border-slate-700 hover:bg-slate-850 text-slate-200';
-
-                    if (showFeedback) {
-                      if (isCorrect) {
-                        btnStyle = 'bg-emerald-950/80 border-emerald-500 text-emerald-100 ring-2 ring-emerald-500/50';
-                      } else if (isSel && !isCorrect) {
-                        btnStyle = 'bg-rose-950/80 border-rose-500 text-rose-100 ring-2 ring-rose-500/50';
-                      } else {
-                        btnStyle = 'bg-slate-900/40 border-slate-800 text-slate-500 opacity-60';
-                      }
-                    } else if (isSel) {
-                      btnStyle = 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-600/30 ring-2 ring-indigo-400';
-                    }
-
-                    return (
-                      <button
-                        key={idx}
-                        disabled={showFeedback}
-                        onClick={() => setSelectedOption(idx)}
-                        className={`w-full p-3 sm:p-4 rounded-2xl border text-left text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-between gap-3 ${btnStyle}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-                              isSel ? 'bg-white text-indigo-900' : 'bg-slate-800 text-slate-300'
-                            }`}
-                          >
-                            {String.fromCharCode(65 + idx)}
-                          </span>
-                          <span>{opt}</span>
+                      {/* Feedback Explanation Card on Left Side when answered */}
+                      {showFeedback && (
+                        <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2 animate-fadeIn">
+                          <div className="flex items-center gap-2 font-extrabold text-xs">
+                            {selectedOption === activeCheckpoint.correctAnswer ? (
+                              <>
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <span className="text-emerald-400">Jawaban Tepat! (+25 XP)</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                                <span className="text-amber-400">Penjelasan:</span>
+                              </>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                            {activeCheckpoint.explanation}
+                          </p>
                         </div>
-                        {showFeedback && isCorrect && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Feedback or Submit Button */}
-                {!showFeedback ? (
-                  <div className="pt-2">
-                    <button
-                      disabled={selectedOption === null}
-                      onClick={handleAnswerSubmit}
-                      className="px-7 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-extrabold text-xs sm:text-sm shadow-xl disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all hover:scale-105 flex items-center gap-2"
-                    >
-                      <span>Kirim Jawaban & Lanjutkan Video</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="w-full max-w-lg bg-slate-900/90 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-slate-700 space-y-3.5 text-center shadow-2xl animate-scaleUp">
-                    <div className="flex items-center justify-center gap-2 font-extrabold text-xs sm:text-sm">
-                      {selectedOption === activeCheckpoint.correctAnswer ? (
-                        <>
-                          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                          <span className="text-emerald-400">Jawabanmu Tepat Sekali! 🌟 (+25 XP)</span>
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="w-5 h-5 text-amber-400" />
-                          <span className="text-amber-400">Hampir Tepat! Mari pelajari penjelasannya:</span>
-                        </>
                       )}
                     </div>
-                    <p className="text-xs text-slate-300 leading-relaxed font-medium bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-left">
-                      💡 {activeCheckpoint.explanation}
-                    </p>
-                    <button
-                      onClick={handleContinueVideo}
-                      className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs sm:text-sm shadow-lg cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-102"
-                    >
-                      <span>Lanjutkan Pemutaran Video</span>
-                      <Play className="w-4 h-4 fill-white" />
-                    </button>
+
+                    {/* Right Column: Question Options & Actions */}
+                    <div className="md:col-span-7 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {activeCheckpoint.options.map((opt, idx) => {
+                          const isSel = selectedOption === idx;
+                          const isCorrect = idx === activeCheckpoint.correctAnswer;
+                          let btnStyle = 'bg-slate-800/80 border-slate-700 hover:bg-slate-800 text-slate-200';
+
+                          if (showFeedback) {
+                            if (isCorrect) {
+                              btnStyle = 'bg-emerald-950/90 border-emerald-500 text-emerald-100 ring-2 ring-emerald-500/50';
+                            } else if (isSel && !isCorrect) {
+                              btnStyle = 'bg-rose-950/90 border-rose-500 text-rose-100 ring-2 ring-rose-500/50';
+                            } else {
+                              btnStyle = 'bg-slate-900/40 border-slate-800 text-slate-500 opacity-60';
+                            }
+                          } else if (isSel) {
+                            btnStyle = 'bg-indigo-600 border-indigo-400 text-white shadow-lg ring-2 ring-indigo-400';
+                          }
+
+                          return (
+                            <button
+                              key={idx}
+                              disabled={showFeedback}
+                              onClick={() => setSelectedOption(idx)}
+                              className={`p-3 rounded-2xl border text-left text-xs font-semibold transition-all cursor-pointer flex items-start justify-between gap-2.5 ${btnStyle}`}
+                            >
+                              <div className="flex items-start gap-2.5 min-w-0">
+                                <span
+                                  className={`w-5 h-5 rounded-md flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5 ${
+                                    isSel ? 'bg-white text-indigo-900' : 'bg-slate-700 text-slate-300'
+                                  }`}
+                                >
+                                  {String.fromCharCode(65 + idx)}
+                                </span>
+                                <span className="leading-snug break-words">{opt}</span>
+                              </div>
+                              {showFeedback && isCorrect && <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="pt-2 flex justify-end">
+                        {!showFeedback ? (
+                          <button
+                            disabled={selectedOption === null}
+                            onClick={handleAnswerSubmit}
+                            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-extrabold text-xs shadow-lg disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all hover:scale-102 flex items-center justify-center gap-2"
+                          >
+                            <span>Kirim Jawaban</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleContinueVideo}
+                            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-lg cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-102"
+                          >
+                            <span>Lanjutkan Video</span>
+                            <Play className="w-4 h-4 fill-white" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>
