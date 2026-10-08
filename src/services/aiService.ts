@@ -523,37 +523,156 @@ export function getClientQuestionsFallback(params: GenerateAssessmentQuestionsPa
 export async function generateAssessmentQuestions(params: GenerateAssessmentQuestionsParams): Promise<AssessmentQuestion[]> {
   const dynamicSeed = `${Date.now()}_${Math.random()}`;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const endpoints = [
+    {
+      url: '/.netlify/functions/gemini',
+      body: { action: 'generate-questions', ...params, variationSeed: dynamicSeed },
+    },
+    {
+      url: '/api/ai/generate-questions',
+      body: { ...params, variationSeed: dynamicSeed },
+    },
+  ];
 
-  let res: Response;
-  try {
-    res = await fetch('/api/ai/generate-questions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...params, variationSeed: dynamicSeed }),
-      signal: controller.signal,
-    });
-  } catch (err: any) {
-    clearTimeout(timeoutId);
-    if (err.name === 'AbortError') {
-      throw new Error('Koneksi generator Gemini AI mengalami batas waktu (timeout). Silakan coba lagi.');
+  let rawQuestions: any[] | null = null;
+  let lastApiError = '';
+
+  for (const ep of endpoints) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+      const res = await fetch(ep.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ep.body),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data && data.success && Array.isArray(data.questions) && data.questions.length > 0) {
+          rawQuestions = data.questions;
+          break;
+        } else if (data?.error) {
+          lastApiError = data.error;
+        }
+      }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        lastApiError = err?.message || String(err);
+      }
     }
-    throw new Error('Gagal menghubungi layanan Gemini AI. Pastikan koneksi internet Anda aktif.');
-  }
-  clearTimeout(timeoutId);
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Gagal memproses soal dari AI (${res.status}): ${errText || 'Terjadi kesalahan server.'}`);
   }
 
-  const data = await res.json().catch(() => null);
-  if (!data || !data.success || !Array.isArray(data.questions) || data.questions.length === 0) {
-    throw new Error(data?.error || 'Gemini AI tidak dapat memproses soal untuk topik ini. Silakan coba lagi.');
+  // If server endpoints failed, try direct client-side Gemini generation if key is present
+  if (!rawQuestions) {
+    const clientKey = (
+      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) ||
+      (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
+      (typeof process !== 'undefined' && process.env?.VITE_GEMINI_API_KEY) ||
+      ''
+    ).trim().replace(/^["']|["']$/g, '');
+
+    if (clientKey) {
+      try {
+        const numPG = params.numPG ?? 2;
+        const numPGK = params.numPGK ?? 1;
+        const numBS = params.numBS ?? 1;
+
+        const prompt = `
+Kamu adalah pakar pembuat soal Asesmen Kompetensi Minimum (AKM) Kurikulum Merdeka tingkat Sekolah Dasar (Kelas 4-6 SD).
+Topik Pembelajaran: "${params.topicTitle || 'Misi Belajar'}"
+Mata Pelajaran: "${params.subjectId || 'IPAS'}"
+Kelas: ${params.grade || 5} SD
+Level Kognitif Target: ${params.cognitiveLevel || 'MOTS & HOTS'}
+Gaya Stimulus: ${params.stimulusStyle || 'Kasus Kontekstual'}
+Seed Sesi Unik: ${dynamicSeed}
+
+Hasilkan soal-soal BARU dan BERBEDA dengan rincian:
+- ${numPG} soal Pilihan Ganda biasa (PG) dengan 4 pilihan [A, B, C, D] dan 1 jawaban benar (correctAnswer index 0..3).
+- ${numPGK} soal Pilihan Ganda Kompleks (PGK) dengan 4 opsi pilihan centang dan beberapa jawaban benar (correctAnswers array index misal [0, 2]).
+- ${numBS} soal Benar/Salah (BS) dengan 3 baris pernyataan (statements array [{id, text, isTrue}]).
+
+Aturan Mutlak:
+1. Soal HARUS asli buatan AI, relevan dengan materi ${params.topicTitle || 'topik'}, dan menggunakan bahasa Indonesia yang santun & mendidik untuk siswa SD.
+2. Format keluaran HARUS berupa JSON array murni tanpa markdown (\`\`\`json) atau teks pengantar.
+
+Format elemen array JSON:
+[
+  {
+    "id": "q-1",
+    "subjectId": "${params.subjectId || 'ipas'}",
+    "type": "PG",
+    "level": "MOTS",
+    "stimulus": "Teks wacana atau skenario kasus pendek",
+    "questionText": "Pertanyaan",
+    "options": ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
+    "correctAnswer": 0,
+    "explanation": "Penjelasan pedagogis lengkap"
+  }
+]
+`;
+        const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+        for (const model of models) {
+          try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${clientKey}`;
+            const cRes = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                  temperature: 0.9,
+                  topP: 0.95,
+                  responseMimeType: 'application/json',
+                },
+              }),
+            });
+
+            if (cRes.ok) {
+              const cData = await cRes.json();
+              const text = cData?.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (text) {
+                const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                let parsed: any[] = [];
+                try {
+                  const direct = JSON.parse(cleaned);
+                  if (Array.isArray(direct)) parsed = direct;
+                } catch {
+                  const fb = cleaned.indexOf('[');
+                  const lb = cleaned.lastIndexOf(']');
+                  if (fb !== -1 && lb !== -1) {
+                    parsed = JSON.parse(cleaned.substring(fb, lb + 1));
+                  }
+                }
+
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  rawQuestions = parsed;
+                  break;
+                }
+              }
+            }
+          } catch {
+            // Try next model
+          }
+        }
+      } catch (err: any) {
+        lastApiError = err?.message || String(err);
+      }
+    }
   }
 
-  return data.questions.map((q: any, idx: number) => {
+  if (!rawQuestions || rawQuestions.length === 0) {
+    throw new Error(
+      lastApiError ||
+      'Layanan Gemini AI sedang tidak dapat dijangkau. Mohon pastikan GEMINI_API_KEY aktif dan koneksi internet stabil.'
+    );
+  }
+
+  return rawQuestions.map((q: any, idx: number) => {
     const rawType = (q.type || 'PG').toUpperCase();
     const qType = rawType === 'PGK' ? 'PGK' : rawType === 'BS' ? 'BS' : 'PG';
     return {
