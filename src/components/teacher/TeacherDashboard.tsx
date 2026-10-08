@@ -1868,8 +1868,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           <div className="flex items-center gap-2.5 px-1">
             <img src={currentUser.avatar} alt="Guru" className="w-9 h-9 rounded-xl object-cover ring-2 ring-sky-400 shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-extrabold text-white leading-snug break-words">{currentUser.name}</p>
-              <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Guru Pengampu SD</p>
+              <p className="text-[9.5px] font-extrabold text-white leading-tight truncate" title={currentUser.name}>{currentUser.name}</p>
+              <p className="text-[9px] text-slate-400 leading-tight mt-0.5 truncate">Guru Pengampu SD</p>
             </div>
           </div>
 
