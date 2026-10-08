@@ -1817,20 +1817,16 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-64 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0 border-r border-slate-800">
         <div>
-          <div className="p-5 border-b border-slate-800 flex items-center gap-3 overflow-hidden">
+          <div className="p-4 border-b border-slate-800 flex items-center gap-3 overflow-hidden">
             <img 
               src="https://www.image2url.com/r2/default/images/1791081900879-642df693-a14a-458c-af0d-5ed4e769b4d6.png" 
               alt="Logo" 
-              className="w-10 h-10 rounded-xl object-contain shadow shrink-0 transition-all duration-300 ease-out hover:scale-110 hover:rotate-6 hover:brightness-110 active:scale-95 cursor-pointer"
+              className="w-9 h-9 rounded-xl object-contain shadow shrink-0 transition-all duration-300 ease-out hover:scale-110 hover:rotate-6 hover:brightness-110 active:scale-95 cursor-pointer"
             />
-            <div className="min-w-0 flex-1">
-              <h2 className="font-heading font-black text-white text-base tracking-tight leading-tight">PORTAL GURU</h2>
-              <p className="text-[9.5px] font-semibold text-slate-300 leading-snug mt-0.5 break-words">
-                <span className="text-emerald-400 font-extrabold">P</span>embelajaran{' '}
-                <span className="text-cyan-300 font-extrabold">R</span>esponsif{' '}
-                <span className="text-amber-300 font-extrabold">I</span>nteraktif berbasis{' '}
-                <span className="text-rose-400 font-extrabold">M</span>ultimedia &amp;{' '}
-                <span className="text-indigo-300 font-extrabold">A</span>I
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <h2 className="font-heading font-black text-white text-sm sm:text-base tracking-tight leading-tight truncate">PORTAL GURU</h2>
+              <p className="text-[9px] font-bold text-slate-400 leading-tight mt-0.5 truncate uppercase tracking-wide">
+                <span className="text-emerald-400 font-black">P</span><span className="text-cyan-300 font-black">R</span><span className="text-amber-300 font-black">I</span><span className="text-rose-400 font-black">M</span><span className="text-indigo-300 font-black">A</span> Pembelajaran
               </p>
             </div>
           </div>
@@ -1843,18 +1839,18 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 <button
                   key={menu.id}
                   onClick={() => setActiveTab(menu.id)}
-                  className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
+                  className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors cursor-pointer min-w-0 ${
                     isActive
                       ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-md'
                       : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
                     <Icon className="w-4 h-4 shrink-0" />
-                    <span>{menu.label}</span>
+                    <span className="truncate text-xs font-bold">{menu.label}</span>
                   </div>
                   {menu.badge !== undefined && (
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ml-1 ${isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'}`}>
                       {menu.badge}
                     </span>
                   )}
@@ -1864,12 +1860,12 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           </nav>
         </div>
 
-        <div className="p-4 border-t border-slate-800 space-y-3">
-          <div className="flex items-center gap-2.5 px-1">
-            <img src={currentUser.avatar} alt="Guru" className="w-9 h-9 rounded-xl object-cover ring-2 ring-sky-400 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[9.5px] font-extrabold text-white leading-tight truncate" title={currentUser.name}>{currentUser.name}</p>
-              <p className="text-[9px] text-slate-400 leading-tight mt-0.5 truncate">Guru Pengampu SD</p>
+        <div className="p-3.5 border-t border-slate-800 space-y-2.5">
+          <div className="flex items-center gap-2 px-1 min-w-0">
+            <img src={currentUser.avatar} alt="Guru" className="w-8 h-8 rounded-xl object-cover ring-2 ring-sky-400 shrink-0" />
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <p className="text-[8.5px] font-bold text-white leading-tight truncate whitespace-nowrap" title={currentUser.name}>{currentUser.name}</p>
+              <p className="text-[8px] text-sky-400 font-medium leading-tight mt-0.5 truncate whitespace-nowrap">NIP {currentUser.nip || profileForm.nip || '198905202020121006'}</p>
             </div>
           </div>
 
@@ -1940,28 +1936,31 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
         {/* 3. PROFIL GURU */}
         {activeTab === 'profil' && (
-          <div className="glass-card p-6 sm:p-8 rounded-3xl border border-slate-200 max-w-3xl mx-auto space-y-6 animate-fadeIn">
-            <h3 className="font-heading text-xl font-bold text-slate-900 border-b pb-4">👨🏫 Profil & Pengaturan Akun Pengajar</h3>
+          <div className="glass-card p-6 sm:p-8 rounded-3xl border border-slate-200 max-w-3xl mx-auto space-y-6 animate-fadeIn bg-white shadow-sm">
+            <h3 className="font-heading text-xl font-bold text-slate-900 border-b border-slate-100 pb-4 flex items-center justify-between">
+              <span>👨🏫 Profil &amp; Pengaturan Akun Pengajar</span>
+              <span className="text-xs font-extrabold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">Akun Terverifikasi</span>
+            </h3>
             
-            <div className="flex flex-col sm:flex-row items-center gap-6">
-              <img src={currentUser.avatar} alt="Foto Profil" className="w-24 h-24 rounded-2xl object-cover ring-4 ring-indigo-500 shadow-md" />
-              <div className="space-y-1.5 text-center sm:text-left">
-                <h4 className="font-heading font-black text-2xl text-slate-900">{profileForm.name}</h4>
-                <p className="text-xs font-bold text-indigo-600">NIP: {profileForm.nip}</p>
+            <div className="flex flex-col sm:flex-row items-center gap-6 p-5 rounded-2xl bg-gradient-to-r from-sky-50 via-indigo-50 to-purple-50 border border-indigo-100">
+              <img src={currentUser.avatar} alt="Foto Profil" className="w-20 h-20 rounded-2xl object-cover ring-4 ring-white shadow-md shrink-0" />
+              <div className="space-y-1 text-center sm:text-left min-w-0 flex-1">
+                <h4 className="font-heading font-black text-lg sm:text-xl text-slate-900 truncate whitespace-nowrap" title={profileForm.name}>{profileForm.name}</h4>
+                <p className="text-xs font-bold text-indigo-700">NIP {profileForm.nip || '198905202020121006'}</p>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1 text-xs">
                   {profileForm.grade !== '' ? (
-                    <span className="px-3 py-1 rounded-xl bg-purple-50 text-purple-700 font-bold border border-purple-200 flex items-center gap-1">
+                    <span className="px-3 py-0.5 rounded-xl bg-purple-100 text-purple-800 font-bold border border-purple-200 text-[11px] flex items-center gap-1">
                       <span>🎯</span>
                       <span>Kelas {profileForm.grade}</span>
                     </span>
                   ) : (
-                    <span className="px-3 py-1 rounded-xl bg-amber-50 text-amber-700 font-bold border border-amber-200 flex items-center gap-1">
+                    <span className="px-3 py-0.5 rounded-xl bg-amber-100 text-amber-800 font-bold border border-amber-200 text-[11px] flex items-center gap-1">
                       <span>⚠️</span>
                       <span>Kelas Belum Diatur</span>
                     </span>
                   )}
                   {profileForm.schoolName && (
-                    <span className="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 flex items-center gap-1">
+                    <span className="px-3 py-0.5 rounded-xl bg-indigo-100 text-indigo-800 font-bold border border-indigo-200 text-[11px] flex items-center gap-1">
                       <span>🏫</span>
                       <span>{profileForm.schoolName}</span>
                     </span>
@@ -2546,55 +2545,37 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         {activeTab === 'ai' && (
           <div className="glass-card p-6 rounded-3xl border border-slate-200 space-y-6 animate-fadeIn">
             
-            {/* Gemini AI Engine Status Card */}
-            <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white shadow-xl relative overflow-hidden">
+            {/* Gemini AI Engine Status Card (Bright & Clean Design) */}
+            <div className="p-6 rounded-3xl bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border-2 border-purple-200/80 text-slate-900 shadow-md relative overflow-hidden">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="p-2 rounded-xl bg-purple-500/30 border border-purple-400/40 text-purple-300">
-                      <Cpu className="w-5 h-5" />
+                    <span className="p-2 rounded-xl bg-purple-100 border border-purple-300 text-purple-700 shadow-2xs">
+                      <Bot className="w-5 h-5" />
                     </span>
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-purple-300">
-                      Google Gemini AI Engine
+                    <span className="text-xs font-black uppercase tracking-wider text-purple-800">
+                      PRIMA AI Tutor Engine
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-extrabold">
-                      ONLINE / AKTIF
+                    <span className="px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px] font-black flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Aktif</span>
                     </span>
                   </div>
-                  <h3 className="font-heading font-black text-2xl text-white">
-                    Dasar Otak Chatbot: Gemini 3.8 Flash
+                  <h3 className="font-heading font-black text-2xl text-slate-900">
+                    Konfigurasi AI Tutor Mata Pelajaran
                   </h3>
-                  <p className="text-xs text-purple-200 max-w-xl leading-relaxed">
-                    Chatbot PRIMA AI menggunakan model <strong>gemini-3.8-flash</strong> dengan metode <em>Scaffolding & Socratik</em>. Guru dapat mengatur karakter, prompt pemandu, dan batasan jawaban untuk setiap mata pelajaran.
+                  <p className="text-xs text-slate-600 max-w-xl leading-relaxed font-medium">
+                    Atur karakter, gaya komunikasi, dan aturan bimbingan socratik AI Tutor untuk membantu siswa belajar mandiri pada setiap mata pelajaran SD.
                   </p>
                 </div>
 
                 <button
                   onClick={() => { setEditingAiConfig(null); setAiConfigForm({ tutorName: 'PRIMA AI Sains 5', subjectId: 'ipas', topicTitle: 'Harmoni dalam Ekosistem', learningGoal: 'Membimbing siswa memahami konsep pembelajaran.', communicationStyle: 'Ramah, bersahabat, dan memotivasi untuk siswa SD.', rulesAndScaffolding: 'Bimbing dengan pertanyaan socratik, jangan beri jawaban instan.' }); setShowAddAiConfigModal(true); }}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold text-xs shadow-lg flex items-center gap-2 shrink-0 cursor-pointer"
+                  className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md flex items-center gap-2 shrink-0 cursor-pointer transition-all hover:scale-102 active:scale-95"
                 >
                   <Plus className="w-4 h-4" />
                   <span>+ Konfigurasi AI Baru</span>
                 </button>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-purple-800/60 text-xs">
-                <div>
-                  <p className="text-[10px] text-purple-300">Engine SDK</p>
-                  <p className="font-mono font-bold text-white mt-0.5">@google/genai</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-purple-300">Arsitektur API</p>
-                  <p className="font-bold text-white mt-0.5">Server-Side Proxy (/api/ai/tutor)</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-purple-300">Metode Pedagogik</p>
-                  <p className="font-bold text-emerald-300 mt-0.5">Scaffolding (Pemandu)</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-purple-300">Target Siswa</p>
-                  <p className="font-bold text-white mt-0.5">SD Kelas 4–6</p>
-                </div>
               </div>
             </div>
 
