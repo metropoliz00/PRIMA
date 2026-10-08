@@ -1817,19 +1817,19 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-64 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0 border-r border-slate-800">
         <div>
-          <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+          <div className="p-5 border-b border-slate-800 flex items-center gap-3 overflow-hidden">
             <img 
               src="https://www.image2url.com/r2/default/images/1791081900879-642df693-a14a-458c-af0d-5ed4e769b4d6.png" 
               alt="Logo" 
-              className="w-10 h-10 rounded-xl object-contain shadow transition-all duration-300 ease-out hover:scale-110 hover:rotate-6 hover:brightness-110 active:scale-95 cursor-pointer"
+              className="w-10 h-10 rounded-xl object-contain shadow shrink-0 transition-all duration-300 ease-out hover:scale-110 hover:rotate-6 hover:brightness-110 active:scale-95 cursor-pointer"
             />
-            <div>
-              <h2 className="font-heading font-black text-white text-lg tracking-tight">PORTAL GURU</h2>
-              <p className="text-[10px] font-semibold text-slate-300 whitespace-nowrap leading-tight mt-0.5">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-heading font-black text-white text-base tracking-tight leading-tight">PORTAL GURU</h2>
+              <p className="text-[9.5px] font-semibold text-slate-300 leading-snug mt-0.5 break-words">
                 <span className="text-emerald-400 font-extrabold">P</span>embelajaran{' '}
                 <span className="text-cyan-300 font-extrabold">R</span>esponsif{' '}
                 <span className="text-amber-300 font-extrabold">I</span>nteraktif berbasis{' '}
-                <span className="text-rose-400 font-extrabold">M</span>ultimedia dan{' '}
+                <span className="text-rose-400 font-extrabold">M</span>ultimedia &amp;{' '}
                 <span className="text-indigo-300 font-extrabold">A</span>I
               </p>
             </div>
