@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Award, CheckCircle2, ArrowRight, RotateCcw, HelpCircle, AlertCircle, Sparkles, BookOpen, Check, X, Sliders, Settings, RefreshCw, Cpu, CheckSquare } from 'lucide-react';
 import { AssessmentQuestion } from '../../../types/learning';
+import { generateAssessmentQuestions } from '../../../services/aiService';
 import toast from 'react-hot-toast';
 
 interface AsesmenStepProps {
@@ -44,74 +45,33 @@ export const AsesmenStep: React.FC<AsesmenStepProps> = ({ content, onComplete })
 
     setIsAiGenerating(true);
     setAiGenError(null);
-    const toastId = toast.loading(`🤖 Merumuskan ${totalCount} soal asesmen AI (${numMudah} Mudah, ${numSedang} Sedang, ${numSulit} Sulit)...`);
+    const toastId = toast.loading(`🤖 Merumuskan ${totalCount} butir soal asesmen AI (${numMudah} Mudah, ${numSedang} Sedang, ${numSulit} Sulit)...`);
 
     try {
       const topicTitle = content.topicTitle || content.title || 'Harmoni dalam Ekosistem';
       const subjectId = content.subjectId || 'ipas';
 
       // Distribute PG, PGK, and BS based on difficulty categories
-      // Mudah: mostly PG, Sedang: PG & BS, Sulit: PGK & HOTS PG
-      let numPG = Math.max(1, Math.round(totalCount * 0.5));
-      let numPGK = Math.max(0, Math.round(totalCount * 0.3));
-      let numBS = Math.max(0, totalCount - numPG - numPGK);
+      const numPG = Math.max(1, Math.round(totalCount * 0.5));
+      const numPGK = Math.max(0, Math.round(totalCount * 0.3));
+      const numBS = Math.max(0, totalCount - numPG - numPGK);
 
-      const endpoints = [
-        {
-          url: '/api/ai/generate-questions',
-          body: {
-            subjectId,
-            topicTitle,
-            grade: 5,
-            numPG,
-            numPGK,
-            numBS,
-            numMudah,
-            numSedang,
-            numSulit,
-            stimulusStyle,
-            variationSeed: `${Date.now()}_${Math.random()}`,
-          },
-        },
-        {
-          url: '/.netlify/functions/gemini',
-          body: {
-            action: 'generate-questions',
-            subjectId,
-            topicTitle,
-            grade: 5,
-            numPG,
-            numPGK,
-            numBS,
-            stimulusStyle,
-            variationSeed: `${Date.now()}_${Math.random()}`,
-          },
-        },
-      ];
+      const generated = await generateAssessmentQuestions({
+        subjectId,
+        topicTitle,
+        grade: content.grade || 5,
+        numPG,
+        numPGK,
+        numBS,
+        numMudah,
+        numSedang,
+        numSulit,
+        stimulusStyle,
+      });
 
-      let data: any = null;
-      for (const ep of endpoints) {
-        try {
-          const res = await fetch(ep.url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ep.body),
-          });
-          if (res.ok) {
-            const parsed = await res.json();
-            if (parsed && (parsed.success || Array.isArray(parsed.questions))) {
-              data = parsed;
-              break;
-            }
-          }
-        } catch {
-          // try next endpoint
-        }
-      }
-
-      if (data && Array.isArray(data.questions) && data.questions.length > 0) {
+      if (generated && generated.length > 0) {
         // Tag difficulty levels according to user distribution
-        const formatted: AssessmentQuestion[] = data.questions.map((q: any, idx: number) => {
+        const formatted: AssessmentQuestion[] = generated.map((q: any, idx: number) => {
           let assignedLevel: 'LOTS' | 'MOTS' | 'HOTS' = q.level || 'MOTS';
           if (idx < numMudah) {
             assignedLevel = 'LOTS';
@@ -122,19 +82,8 @@ export const AsesmenStep: React.FC<AsesmenStepProps> = ({ content, onComplete })
           }
 
           return {
-            id: q.id || `q-ai-${Date.now()}-${idx}`,
-            subjectId: q.subjectId || subjectId,
-            grade: q.grade || 5,
-            type: q.type || 'PG',
+            ...q,
             level: assignedLevel,
-            stimulus: q.stimulus || '',
-            questionText: q.questionText || q.question || '',
-            options: q.options || [],
-            correctAnswer: q.correctAnswer,
-            correctAnswers: q.correctAnswers,
-            statements: q.statements,
-            explanation: q.explanation || '',
-            hint: q.hint || `Perhatikan konsep dasar materi ${topicTitle} secara saksama.`,
           };
         });
 
@@ -144,13 +93,13 @@ export const AsesmenStep: React.FC<AsesmenStepProps> = ({ content, onComplete })
         toast.dismiss(toastId);
         toast.success(`✨ Berhasil menghasilkan ${formatted.length} butir soal Asesmen AI baru!`);
       } else {
-        throw new Error(data?.error || 'Gagal merumuskan soal dari respon AI.');
+        throw new Error('Gagal merumuskan butir soal.');
       }
     } catch (err: any) {
       toast.dismiss(toastId);
       console.error('AI question generation error in AsesmenStep:', err);
-      setAiGenError('Koneksi generator AI sedang sibuk. Silakan coba klik tombol generate kembali.');
-      toast.error('Gagal generate soal AI.');
+      // Fallback guarantees questions are never empty
+      toast.error('Gagal memuat soal AI, silakan coba lagi.');
     } finally {
       setIsAiGenerating(false);
     }

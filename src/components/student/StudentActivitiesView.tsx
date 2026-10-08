@@ -105,7 +105,7 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
 
   const filteredActivities = selectedSubjectFilter === 'all'
     ? activities
-    : activities.filter((a) => a.subjectId?.toLowerCase() === selectedSubjectFilter.toLowerCase());
+    : activities.filter((a) => String(a.subjectId || '').toLowerCase() === String(selectedSubjectFilter || '').toLowerCase());
 
   const handleStartPlay = (act: InteractiveActivity) => {
     setActivePlayingActivity(act);
@@ -114,7 +114,7 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
     // Dynamic Matching configuration from Teacher
     const customPairs = act.config?.matchingPairs && act.config.matchingPairs.length > 0
       ? act.config.matchingPairs
-      : act.subjectId?.toLowerCase() === 'matematika'
+      : String(act.subjectId || '').toLowerCase() === 'matematika'
       ? [
           { id: 'mm1', left: '1/2 (Satu Per Dua)', right: '0,5 atau 50%' },
           { id: 'mm2', left: '1/4 (Satu Per Empat)', right: '0,25 atau 25%' },
@@ -151,7 +151,7 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
     // Dynamic Puzzle State from Teacher
     const customPuzzle = act.config?.puzzleItems && act.config.puzzleItems.length > 0
       ? act.config.puzzleItems
-      : act.subjectId?.toLowerCase() === 'matematika'
+      : String(act.subjectId || '').toLowerCase() === 'matematika'
       ? [
           { id: 'p1', label: '1. Tuliskan Bilangan (12 dan 18) 🔢', rank: 1 },
           { id: 'p2', label: '2. Tentukan Faktor Prima Tiap Bilangan 🌳', rank: 2 },
@@ -352,8 +352,9 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredActivities.map((act) => {
-            const sub = subjects.find((s) => s.id?.toLowerCase() === act.subjectId?.toLowerCase());
-            const subName = sub ? `${sub.icon || '📚'} ${sub.name}` : (act.subjectId?.toUpperCase() || 'UMUM');
+            const actSubStr = String(act.subjectId || '').toLowerCase();
+            const sub = subjects.find((s) => String(s.id || '').toLowerCase() === actSubStr);
+            const subName = sub ? `${sub.icon || '📚'} ${sub.name}` : (String(act.subjectId || 'UMUM').toUpperCase());
 
             const typeColor =
               act.type === 'MATCHING'
@@ -533,7 +534,7 @@ export const StudentActivitiesView: React.FC<StudentActivitiesViewProps> = ({
 
                 {/* 2. SIMULATION ENGINE (Math vs Ecosystem) */}
                 {activePlayingActivity.type === 'SIMULATION' && (
-                  (activePlayingActivity.config?.simulationType === 'math' || activePlayingActivity.subjectId?.toLowerCase() === 'matematika') ? (
+                  (activePlayingActivity.config?.simulationType === 'math' || String(activePlayingActivity.subjectId || '').toLowerCase() === 'matematika') ? (
                     <div className="space-y-5">
                       <div className="p-6 rounded-3xl bg-gradient-to-r from-blue-900 to-indigo-900 text-white space-y-4 shadow-md">
                         <div className="flex items-center justify-between">

@@ -1,0 +1,133 @@
+[
+  {
+    "id": "vid-ipas-1",
+    "title": "Rantai Makanan & Jaring-Jaring Makanan Ekosistem Sawah",
+    "subjectId": "ipas",
+    "videoUrl": "https://www.youtube.com/watch?v=LqgYLUaigYU",
+    "grade": 5,
+    "checkpointsCount": 3,
+    "checkpoints": [
+      {
+        "id": "cp-ipas-1",
+        "timeInSeconds": 35,
+        "question": "Dalam rantai makanan di ekosistem sawah, tanaman padi berperan sebagai apa?",
+        "type": "mc",
+        "options": [
+          "Produsen (Penghasil Makanan Sendiri)",
+          "Konsumen Tingkat I (Herbivora)",
+          "Konsumen Tingkat II (Karnivora)",
+          "Dekomposer (Pengurai)"
+        ],
+        "correctAnswer": 0,
+        "explanation": "Tanaman padi memiliki klorofil dan memanfaatkan sinar matahari untuk fotosintesis, sehingga bertindak sebagai Produsen utama."
+      },
+      {
+        "id": "cp-ipas-2",
+        "timeInSeconds": 75,
+        "question": "Jika populasi ular sawah diburu hingga habis, apa dampak langsung bagi petani?",
+        "type": "mc",
+        "options": [
+          "Tanaman padi tumbuh lebih subur",
+          "Populasi tikus melonjak tajam dan merusak tanaman padi",
+          "Katak sawah bertambah sedikit",
+          "Tidak ada dampak sama sekali pada ekosistem"
+        ],
+        "correctAnswer": 1,
+        "explanation": "Ular adalah predator alami tikus. Tanpa ular, tikus berkembang biak sangat cepat dan menjadi hama perusak tanaman padi petani."
+      },
+      {
+        "id": "cp-ipas-3",
+        "timeInSeconds": 120,
+        "question": "Apa fungsi jamur dan bakteri pengurai pada akhir siklus rantai makanan?",
+        "type": "mc",
+        "options": [
+          "Memangsa hewan yang masih hidup",
+          "Mengurangi kesuburan tanah sawah",
+          "Menguraikan sisa makhluk hidup menjadi zat hara penyubur tanah",
+          "Menghalangi pertumbuhan tanaman baru"
+        ],
+        "correctAnswer": 2,
+        "explanation": "Dekomposer (pengurai) bertugas membusukkan materi organik sisa menjadi unsur hara yang kembali diserap oleh tanaman produsen."
+      }
+    ],
+    "createdAt": "2026-10-07T00:00:00.000Z"
+  },
+  {
+    "id": "vid-1791121258381",
+    "title": "Harmoni dalam Ekosistem Hutan Tropis",
+    "subjectId": "ipas",
+    "videoUrl": "https://youtu.be/GyUbwk9uqzM?si=WsY9RdghEg5fam0Y",
+    "grade": 5,
+    "checkpointsCount": 2,
+    "checkpoints": [
+      {
+        "id": "cp-hutan-1",
+        "timeInSeconds": 30,
+        "question": "Mengapa hutan hujan tropis dijuluki sebagai paru-paru dunia?",
+        "type": "mc",
+        "options": [
+          "Karena memiliki curah hujan sangat tinggi sepanjang tahun",
+          "Karena pepohonan lebat menghasilkan oksigen melimpah dan menyerap karbon dioksida",
+          "Karena merupakan habitat hewan karnivora terbesar",
+          "Karena tidak pernah terkena sinar matahari"
+        ],
+        "correctAnswer": 1,
+        "explanation": "Proses fotosintesis vegetasi pohon di hutan tropis menghasilkan pasokan oksigen global yang sangat masif bagi bumi."
+      },
+      {
+        "id": "cp-hutan-2",
+        "timeInSeconds": 65,
+        "question": "Hubungan saling menguntungkan antara lebah dan bunga tanaman hutan disebut simbiosis apa?",
+        "type": "mc",
+        "options": [
+          "Mutualisme (Keduanya saling diuntungkan)",
+          "Komensalisme (Satu untung, satu tidak rugi)",
+          "Parasitisme (Satu untung, satu dirugikan)",
+          "Predasi (Hubungan mangsa dan pemangsa)"
+        ],
+        "correctAnswer": 0,
+        "explanation": "Lebah mendapatkan nektar manis dari bunga, sementara bunga terbantu proses penyerbukannya oleh lebah (simbiosis mutualisme)."
+      }
+    ],
+    "createdAt": "2026-10-07T00:00:00.000Z"
+  },
+  {
+    "id": "vid-math-kpk",
+    "title": "Konsep Menyenangkan KPK dan FPB dalam Kehidupan Sehari-hari",
+    "subjectId": "matematika",
+    "videoUrl": "https://www.youtube.com/watch?v=k_lP21R_q3M",
+    "grade": 5,
+    "checkpointsCount": 2,
+    "checkpoints": [
+      {
+        "id": "cp-kpk-1",
+        "timeInSeconds": 30,
+        "question": "Lampu merah menyala tiap 4 detik dan lampu kuning tiap 6 detik. Kapan keduanya menyala serentak pertama kali?",
+        "type": "mc",
+        "options": [
+          "Detik ke-10",
+          "Detik ke-12 (KPK dari 4 dan 6)",
+          "Detik ke-24",
+          "Detik ke-18"
+        ],
+        "correctAnswer": 1,
+        "explanation": "Kelipatan 4: 4, 8, 12... dan kelipatan 6: 6, 12... Kelipatan Persekutuan Terkecilnya (KPK) adalah pada detik ke-12."
+      },
+      {
+        "id": "cp-fpb-2",
+        "timeInSeconds": 80,
+        "question": "Ibu membagi 12 kue donat dan 18 kue bolu ke piring sama rata tanpa sisa. Berapa piring terbanyak yang dibutuhkan?",
+        "type": "mc",
+        "options": [
+          "6 Piring (FPB dari 12 dan 18)",
+          "4 Piring",
+          "3 Piring",
+          "12 Piring"
+        ],
+        "correctAnswer": 0,
+        "explanation": "Faktor persekutuan terbesar (FPB) dari 12 dan 18 adalah 6. Setiap piring berisi 2 donat dan 3 bolu."
+      }
+    ],
+    "createdAt": "2026-10-07T00:00:00.000Z"
+  }
+]

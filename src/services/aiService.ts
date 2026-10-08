@@ -1,3 +1,5 @@
+import type { AssessmentQuestion } from '../types/learning';
+
 function getSmartFallbackReply(message: string, topic: string, subject: string): string {
   const msg = (message || '').toLowerCase();
   const t = topic || 'Ekosistem & Lingkungan';
@@ -346,4 +348,225 @@ export async function generatePemantikQuestion(params: GeneratePemantikParams): 
   }
 
   return getClientDynamicPemantikFallback(params);
+}
+
+export interface GenerateAssessmentQuestionsParams {
+  subjectId?: string;
+  topicTitle?: string;
+  grade?: number;
+  numPG?: number;
+  numPGK?: number;
+  numBS?: number;
+  numMudah?: number;
+  numSedang?: number;
+  numSulit?: number;
+  cognitiveLevel?: string;
+  stimulusStyle?: string;
+}
+
+export function getClientQuestionsFallback(params: GenerateAssessmentQuestionsParams): AssessmentQuestion[] {
+  const {
+    subjectId = 'ipas',
+    topicTitle = 'Harmoni Ekosistem',
+    grade = 5,
+    numPG = 2,
+    numPGK = 1,
+    numBS = 1,
+    numMudah,
+    numSedang,
+    numSulit,
+  } = params;
+
+  const parsedPG = Math.max(0, Math.min(10, Number(numPG) || 0));
+  const parsedPGK = Math.max(0, Math.min(10, Number(numPGK) || 0));
+  const parsedBS = Math.max(0, Math.min(10, Number(numBS) || 0));
+  const totalCount = parsedPG + parsedPGK + parsedBS;
+
+  const topicLower = (topicTitle || '').toLowerCase();
+  const isScience = subjectId === 'ipas' || topicLower.includes('ekosistem') || topicLower.includes('energi') || topicLower.includes('alam');
+  const isMath = subjectId === 'matematika' || topicLower.includes('kpk') || topicLower.includes('pecahan');
+
+  const questions: AssessmentQuestion[] = [];
+
+  // PG
+  for (let i = 0; i < parsedPG; i++) {
+    let level: 'LOTS' | 'MOTS' | 'HOTS' = 'MOTS';
+    if (numMudah !== undefined && i < (numMudah || 0)) level = 'LOTS';
+    else if (numSulit !== undefined && i >= totalCount - (numSulit || 0)) level = 'HOTS';
+
+    let stimulus = `Dalam pembelajaran materi "${topicTitle}", siswa diajak mengamati hubungan antara konsep teori dengan kejadian nyata di lingkungan sekitar.`;
+    let questionText = `Berdasarkan kajian materi "${topicTitle}", manakah kesimpulan yang paling tepat mengenai prinsip dasar yang berlaku?`;
+    let options = [
+      `Menerapkan prinsip utama ${topicTitle} secara kritis dan solutif dalam kehidupan nyata`,
+      'Hanya menghafal definisi tanpa memahami proses interaksinya',
+      'Konsep tersebut tidak memiliki pengaruh terhadap keseimbangan lingkungan',
+      'Menghindari penerapan karena terlalu rumit untuk dipelajari',
+    ];
+    let explanation = `Pilihan pertama tepat karena tujuan pembelajaran ${topicTitle} adalah melatih nalar kritis dan pemahaman aplikatif di dunia nyata.`;
+
+    if (isScience) {
+      if (i === 0) {
+        stimulus = `Sekelompok siswa mengamati ekosistem di lingkungan sekitar. Mereka mendapati hubungan saling ketergantungan antarkomponen dalam topik "${topicTitle}".`;
+        questionText = `Apabila salah satu komponen utama dalam rantai materi "${topicTitle}" mengalami kepunahan, dampak apa yang langsung terjadi?`;
+        options = [
+          'Keseimbangan sistem terganggu dan komponen yang bergantung padanya akan terancam',
+          'Semua komponen lain tetap berfungsi seperti biasa tanpa perubahan apa pun',
+          'Populasi komponen lain akan meningkat secara tak terbatas tanpa hambatan',
+          'Seluruh lingkungan akan membaik karena berkurangnya pemakaian energi',
+        ];
+        explanation = 'Setiap komponen dalam ekosistem terhubung dalam jaring-jaring kehidupan sehingga hilangnya satu komponen memicu ketidakseimbangan sistem.';
+      } else {
+        stimulus = `Pada observasi lapangan mengenai topik "${topicTitle}", siswa mencatat bagaimana aliran energi dan materi berlangsung secara berkelanjutan.`;
+        questionText = `Peran manusia yang paling bijak untuk mendukung kelestarian konsep "${topicTitle}" adalah...`;
+        options = [
+          'Menjaga kelestarian habitat dan tidak merusak siklus alam yang sudah terbentuk',
+          'Mengambil seluruh sumber daya secara berlebihan untuk kepentingan sesaat',
+          'Membiarkan limbah mencemari lingkungan sekitar tempat observasi',
+          'Mengganti semua flora dan fauna alami dengan benda tiruan',
+        ];
+        explanation = 'Sikap peduli dan arif terhadap alam merupakan kunci menjaga keberlanjutan harmoni ekosistem.';
+      }
+    } else if (isMath) {
+      stimulus = `Dalam permasalahan matematika kontekstual seputar "${topicTitle}", peserta didik diajak mencari solusi dari situasi kehidupan sehari-hari.`;
+      questionText = `Langkah sistematis mana yang paling tepat untuk menyelesaikan soal cerita pada materi "${topicTitle}"?`;
+      options = [
+        'Memahami informasi yang diketahui, menyusun model matematika, menyelesaikan, dan memeriksa kembali',
+        'Langsung menebak jawaban tanpa membaca soal cerita sampai selesai',
+        'Mengabaikan data angka yang tertulis di dalam wacana soal',
+        'Menjumlahkan semua angka yang ada tanpa memedulikan perintah soal',
+      ];
+      explanation = 'Langkah sistematis pemecahan masalah Polya: memahami masalah, membuat rencana, melaksanakan rencana, dan memeriksa kembali.';
+    }
+
+    questions.push({
+      id: `q-ai-${Date.now()}-pg-${i}`,
+      subjectId,
+      grade: Number(grade) || 5,
+      type: 'PG',
+      level,
+      stimulus,
+      questionText,
+      options,
+      correctAnswer: 0,
+      explanation,
+      hint: `Perhatikan prinsip utama pembelajaran ${topicTitle}.`,
+    });
+  }
+
+  // PGK
+  for (let i = 0; i < parsedPGK; i++) {
+    let stimulus = `Sebuah eksperimen dilakukan untuk menguji efektivitas penerapan konsep "${topicTitle}" pada berbagai kondisi yang berbeda.`;
+    let questionText = `Pilihlah DUA atau lebih pernyataan yang BENAR mengenai penerapan konsep "${topicTitle}" berikut: (Pilih lebih dari satu)`;
+    let options = [
+      `Pemahaman mendalam tentang "${topicTitle}" membantu memecahkan masalah sehari-hari`,
+      'Semua variabel dalam eksperimen tidak saling memengaruhi satu sama lain',
+      `Penerapan konsep "${topicTitle}" menjaga keseimbangan dan keteraturan sistem`,
+      'Hasil pengamatan tidak perlu dicatat secara objektif dan sistematis',
+    ];
+    let explanation = `Pernyataan 1 dan 3 benar karena ${topicTitle} merupakan konsep terstruktur yang aplikatif dan menjaga keteraturan sistem.`;
+
+    if (isScience) {
+      stimulus = `Hasil pengamatan lingkungan menunjukkan bahwa keseimbangan "${topicTitle}" bergantung erat pada keharmonisan komponen hayati dan fisik di sekitarnya.`;
+      questionText = `Berdasarkan stimulus di atas, manakah DUA pernyataan yang BENAR mengenai keterkaitan komponen?`;
+      options = [
+        `Keseimbangan ${topicTitle} terjaga bila interaksi antarkomponen berjalan wajar dan harmonis`,
+        'Makhluk hidup dapat bertahan hidup selamanya tanpa membutuhkan udara atau air',
+        `Menjaga kebersihan dan kelestarian alam mendukung kelangsungan konsep ${topicTitle}`,
+        'Komponen lingkungan tidak memiliki keterkaitan dengan kelangsungan hidup manusia',
+      ];
+      explanation = 'Opsi A dan C benar. Interaksi timbal balik alami dan kepedulian manusia merawat ekosistem sangat vital.';
+    }
+
+    questions.push({
+      id: `q-ai-${Date.now()}-pgk-${i}`,
+      subjectId,
+      grade: Number(grade) || 5,
+      type: 'PGK',
+      level: 'HOTS',
+      stimulus,
+      questionText,
+      options,
+      correctAnswers: [0, 2],
+      explanation,
+      hint: 'Ada minimal 2 jawaban benar. Pilihlah opsi yang sesuai dengan kaidah ilmiah.',
+    });
+  }
+
+  // BS
+  for (let i = 0; i < parsedBS; i++) {
+    let stimulus = `Tinjau fakta-fakta penting seputar topik "${topicTitle}" pada tabel evaluasi berikut:`;
+    let questionText = `Tentukan apakah setiap pernyataan berikut BENAR atau SALAH berdasarkan konsep "${topicTitle}":`;
+    let statements = [
+      { id: 's1', text: `Konsep "${topicTitle}" dapat diamati buktinya dalam kehidupan nyata.`, isTrue: true },
+      { id: 's2', text: `Perubahan satu komponen tidak memengaruhi komponen lainnya dalam topik ini.`, isTrue: false },
+      { id: 's3', text: `Sikap ilmiah dan rasa ingin tahu sangat dibutuhkan saat mempelajari ${topicTitle}.`, isTrue: true },
+    ];
+    let explanation = `Pernyataan 1 dan 3 benar, sedangkan pernyataan 2 salah karena setiap komponen saling terkait dalam suatu sistem.`;
+
+    questions.push({
+      id: `q-ai-${Date.now()}-bs-${i}`,
+      subjectId,
+      grade: Number(grade) || 5,
+      type: 'BS',
+      level: 'LOTS',
+      stimulus,
+      questionText,
+      statements,
+      explanation,
+      hint: 'Pahami kata kuncinya dan tentukan kebenaran dari setiap baris pernyataan.',
+    });
+  }
+
+  return questions;
+}
+
+export async function generateAssessmentQuestions(params: GenerateAssessmentQuestionsParams): Promise<AssessmentQuestion[]> {
+  const dynamicSeed = `${Date.now()}_${Math.random()}`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
+
+    const res = await fetch('/api/ai/generate-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...params, variationSeed: dynamicSeed }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.questions) && data.questions.length > 0) {
+        return data.questions.map((q: any, idx: number) => {
+          const rawType = (q.type || 'PG').toUpperCase();
+          const qType = rawType === 'PGK' ? 'PGK' : rawType === 'BS' ? 'BS' : 'PG';
+          return {
+            id: q.id || `q-ai-${Date.now()}-${idx}`,
+            subjectId: q.subjectId || params.subjectId || 'ipas',
+            grade: Number(q.grade) || Number(params.grade) || 5,
+            type: qType,
+            level: q.level || (idx % 3 === 0 ? 'HOTS' : idx % 2 === 0 ? 'MOTS' : 'LOTS'),
+            stimulus: q.stimulus || `Stimulus observasi materi ${params.topicTitle || 'Misi Belajar'}.`,
+            questionText: q.questionText || q.question || `Pertanyaan pembelajaran seputar ${params.topicTitle || 'materi'}:`,
+            options: Array.isArray(q.options) && q.options.length >= 2 ? q.options : ['Opsi A', 'Opsi B', 'Opsi C', 'Opsi D'],
+            correctAnswer: typeof q.correctAnswer === 'number' ? q.correctAnswer : 0,
+            correctAnswers: Array.isArray(q.correctAnswers) ? q.correctAnswers : [0, 2],
+            statements: Array.isArray(q.statements) && q.statements.length > 0 ? q.statements : [
+              { id: 's1', text: `Konsep ${params.topicTitle || 'materi'} terbukti nyata di lingkungan.`, isTrue: true },
+              { id: 's2', text: `Komponen sistem ini tidak memiliki keterkaitan sama sekali.`, isTrue: false },
+              { id: 's3', text: `Sikap cermat dan ilmiah sangat penting dalam pembelajaran ini.`, isTrue: true }
+            ],
+            explanation: q.explanation || `Penjelasan pedagogis materi ${params.topicTitle || ''}.`,
+            hint: q.hint || `Pikirkan konsep inti pembelajaran ${params.topicTitle || ''}.`,
+          };
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Backend question generator notice, utilizing smart client generator:', err);
+  }
+
+  // Resilient instant client fallback: 100% guarantee of questions for the user!
+  return getClientQuestionsFallback(params);
 }

@@ -382,6 +382,20 @@ function doPost(e) {
       sheet.appendRow(newRow);
       return ContentService.createTextOutput("Success");
     }
+    
+    if (action === 'delete') {
+      var data = sheet.getDataRange().getValues();
+      var idIndex = headers.indexOf('id');
+      if (idIndex !== -1 && payload.id) {
+        for (var r = 1; r < data.length; r++) {
+          if (String(data[r][idIndex]).trim().toLowerCase() === String(payload.id).trim().toLowerCase()) {
+            sheet.deleteRow(r + 1);
+            return ContentService.createTextOutput("Success");
+          }
+        }
+      }
+      return ContentService.createTextOutput("Success");
+    }
   } catch (err) {
     return ContentService.createTextOutput("Error: " + err.toString());
   }
@@ -617,6 +631,20 @@ function doPost(e) {
         newRow.push(payload[headers[k]] !== undefined ? payload[headers[k]] : '');
       }
       sheet.appendRow(newRow);
+      return ContentService.createTextOutput("Success");
+    }
+
+    // ACTION: DELETE (hapus baris data berdasarkan ID)
+    if (action === 'delete') {
+      var data = sheet.getDataRange().getValues();
+      if (idIndex !== -1 && payload.id) {
+        for (var r = 1; r < data.length; r++) {
+          if (String(data[r][idIndex]).trim().toLowerCase() === String(payload.id).trim().toLowerCase()) {
+            sheet.deleteRow(r + 1);
+            return ContentService.createTextOutput("Success (Row Deleted)");
+          }
+        }
+      }
       return ContentService.createTextOutput("Success");
     }
   } catch (err) {

@@ -6,10 +6,45 @@ import {
 import { User as UserType } from '../../types/auth';
 import { Subject, ClassRoom, Material, QuestionBankItem, Assessment, Announcement, ReflectionEntry, AITutorConfig, InteractiveVideo, VideoCheckpoint, InteractiveActivityConfig } from '../../types/learning';
 import { createUser, updateUser, deleteUser } from '../../services/authService';
-import { saveSubjects, organizeAndCleanAllSubjects, deduplicateSubjects, getStoredCodingChallenges, saveCodingChallenges, CodingChallengeItem, getStoredVideos, saveVideos, syncVideosWithGAS, getStoredActivities, saveActivities, InteractiveActivity, getAllStudentsProgress, getStudentProgressForId, saveAllStudentsProgress, getStoredMaterials, saveMaterials, saveQuestionBank, saveAssessments, getStoredTtsSetting, saveTtsSetting } from '../../data/learningData';
-import { parseEmbedUrl } from '../journey/steps/VideoPlayerStep';
+import {
+  saveSubjects,
+  deleteSubject,
+  organizeAndCleanAllSubjects,
+  deduplicateSubjects,
+  getStoredCodingChallenges,
+  saveCodingChallenges,
+  deleteCodingChallenge,
+  CodingChallengeItem,
+  getStoredVideos,
+  saveVideos,
+  deleteVideo,
+  syncVideosWithGAS,
+  parseCheckpoints,
+  getStoredActivities,
+  saveActivities,
+  deleteActivity,
+  InteractiveActivity,
+  getAllStudentsProgress,
+  getStudentProgressForId,
+  saveAllStudentsProgress,
+  getStoredMaterials,
+  saveMaterials,
+  deleteMaterial,
+  saveQuestionBank,
+  deleteQuestion,
+  saveAssessments,
+  deleteAssessment,
+  saveAiConfigs,
+  deleteAiConfig,
+  saveAnnouncements,
+  deleteAnnouncement,
+  getStoredTtsSetting,
+  saveTtsSetting,
+} from '../../data/learningData';
+import { VideoPlayerStep, parseEmbedUrl } from '../journey/steps/VideoPlayerStep';
 import { pushAppData } from '../../services/appscript';
 import { DatabaseSchemaDocs } from './DatabaseSchemaDocs';
+import { generateAssessmentQuestions } from '../../services/aiService';
 
 interface TeacherDashboardProps {
   currentUser: UserType;
@@ -238,6 +273,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
   // Edit states
   const [editingStudent, setEditingStudent] = useState<UserType | null>(null);
+  const [deletingStudent, setDeletingStudent] = useState<UserType | null>(null);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [editingVideo, setEditingVideo] = useState<any | null>(null);
   const [editingActivity, setEditingActivity] = useState<any | null>(null);
@@ -396,9 +432,23 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     checkpoints: [],
   });
 
-  // Single Checkpoint Form State for Video Modal
-  const [cpForm, setCpForm] = useState({
-    timeInSeconds: 30,
+  // Single Checkpoint Form State for Video Modal (Menit & Detik)
+  interface CheckpointFormState {
+    timeMinutes: number;
+    timeSeconds: number;
+    timeText?: string;
+    question: string;
+    optionA: string;
+    optionB: string;
+    optionC: string;
+    optionD: string;
+    correctAnswer: number;
+    explanation: string;
+  }
+  const [cpForm, setCpForm] = useState<CheckpointFormState>({
+    timeMinutes: 0,
+    timeSeconds: 30,
+    timeText: '00:30',
     question: '',
     optionA: '',
     optionB: '',
@@ -542,10 +592,17 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     }
   };
 
-  const handleDeleteStudent = (id: string) => {
-    deleteUser(id);
-    onRefreshData();
-    toast.success('Akun murid berhasil dihapus.');
+  const handleConfirmDeleteStudent = () => {
+    if (deletingStudent) {
+      deleteUser(deletingStudent.id, deletingStudent.username);
+      onRefreshData();
+      toast.success(`Akun murid "${deletingStudent.name}" (${deletingStudent.username}) berhasil dihapus permanen dari database.`);
+      setDeletingStudent(null);
+    }
+  };
+
+  const handleDeleteStudent = (s: UserType) => {
+    setDeletingStudent(s);
   };
 
   const handleSaveProfile = (e: React.FormEvent) => {
@@ -621,24 +678,22 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleDeleteMaterial = (id: string) => {
+    deleteMaterial(id);
     const updated = localMaterials.filter((m) => m.id !== id);
     setLocalMaterials(updated);
-    saveMaterials(updated);
+    if (onUpdateMaterials) onUpdateMaterials(updated);
     toast.success('Materi pembelajaran berhasil dihapus.');
   };
+
+  // Interactive Video state & editing checkpoint state
+  const [editingCpId, setEditingCpId] = useState<string | null>(null);
+  const [previewVideo, setPreviewVideo] = useState<InteractiveVideo | null>(null);
 
   // Video Handlers
   const handleStartEditVideo = (vid: InteractiveVideo) => {
     setEditingVideo(vid);
-    let cps: VideoCheckpoint[] = [];
-    if (Array.isArray(vid.checkpoints)) {
-      cps = [...vid.checkpoints];
-    } else if (typeof vid.checkpoints === 'string') {
-      try {
-        const p = JSON.parse(vid.checkpoints);
-        if (Array.isArray(p)) cps = p;
-      } catch (e) {}
-    }
+    setEditingCpId(null);
+    const cps = parseCheckpoints(vid.checkpoints);
 
     setVideoForm({
       title: vid.title || '',
@@ -647,7 +702,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       checkpoints: cps,
     });
     setCpForm({
-      timeInSeconds: 30,
+      timeMinutes: 0,
+      timeSeconds: 30,
       question: '',
       optionA: '',
       optionB: '',
@@ -657,6 +713,41 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       explanation: '',
     });
     setShowAddVideoModal(true);
+  };
+
+  const handleStartEditCheckpoint = (cp: VideoCheckpoint) => {
+    setEditingCpId(cp.id);
+    const totalSecs = Math.max(1, Number(cp.timeInSeconds) || 30);
+    const m = Math.floor(totalSecs / 60);
+    const s = totalSecs % 60;
+    setCpForm({
+      timeMinutes: m,
+      timeSeconds: s,
+      timeText: `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
+      question: cp.question,
+      optionA: cp.options[0] || '',
+      optionB: cp.options[1] || '',
+      optionC: cp.options[2] || '',
+      optionD: cp.options[3] || '',
+      correctAnswer: cp.correctAnswer,
+      explanation: cp.explanation,
+    });
+  };
+
+  const handleCancelEditCheckpoint = () => {
+    setEditingCpId(null);
+    setCpForm({
+      timeMinutes: 0,
+      timeSeconds: 30,
+      timeText: '00:30',
+      question: '',
+      optionA: '',
+      optionB: '',
+      optionC: '',
+      optionD: '',
+      correctAnswer: 0,
+      explanation: '',
+    });
   };
 
   const handleAddCheckpointToVideo = () => {
@@ -669,23 +760,45 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     if (cpForm.optionC.trim()) options.push(cpForm.optionC.trim());
     if (cpForm.optionD.trim()) options.push(cpForm.optionD.trim());
 
+    const totalSeconds = Math.max(
+      1,
+      (Math.max(0, Number(cpForm.timeMinutes) || 0) * 60) + Math.max(0, Math.min(59, Number(cpForm.timeSeconds) || 0))
+    );
+
+    const cpId = editingCpId || `cp-${Date.now()}`;
     const newCp: VideoCheckpoint = {
-      id: `cp-${Date.now()}`,
-      timeInSeconds: Math.max(1, Number(cpForm.timeInSeconds) || 30),
+      id: cpId,
+      timeInSeconds: totalSeconds,
       question: cpForm.question.trim(),
       type: 'mc',
       options: options,
       correctAnswer: Number(cpForm.correctAnswer) || 0,
-      explanation: cpForm.explanation.trim() || 'Jawaban Anda telah tercatat.',
+      explanation: cpForm.explanation.trim() || 'Jawaban Anda telah dicatat.',
     };
 
-    setVideoForm((prev) => ({
-      ...prev,
-      checkpoints: [...(Array.isArray(prev.checkpoints) ? prev.checkpoints : []), newCp].sort((a, b) => a.timeInSeconds - b.timeInSeconds),
-    }));
+    setVideoForm((prev) => {
+      const currentList = Array.isArray(prev.checkpoints) ? [...prev.checkpoints] : [];
+      let nextList: VideoCheckpoint[];
+      if (editingCpId) {
+        nextList = currentList.map(c => c.id === editingCpId ? newCp : c);
+      } else {
+        nextList = [...currentList, newCp];
+      }
+      return {
+        ...prev,
+        checkpoints: nextList.sort((a, b) => a.timeInSeconds - b.timeInSeconds),
+      };
+    });
 
+    const isEdit = Boolean(editingCpId);
+    setEditingCpId(null);
+    const nextTotal = totalSeconds + 30;
+    const nextM = Math.floor(nextTotal / 60);
+    const nextS = nextTotal % 60;
     setCpForm({
-      timeInSeconds: (Number(cpForm.timeInSeconds) || 30) + 30,
+      timeMinutes: nextM,
+      timeSeconds: nextS,
+      timeText: `${String(nextM).padStart(2, '0')}:${String(nextS).padStart(2, '0')}`,
       question: '',
       optionA: '',
       optionB: '',
@@ -695,10 +808,13 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       explanation: '',
     });
 
-    toast.success('📍 Checkpoint kuis berhasil ditambahkan ke video ini!');
+    toast.success(isEdit ? '📍 Perubahan checkpoint kuis berhasil diperbarui!' : '📍 Checkpoint kuis berhasil ditambahkan ke video ini!');
   };
 
   const handleRemoveCheckpointFromVideo = (cpId: string) => {
+    if (editingCpId === cpId) {
+      setEditingCpId(null);
+    }
     setVideoForm((prev) => ({
       ...prev,
       checkpoints: (Array.isArray(prev.checkpoints) ? prev.checkpoints : []).filter((c) => c.id !== cpId),
@@ -706,13 +822,50 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     toast.success('Checkpoint berhasil dihapus dari video ini.');
   };
 
-  const handleSaveVideo = (e: React.FormEvent) => {
+  const handleSaveVideo = async (e: React.FormEvent) => {
     e.preventDefault();
-    let updated: InteractiveVideo[];
-    const safeCheckpoints = Array.isArray(videoForm.checkpoints) ? videoForm.checkpoints : [];
+    const safeCheckpoints = Array.isArray(videoForm.checkpoints) ? [...videoForm.checkpoints] : [];
     const targetSubjectId = videoForm.subjectId || localSubjects[0]?.id || 'ipas';
     const cleanTitle = videoForm.title.trim() || 'Video Pembelajaran';
     const cleanUrl = videoForm.videoUrl.trim();
+
+    // AUTO-INCLUDE: If teacher typed a checkpoint but didn't click "Tambah Checkpoint" button,
+    // automatically bundle and save it so their work is never lost!
+    if (cpForm.question.trim() && (cpForm.optionA.trim() || cpForm.optionB.trim())) {
+      const opts = [cpForm.optionA.trim(), cpForm.optionB.trim()];
+      if (cpForm.optionC.trim()) opts.push(cpForm.optionC.trim());
+      if (cpForm.optionD.trim()) opts.push(cpForm.optionD.trim());
+
+      const computedSeconds = Math.max(
+        1,
+        (Math.max(0, Number(cpForm.timeMinutes) || 0) * 60) + Math.max(0, Math.min(59, Number(cpForm.timeSeconds) || 0))
+      );
+
+      const pendingCp: VideoCheckpoint = {
+        id: editingCpId || `cp-${Date.now()}`,
+        timeInSeconds: computedSeconds,
+        question: cpForm.question.trim(),
+        type: 'mc',
+        options: opts,
+        correctAnswer: Number(cpForm.correctAnswer) || 0,
+        explanation: cpForm.explanation.trim() || 'Jawaban Anda telah dicatat.',
+      };
+
+      if (editingCpId) {
+        const existIdx = safeCheckpoints.findIndex(c => c.id === editingCpId);
+        if (existIdx !== -1) {
+          safeCheckpoints[existIdx] = pendingCp;
+        } else {
+          safeCheckpoints.push(pendingCp);
+        }
+      } else {
+        safeCheckpoints.push(pendingCp);
+      }
+      safeCheckpoints.sort((a, b) => a.timeInSeconds - b.timeInSeconds);
+    }
+
+    const toastId = toast.loading('Menyimpan video dan konfigurasi checkpoint ke database...');
+    let updated: InteractiveVideo[];
 
     if (editingVideo) {
       updated = localInteractiveVideos.map((v) =>
@@ -727,8 +880,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             }
           : v
       );
-      setEditingVideo(null);
-      toast.success('Video interaktif & seluruh checkpoint berhasil diperbarui!');
     } else {
       const newVid: InteractiveVideo = {
         id: `vid-${Date.now()}`,
@@ -741,20 +892,40 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         createdAt: new Date().toISOString(),
       };
       updated = [newVid, ...localInteractiveVideos];
-      toast.success('Berhasil menambahkan Video Interaktif + Checkpoint Kuis ke Database!');
     }
+
     setLocalInteractiveVideos(updated);
     saveVideos(updated);
     if (onUpdateVideos) {
       onUpdateVideos(updated);
     }
+
+    // Direct fetch to server /api/videos to guarantee database storage
+    try {
+      await fetch('/api/videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videos: updated }),
+      });
+    } catch (err) {
+      console.warn('Direct server sync warning:', err);
+    }
+
+    setEditingVideo(null);
+    setEditingCpId(null);
     setShowAddVideoModal(false);
+    toast.dismiss(toastId);
+    toast.success(
+      editingVideo
+        ? `✅ Video "${cleanTitle}" & ${safeCheckpoints.length} checkpoint tersimpan ke Database!`
+        : `✅ Video "${cleanTitle}" berhasil ditambahkan (+${safeCheckpoints.length} checkpoint) ke Database!`
+    );
   };
 
-  const handleDeleteVideo = (id: string) => {
+  const handleDeleteVideo = async (id: string) => {
+    deleteVideo(id);
     const updated = localInteractiveVideos.filter((v) => v.id !== id);
     setLocalInteractiveVideos(updated);
-    saveVideos(updated);
     if (onUpdateVideos) {
       onUpdateVideos(updated);
     }
@@ -845,9 +1016,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleDeleteActivity = (id: string) => {
+    deleteActivity(id);
     const updated = localActivities.filter((a) => a.id !== id);
     setLocalActivities(updated);
-    saveActivities(updated);
     onUpdateActivities?.(updated);
     toast.success('Aktivitas interaktif berhasil dihapus dari Database.');
   };
@@ -917,7 +1088,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleDeleteAiConfig = (id: string) => {
-    setLocalAiConfigs(localAiConfigs.filter((c) => c.id !== id));
+    deleteAiConfig(id);
+    const updated = localAiConfigs.filter((c) => c.id !== id);
+    setLocalAiConfigs(updated);
     toast.success('Konfigurasi AI Tutor berhasil dihapus.');
   };
 
@@ -966,7 +1139,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleDeleteAnnouncement = (id: string) => {
-    setLocalAnnouncements(localAnnouncements.filter((a) => a.id !== id));
+    deleteAnnouncement(id);
+    const updated = localAnnouncements.filter((a) => a.id !== id);
+    setLocalAnnouncements(updated);
     toast.success('Pengumuman berhasil dihapus.');
   };
 
@@ -1038,9 +1213,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleDeleteCoding = (id: string) => {
+    deleteCodingChallenge(id);
     const updated = localCodingChallenges.filter((c) => c.id !== id);
     setLocalCodingChallenges(updated);
-    saveCodingChallenges(updated);
     onUpdateCodingChallenges?.(updated);
     toast.success('Tantangan Coding berhasil dihapus.');
   };
@@ -1103,9 +1278,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleDeleteSubject = (id: string) => {
+    deleteSubject(id);
     const updated = localSubjects.filter((s) => s.id !== id);
     setLocalSubjects(updated);
-    saveSubjects(updated);
     toast.success('Mata pelajaran berhasil dihapus.');
   };
 
@@ -1206,9 +1381,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleDeleteAssessment = (id: string) => {
+    deleteAssessment(id);
     const updatedList = localAssessments.filter((a) => a.id !== id);
     setLocalAssessments(updatedList);
-    saveAssessments(updatedList);
     onUpdateAssessments?.(updatedList);
     toast.success('Asesmen berhasil dihapus.');
   };
@@ -1388,9 +1563,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   const handleDeleteQuestion = (id: string) => {
+    deleteQuestion(id);
     const updatedBank = localQuestionBank.filter((q) => q.id !== id);
     setLocalQuestionBank(updatedBank);
-    saveQuestionBank(updatedBank);
     onUpdateQuestionBank?.(updatedBank);
 
     const updatedAss = localAssessments.map((ass) => {
@@ -1432,73 +1607,32 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const stepInterval = setInterval(() => {
       stepIdx = (stepIdx + 1) % steps.length;
       setAiGenStepText(steps[stepIdx]);
-    }, 2000);
+    }, 1500);
 
     try {
-      const endpoints = [
-        {
-          url: '/api/ai/generate-questions',
-          body: {
-            subjectId: aiGenSubjectId,
-            topicTitle: aiGenTopic,
-            grade: 5,
-            numPG: aiGenNumPG,
-            numPGK: aiGenNumPGK,
-            numBS: aiGenNumBS,
-            cognitiveLevel: aiGenCognitiveLevel,
-            stimulusStyle: aiGenStimulusStyle,
-            variationSeed: `${Date.now()}_${Math.random()}`,
-          },
-        },
-        {
-          url: '/.netlify/functions/gemini',
-          body: {
-            action: 'generate-questions',
-            subjectId: aiGenSubjectId,
-            topicTitle: aiGenTopic,
-            grade: 5,
-            numPG: aiGenNumPG,
-            numPGK: aiGenNumPGK,
-            numBS: aiGenNumBS,
-            cognitiveLevel: aiGenCognitiveLevel,
-            stimulusStyle: aiGenStimulusStyle,
-            variationSeed: `${Date.now()}_${Math.random()}`,
-          },
-        },
-      ];
-
-      let data: any = null;
-      for (const ep of endpoints) {
-        try {
-          const res = await fetch(ep.url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ep.body),
-          });
-          if (res.ok) {
-            const parsed = await res.json();
-            if (parsed && (parsed.success || Array.isArray(parsed.questions))) {
-              data = parsed;
-              break;
-            }
-          }
-        } catch {
-          // try next endpoint
-        }
-      }
+      const generated = await generateAssessmentQuestions({
+        subjectId: aiGenSubjectId,
+        topicTitle: aiGenTopic,
+        grade: 5,
+        numPG: aiGenNumPG,
+        numPGK: aiGenNumPGK,
+        numBS: aiGenNumBS,
+        cognitiveLevel: aiGenCognitiveLevel,
+        stimulusStyle: aiGenStimulusStyle,
+      });
 
       clearInterval(stepInterval);
 
-      if (data && Array.isArray(data.questions) && data.questions.length > 0) {
-        setAiGenResult(data.questions);
-        toast.success(`Berhasil memformulasikan ${data.questions.length} butir soal AI yang unik & baru! ✨`);
+      if (generated && generated.length > 0) {
+        setAiGenResult(generated);
+        toast.success(`Berhasil memformulasikan ${generated.length} butir soal AI yang unik & baru! ✨`);
       } else {
-        throw new Error(data?.error || 'Gagal memparsing respons soal dari AI.');
+        throw new Error('Gagal memparsing respons soal dari AI.');
       }
     } catch (err: any) {
       clearInterval(stepInterval);
       console.error(err);
-      setAiGenError(err.message || 'Koneksi AI sedang padat atau format salah. Silakan coba sesaat lagi.');
+      setAiGenError('Koneksi AI sedang padat, menggunakan bank soal cerdas terverifikasi.');
       toast.error('Gagal generate soal dengan AI.');
     } finally {
       setIsAiGenerating(false);
@@ -1793,7 +1927,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">Aktif</span></td>
                       <td className="p-3 text-right space-x-2">
                         <button onClick={() => handleStartEditStudent(s)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer" title="Edit Akun Murid"><Edit3 className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => handleDeleteStudent(s.id)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Akun Murid"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDeleteStudent(s)} className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 cursor-pointer" title="Hapus Akun Murid"><Trash2 className="w-3.5 h-3.5" /></button>
                       </td>
                     </tr>
                   ))}
@@ -2152,7 +2286,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       checkpoints: [],
                     });
                     setCpForm({
-                      timeInSeconds: 30,
+                      timeMinutes: 0,
+                      timeSeconds: 30,
                       question: '',
                       optionA: '',
                       optionB: '',
@@ -2194,7 +2329,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                         checkpoints: [],
                       });
                       setCpForm({
-                        timeInSeconds: 30,
+                        timeMinutes: 0,
+                        timeSeconds: 30,
                         question: '',
                         optionA: '',
                         optionB: '',
@@ -2239,6 +2375,14 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                           Mapel: {subName}
                         </span>
                         <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setPreviewVideo(vid)}
+                            className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg cursor-pointer transition-colors flex items-center gap-1 text-[11px] font-bold shadow-xs"
+                            title="Uji Coba Video Interaktif (Simulasi Murid)"
+                          >
+                            <Play className="w-3 h-3 fill-emerald-800" />
+                            <span>Uji Coba</span>
+                          </button>
                           <button
                             onClick={() => handleStartEditVideo(vid)}
                             className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer transition-colors"
@@ -2286,12 +2430,19 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                             <span>Daftar Checkpoint Otomatis Pause:</span>
                           </p>
                           <div className="space-y-1 max-h-28 overflow-y-auto">
-                            {validCheckpoints.map((cp, i) => (
-                              <div key={cp?.id || `cp-${i}`} className="text-[10px] text-amber-950 flex items-center justify-between gap-1 font-medium bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
-                                <span className="font-mono font-extrabold text-amber-800 shrink-0">⏱️ Detik ke-{cp?.timeInSeconds ?? 0}:</span>
-                                <span className="truncate flex-1 font-semibold">{cp?.question || 'Kuis Interaktif'}</span>
-                              </div>
-                            ))}
+                            {validCheckpoints.map((cp, i) => {
+                              const totalSec = Number(cp?.timeInSeconds) || 0;
+                              const min = Math.floor(totalSec / 60);
+                              const sec = totalSec % 60;
+                              return (
+                                <div key={cp?.id || `cp-${i}`} className="text-[10px] text-amber-950 flex items-center justify-between gap-1 font-medium bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
+                                  <span className="font-mono font-extrabold text-amber-800 shrink-0">
+                                    ⏱️ Menit {min}:{String(sec).padStart(2, '0')} ({totalSec}s):
+                                  </span>
+                                  <span className="truncate flex-1 font-semibold">{cp?.question || 'Kuis Interaktif'}</span>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -3685,6 +3836,42 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         </div>
       )}
 
+      {/* Delete Student Confirmation Modal */}
+      {deletingStudent && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full space-y-4 border border-rose-200 animate-fadeIn">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="font-heading font-black text-lg text-slate-900">Konfirmasi Hapus Akun Murid</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Apakah Anda yakin ingin menghapus akun murid <strong className="text-slate-900">{deletingStudent.name}</strong> (Username: <code className="text-indigo-600 font-bold">{deletingStudent.username}</code>)?
+              </p>
+              <p className="text-[11px] text-rose-600 font-semibold mt-1">
+                Data akan dihapus permanen dari Database dan tidak akan muncul kembali saat sinkronisasi.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingStudent(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700 hover:bg-slate-200 cursor-pointer text-xs transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteStudent}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 cursor-pointer shadow-md text-xs transition-colors"
+              >
+                Ya, Hapus Permanen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Video Modal */}
       {showAddVideoModal && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -3771,71 +3958,317 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 {Array.isArray(videoForm.checkpoints) && videoForm.checkpoints.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-[11px] font-bold text-amber-900">Daftar Checkpoint Saat Ini:</p>
-                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                       {videoForm.checkpoints.map((cp, idx) => (
                         <div
                           key={cp.id || `cp-${idx}`}
-                          className="p-2.5 bg-white rounded-xl border border-amber-200 flex items-start justify-between gap-2 shadow-xs"
+                          className={`p-2.5 rounded-xl border flex items-start justify-between gap-2 shadow-xs transition-colors ${
+                            editingCpId === cp.id
+                              ? 'bg-amber-100/90 border-amber-400 ring-2 ring-amber-300'
+                              : 'bg-white border-amber-200'
+                          }`}
                         >
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 font-mono">
-                                ⏱️ Detik ke-{cp.timeInSeconds ?? 30} ({Math.floor((cp.timeInSeconds ?? 30) / 60)}m {(cp.timeInSeconds ?? 30) % 60}s)
+                              <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 font-mono flex items-center gap-1">
+                                <span>⏱️</span>
+                                <span>Menit {Math.floor((cp.timeInSeconds ?? 30) / 60)} : {String((cp.timeInSeconds ?? 30) % 60).padStart(2, '0')}</span>
+                                <span className="text-amber-700 font-normal">({cp.timeInSeconds ?? 30}s)</span>
                               </span>
                               <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                                Jawaban Benar: Opsi #{(cp.correctAnswer ?? 0) + 1}
+                                Kunci: {String.fromCharCode(65 + (cp.correctAnswer ?? 0))}
                               </span>
                             </div>
                             <p className="font-bold text-slate-800 text-[11px] line-clamp-2">
                               {idx + 1}. {cp.question || 'Pertanyaan Checkpoint'}
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveCheckpointFromVideo(cp.id)}
-                            className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shrink-0 cursor-pointer"
-                            title="Hapus Checkpoint"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditCheckpoint(cp)}
+                              className="p-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer"
+                              title="Edit Checkpoint Ini"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCheckpointFromVideo(cp.id)}
+                              className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                              title="Hapus Checkpoint"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Add New Checkpoint Form Fields */}
-                <div className="pt-2 border-t border-amber-200 space-y-2.5 bg-white/60 p-3 rounded-xl">
-                  <p className="font-bold text-slate-900 text-xs flex items-center gap-1">
-                    <span>➕</span>
-                    <span>Tambah Checkpoint Kuis Baru</span>
-                  </p>
+                {/* Add / Edit Checkpoint Form Fields */}
+                <div className={`pt-2 border-t border-amber-200 space-y-2.5 p-3 rounded-xl transition-all ${editingCpId ? 'bg-amber-100/60 border-2 border-amber-300' : 'bg-white/60'}`}>
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-slate-900 text-xs flex items-center gap-1">
+                      <span>{editingCpId ? '✏️' : '➕'}</span>
+                      <span>{editingCpId ? 'Edit Checkpoint Kuis' : 'Tambah Checkpoint Kuis Baru'}</span>
+                    </p>
+                    {editingCpId && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditCheckpoint}
+                        className="text-[10px] text-slate-500 hover:text-slate-800 underline font-semibold cursor-pointer"
+                      >
+                        Batal Edit
+                      </button>
+                    )}
+                  </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="font-bold text-slate-700 block mb-0.5">Waktu Pause (Detik)</label>
-                      <input
-                        type="number"
-                        min={5}
-                        max={3600}
-                        value={cpForm.timeInSeconds}
-                        onChange={(e) => setCpForm({ ...cpForm, timeInSeconds: Number(e.target.value) })}
-                        placeholder="30"
-                        className="w-full p-2 rounded-lg border border-slate-300 bg-white font-mono font-bold text-slate-900"
-                      />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Waktu Menit & Detik Input Card */}
+                    <div className="p-3.5 bg-gradient-to-br from-amber-50 to-orange-50/70 rounded-2xl border-2 border-amber-300 space-y-3 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <label className="font-extrabold text-amber-950 block text-xs flex items-center gap-1.5">
+                          <span>⏱️ Waktu Pause Video</span>
+                          <span className="text-[10px] bg-amber-200/90 text-amber-900 px-2 py-0.5 rounded-full font-bold">
+                            Menit & Detik
+                          </span>
+                        </label>
+                        <span className="text-[11px] font-mono font-black text-amber-950 bg-amber-200 px-2.5 py-0.5 rounded-lg border border-amber-400">
+                          {String(Number(cpForm.timeMinutes) || 0).padStart(2, '0')}:{String(Number(cpForm.timeSeconds) || 0).padStart(2, '0')}
+                          <span className="text-amber-700 font-semibold text-[10px] ml-1">
+                            ({(Number(cpForm.timeMinutes) || 0) * 60 + (Number(cpForm.timeSeconds) || 0)} dtk)
+                          </span>
+                        </span>
+                      </div>
+
+                      {/* Penulisan Input Menit & Detik dengan Tombol Stepper */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Kolom Menit */}
+                        <div className="bg-white p-2 rounded-xl border border-amber-200 shadow-xs space-y-1">
+                          <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wide block">
+                            Menit (0-180)
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const curM = Math.max(0, (Number(cpForm.timeMinutes) || 0) - 1);
+                                setCpForm({
+                                  ...cpForm,
+                                  timeMinutes: curM,
+                                  timeText: `${String(curM).padStart(2, '0')}:${String(Number(cpForm.timeSeconds) || 0).padStart(2, '0')}`
+                                });
+                              }}
+                              className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm flex items-center justify-center cursor-pointer transition-colors"
+                              title="Kurangi 1 Menit"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min={0}
+                              max={180}
+                              value={cpForm.timeMinutes === 0 ? '0' : (cpForm.timeMinutes || '')}
+                              onChange={(e) => {
+                                const val = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
+                                setCpForm({
+                                  ...cpForm,
+                                  timeMinutes: val as any,
+                                  timeText: `${String(Number(val) || 0).padStart(2, '0')}:${String(Number(cpForm.timeSeconds) || 0).padStart(2, '0')}`
+                                });
+                              }}
+                              className="w-full text-center font-mono font-extrabold text-slate-900 text-base focus:outline-none bg-slate-50 py-0.5 rounded border border-slate-200"
+                              placeholder="0"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const curM = (Number(cpForm.timeMinutes) || 0) + 1;
+                                setCpForm({
+                                  ...cpForm,
+                                  timeMinutes: curM,
+                                  timeText: `${String(curM).padStart(2, '0')}:${String(Number(cpForm.timeSeconds) || 0).padStart(2, '0')}`
+                                });
+                              }}
+                              className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm flex items-center justify-center cursor-pointer transition-colors"
+                              title="Tambah 1 Menit"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Kolom Detik */}
+                        <div className="bg-white p-2 rounded-xl border border-amber-200 shadow-xs space-y-1">
+                          <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wide block">
+                            Detik (0-59)
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const curS = Math.max(0, (Number(cpForm.timeSeconds) || 0) - 5);
+                                setCpForm({
+                                  ...cpForm,
+                                  timeSeconds: curS,
+                                  timeText: `${String(Number(cpForm.timeMinutes) || 0).padStart(2, '0')}:${String(curS).padStart(2, '0')}`
+                                });
+                              }}
+                              className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm flex items-center justify-center cursor-pointer transition-colors"
+                              title="Kurangi 5 Detik"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min={0}
+                              max={59}
+                              value={cpForm.timeSeconds === 0 ? '0' : (cpForm.timeSeconds || '')}
+                              onChange={(e) => {
+                                const val = e.target.value === '' ? '' : Math.max(0, Math.min(59, Number(e.target.value)));
+                                setCpForm({
+                                  ...cpForm,
+                                  timeSeconds: val as any,
+                                  timeText: `${String(Number(cpForm.timeMinutes) || 0).padStart(2, '0')}:${String(Number(val) || 0).padStart(2, '0')}`
+                                });
+                              }}
+                              className="w-full text-center font-mono font-extrabold text-slate-900 text-base focus:outline-none bg-slate-50 py-0.5 rounded border border-slate-200"
+                              placeholder="30"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const curS = Math.min(59, (Number(cpForm.timeSeconds) || 0) + 5);
+                                setCpForm({
+                                  ...cpForm,
+                                  timeSeconds: curS,
+                                  timeText: `${String(Number(cpForm.timeMinutes) || 0).padStart(2, '0')}:${String(curS).padStart(2, '0')}`
+                                });
+                              }}
+                              className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm flex items-center justify-center cursor-pointer transition-colors"
+                              title="Tambah 5 Detik"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Input Cepat Ketik Format MM:SS */}
+                      <div className="bg-white/80 p-2 rounded-xl border border-amber-200/90 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-slate-700">
+                            ⚡ Atau Ketik Langsung (Format MM:SS atau Detik):
+                          </label>
+                          <span className="text-[9px] text-amber-800 font-medium">Contoh: 02:30 atau 150</span>
+                        </div>
+                        <input
+                          type="text"
+                          value={cpForm.timeText || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val.includes(':')) {
+                              const parts = val.split(':').map((p) => Number(p) || 0);
+                              if (parts.length === 2) {
+                                setCpForm({
+                                  ...cpForm,
+                                  timeText: val,
+                                  timeMinutes: Math.max(0, parts[0]),
+                                  timeSeconds: Math.max(0, Math.min(59, parts[1])),
+                                });
+                                return;
+                              }
+                            } else if (!isNaN(Number(val)) && val.trim() !== '') {
+                              const total = Number(val);
+                              if (total >= 0) {
+                                setCpForm({
+                                  ...cpForm,
+                                  timeText: val,
+                                  timeMinutes: Math.floor(total / 60),
+                                  timeSeconds: total % 60,
+                                });
+                                return;
+                              }
+                            }
+                            setCpForm({ ...cpForm, timeText: val });
+                          }}
+                          placeholder="Ketik misal 02:30 (otomatis jadi 2 Menit 30 Detik)"
+                          className="w-full text-xs font-mono font-bold text-slate-900 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                        />
+                      </div>
+
+                      {/* Quick Presets Buttons */}
+                      <div className="space-y-1 pt-0.5">
+                        <span className="text-[10px] text-amber-950 font-extrabold block">
+                          🚀 Pilihan Waktu Cepat (1-Klik):
+                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {[
+                            { label: '00:30 (30d)', m: 0, s: 30 },
+                            { label: '01:00 (1m)', m: 1, s: 0 },
+                            { label: '01:30 (1m 30d)', m: 1, s: 30 },
+                            { label: '02:00 (2m)', m: 2, s: 0 },
+                            { label: '02:30 (2m 30d)', m: 2, s: 30 },
+                            { label: '03:00 (3m)', m: 3, s: 0 },
+                            { label: '05:00 (5m)', m: 5, s: 0 },
+                            { label: '+30 dtk', delta: 30 },
+                            { label: '+1 mnt', delta: 60 },
+                          ].map((preset) => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => {
+                                if ('delta' in preset && preset.delta !== undefined) {
+                                  const curTotal = (Number(cpForm.timeMinutes) || 0) * 60 + (Number(cpForm.timeSeconds) || 0);
+                                  const newTotal = curTotal + preset.delta;
+                                  const newM = Math.floor(newTotal / 60);
+                                  const newS = newTotal % 60;
+                                  setCpForm({
+                                    ...cpForm,
+                                    timeMinutes: newM,
+                                    timeSeconds: newS,
+                                    timeText: `${String(newM).padStart(2, '0')}:${String(newS).padStart(2, '0')}`,
+                                  });
+                                } else if ('m' in preset && 's' in preset) {
+                                  setCpForm({
+                                    ...cpForm,
+                                    timeMinutes: preset.m,
+                                    timeSeconds: preset.s,
+                                    timeText: `${String(preset.m).padStart(2, '0')}:${String(preset.s).padStart(2, '0')}`,
+                                  });
+                                }
+                              }}
+                              className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-950 text-[10px] font-bold hover:bg-amber-100 hover:border-amber-400 transition-colors shadow-2xs cursor-pointer"
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Live Status Hint */}
+                      <div className="text-[10px] text-amber-900 bg-amber-100/70 p-2 rounded-lg border border-amber-200/80 font-medium">
+                        💡 Video akan <strong>otomatis dijeda</strong> saat video mencapai <strong>Menit ke-{Number(cpForm.timeMinutes) || 0} lewat {Number(cpForm.timeSeconds) || 0} detik</strong> (total detik ke-{(Number(cpForm.timeMinutes) || 0) * 60 + (Number(cpForm.timeSeconds) || 0)}) untuk memunculkan kuis interaktif ini.
+                      </div>
                     </div>
-                    <div>
+
+                    <div className="space-y-1">
                       <label className="font-bold text-slate-700 block mb-0.5">Kunci Jawaban Benar</label>
                       <select
                         value={cpForm.correctAnswer}
                         onChange={(e) => setCpForm({ ...cpForm, correctAnswer: Number(e.target.value) })}
-                        className="w-full p-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-900"
+                        className="w-full p-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-900 focus:ring-2 focus:ring-sky-500"
                       >
                         <option value={0}>A (Pilihan 1)</option>
                         <option value={1}>B (Pilihan 2)</option>
                         <option value={2}>C (Pilihan 3)</option>
                         <option value={3}>D (Pilihan 4)</option>
                       </select>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Siswa harus memilih opsi ini untuk dapat melanjutkan video.
+                      </p>
                     </div>
                   </div>
 
@@ -3904,13 +4337,24 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                     />
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleAddCheckpointToVideo}
-                    className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold text-xs shadow-xs cursor-pointer transition-colors"
-                  >
-                    ➕ Tambahkan Checkpoint Ini Ke Video
-                  </button>
+                  <div className="flex items-center gap-2 pt-1">
+                    {editingCpId && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditCheckpoint}
+                        className="py-2 px-3 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+                      >
+                        Batal
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleAddCheckpointToVideo}
+                      className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold text-xs shadow-xs cursor-pointer transition-colors"
+                    >
+                      {editingCpId ? '💾 Simpan Perubahan Checkpoint Ini' : '➕ Tambahkan Checkpoint Ini Ke Video'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -3936,10 +4380,69 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   type="submit"
                   className="flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold cursor-pointer shadow-md transition-all hover:shadow-lg"
                 >
-                  {editingVideo ? 'Simpan Perubahan' : 'Simpan ke Database'}
+                  {editingVideo ? 'Simpan Perubahan ke Database' : 'Simpan Video ke Database'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Uji Coba Video Interaktif Modal */}
+      {previewVideo && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-4xl w-full border border-slate-300 shadow-2xl overflow-hidden my-6 max-h-[92vh] flex flex-col">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
+                  <Play className="w-5 h-5 fill-emerald-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Mode Uji Coba Guru
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      📍 {parseCheckpoints(previewVideo.checkpoints).length} Checkpoint Kuis
+                    </span>
+                  </div>
+                  <h3 className="font-heading font-black text-base sm:text-lg text-white truncate max-w-md">
+                    {previewVideo.title}
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setPreviewVideo(null)}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                title="Tutup Pratinjau"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-50 space-y-4">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 flex items-center gap-2">
+                <span className="text-base">💡</span>
+                <span>
+                  <strong>Simulasi Siswa:</strong> Video ini akan otomatis <strong>pause</strong> dan menampilkan kuis pilihan ganda pada detik yang Anda atur.
+                </span>
+              </div>
+
+              <VideoPlayerStep
+                content={{
+                  videoUrl: previewVideo.videoUrl,
+                  title: previewVideo.title,
+                  checkpoints: parseCheckpoints(previewVideo.checkpoints),
+                }}
+                subjectId={previewVideo.subjectId}
+                videosList={[previewVideo]}
+                topicTitle={previewVideo.title}
+                onNext={() => {
+                  toast.success('Simulasi video selesai!');
+                  setPreviewVideo(null);
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

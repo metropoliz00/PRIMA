@@ -1,0 +1,58 @@
+[
+  {
+    "id": "usr-admin-1",
+    "name": "Administrator PRIMA",
+    "username": "admin",
+    "passwordHash": "admin123",
+    "role": "ADMIN",
+    "status": "ACTIVE",
+    "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+    "email": "admin@prima.sch.id",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "updatedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "usr-guru-1",
+    "name": "Dedy Meyga Saputra, S.Pd. M.Pd",
+    "username": "guru",
+    "passwordHash": "guru123",
+    "role": "GURU",
+    "status": "ACTIVE",
+    "avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+    "email": "metropoliz00@gmail.com",
+    "grade": 5,
+    "nip": "198905202020121006",
+    "schoolName": "UPT SD Negeri Remen 2",
+    "teachingClass": "Kelas 5 SD",
+    "createdAt": "2026-01-02T00:00:00Z",
+    "updatedAt": "2026-10-03T16:47:12.410Z"
+  },
+  {
+    "id": "usr-murid-1",
+    "name": "Bintang Pratama",
+    "username": "murid",
+    "passwordHash": "murid123",
+    "role": "MURID",
+    "status": "ACTIVE",
+    "avatar": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=79",
+    "email": "bintang.murid@prima.sch.id",
+    "grade": 5,
+    "studentNumber": "08",
+    "createdAt": "2026-01-03T00:00:00Z",
+    "updatedAt": "2026-01-03T00:00:00Z"
+  },
+  {
+    "id": "usr-murid-2",
+    "name": "Siti Rahmawati",
+    "username": "siti5a",
+    "passwordHash": "murid123",
+    "role": "MURID",
+    "status": "ACTIVE",
+    "avatar": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80",
+    "email": "siti.rahma@prima.sch.id",
+    "grade": 5,
+    "studentNumber": "12",
+    "createdAt": "2026-01-04T00:00:00Z",
+    "updatedAt": "2026-01-04T00:00:00Z"
+  }
+]

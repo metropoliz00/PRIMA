@@ -26,7 +26,11 @@ export const fetchAppData = async <T = any>(sheetName: string): Promise<T[]> => 
  * Push data to Google Spreadsheet via GAS (Create or Update or Cleanup)
  * Note: Uses text/plain to avoid CORS preflight OPTIONS rejection in Google Apps Script Web App
  */
-export const pushAppData = async (sheetName: string, action: 'create' | 'update' | 'cleanupDuplicates', data: any): Promise<boolean> => {
+export const pushAppData = async (
+  sheetName: string,
+  action: 'create' | 'update' | 'delete' | 'cleanupDuplicates',
+  data: any
+): Promise<boolean> => {
   try {
     const url = `${GAS_WEB_APP_URL}?action=${action}&sheet=${encodeURIComponent(sheetName)}`;
     const response = await fetch(url, {
@@ -59,23 +63,29 @@ export const cleanupRemoteDuplicates = async (sheetName: string): Promise<boolea
 export const getRemoteUsers = () => fetchAppData('Users');
 export const createRemoteUser = (userData: any) => pushAppData('Users', 'create', userData);
 export const updateRemoteUser = (userData: any) => pushAppData('Users', 'update', userData);
+export const deleteRemoteUser = (userData: any) => pushAppData('Users', 'delete', userData);
 
 // Subjects (Mata Pelajaran)
 export const getRemoteSubjects = () => fetchAppData('Subjects');
 export const createRemoteSubject = (subjectData: any) => pushAppData('Subjects', 'create', subjectData);
 export const updateRemoteSubject = (subjectData: any) => pushAppData('Subjects', 'update', subjectData);
+export const deleteRemoteSubject = (subjectData: any) => pushAppData('Subjects', 'delete', subjectData);
 
 // Materials (Materi Pembelajaran)
 export const getRemoteMaterials = () => fetchAppData('Materials');
 export const createRemoteMaterial = (materialData: any) => pushAppData('Materials', 'create', materialData);
+export const deleteRemoteMaterial = (materialData: any) => pushAppData('Materials', 'delete', materialData);
 
 // Assessments (Asesmen & Kuis)
 export const getRemoteAssessments = () => fetchAppData('Assessments');
 export const createRemoteAssessment = (assessmentData: any) => pushAppData('Assessments', 'create', assessmentData);
+export const updateRemoteAssessment = (assessmentData: any) => pushAppData('Assessments', 'update', assessmentData);
+export const deleteRemoteAssessment = (assessmentData: any) => pushAppData('Assessments', 'delete', assessmentData);
 
 // Announcements (Pengumuman)
 export const getRemoteAnnouncements = () => fetchAppData('Announcements');
 export const createRemoteAnnouncement = (announcementData: any) => pushAppData('Announcements', 'create', announcementData);
+export const deleteRemoteAnnouncement = (announcementData: any) => pushAppData('Announcements', 'delete', announcementData);
 
 // Reflections (Refleksi Siswa)
 export const getRemoteReflections = () => fetchAppData('Reflections');
@@ -84,21 +94,25 @@ export const createRemoteReflection = (reflectionData: any) => pushAppData('Refl
 // Classes (Kelas)
 export const getRemoteClasses = () => fetchAppData('Classes');
 export const createRemoteClass = (classData: any) => pushAppData('Classes', 'create', classData);
+export const deleteRemoteClass = (classData: any) => pushAppData('Classes', 'delete', classData);
 
 // Videos (Video Interaktif)
 export const getRemoteVideos = () => fetchAppData('Videos');
 export const createRemoteVideo = (videoData: any) => pushAppData('Videos', 'create', videoData);
 export const updateRemoteVideo = (videoData: any) => pushAppData('Videos', 'update', videoData);
+export const deleteRemoteVideo = (videoData: any) => pushAppData('Videos', 'delete', videoData);
 
 // Coding Challenges
 export const getRemoteCodingChallenges = () => fetchAppData('CodingChallenges');
 export const createRemoteCodingChallenge = (codingData: any) => pushAppData('CodingChallenges', 'create', codingData);
 export const updateRemoteCodingChallenge = (codingData: any) => pushAppData('CodingChallenges', 'update', codingData);
+export const deleteRemoteCodingChallenge = (codingData: any) => pushAppData('CodingChallenges', 'delete', codingData);
 
 // Questions (Bank Soal)
 export const getRemoteQuestions = () => fetchAppData('Questions');
 export const createRemoteQuestion = (questionData: any) => pushAppData('Questions', 'create', questionData);
 export const updateRemoteQuestion = (questionData: any) => pushAppData('Questions', 'update', questionData);
+export const deleteRemoteQuestion = (questionData: any) => pushAppData('Questions', 'delete', questionData);
 
 // Analytics (Analitik Pembelajaran)
 export const getRemoteAnalytics = () => fetchAppData('Analytics');
@@ -108,6 +122,7 @@ export const createRemoteAnalytics = (analyticsData: any) => pushAppData('Analyt
 export const getRemoteAITutorConfigs = () => fetchAppData('AITutorConfig');
 export const createRemoteAITutorConfig = (configData: any) => pushAppData('AITutorConfig', 'create', configData);
 export const updateRemoteAITutorConfig = (configData: any) => pushAppData('AITutorConfig', 'update', configData);
+export const deleteRemoteAITutorConfig = (configData: any) => pushAppData('AITutorConfig', 'delete', configData);
 
 // PRIMA AI Chat Logs (Riwayat Chat & Tanya-Jawab AI Tutor)
 export const getRemoteAIChatLogs = () => fetchAppData('AIChatLogs');
@@ -126,7 +141,5 @@ export const updateRemoteSetting = (settingData: any) => pushAppData('Settings',
 export const getRemoteActivities = () => fetchAppData('Activities');
 export const createRemoteActivity = (activityData: any) => pushAppData('Activities', 'create', activityData);
 export const updateRemoteActivity = (activityData: any) => pushAppData('Activities', 'update', activityData);
-
-// Assessments (Asesmen Kuis)
-export const updateRemoteAssessment = (assessmentData: any) => pushAppData('Assessments', 'update', assessmentData);
+export const deleteRemoteActivity = (activityData: any) => pushAppData('Activities', 'delete', activityData);
 

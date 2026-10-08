@@ -419,14 +419,36 @@ function MainAppContent() {
   }, []);
 
   const handleSelectVideoFromDashboard = useCallback((vid: InteractiveVideo) => {
+    const vidSubStr = String(vid.subjectId || '').toLowerCase();
+    const vidTitleStr = String(vid.title || '').toLowerCase();
     const sub = subjects.find(
-      (s) => s.id?.toLowerCase() === vid.subjectId?.toLowerCase() || s.name?.toLowerCase().includes((vid.subjectId || '').toLowerCase())
+      (s) => String(s.id || '').toLowerCase() === vidSubStr || String(s.name || '').toLowerCase().includes(vidSubStr)
     ) || subjects[0];
 
     if (sub) {
       setSelectedSubject(sub);
-      if (sub.topics.length > 0) {
-        setSelectedTopic(sub.topics[0]);
+      if (sub.topics && sub.topics.length > 0) {
+        const matchedTopic = sub.topics.find((t) => {
+          const tTitleStr = String(t.title || '').toLowerCase();
+          return tTitleStr.includes(vidTitleStr) || vidTitleStr.includes(tTitleStr);
+        }) || sub.topics[0];
+
+        const updatedSteps = matchedTopic.steps.map((step) => {
+          if (step.type === 'video') {
+            return {
+              ...step,
+              content: {
+                ...step.content,
+                videoUrl: vid.videoUrl,
+                title: vid.title,
+                checkpoints: vid.checkpoints,
+              },
+            };
+          }
+          return step;
+        });
+
+        setSelectedTopic({ ...matchedTopic, steps: updatedSteps });
       }
       setActiveStepIndex(3);
       setCurrentView('learning-journey');
@@ -673,7 +695,7 @@ function MainAppContent() {
                 {currentStep.type === 'asesmen' && (
                   (() => {
                     const activeAss = assessmentsList.find(
-                      a => a.subjectId?.toLowerCase() === selectedSubject?.id?.toLowerCase() && a.status === 'AKTIF'
+                      a => String(a.subjectId || '').toLowerCase() === String(selectedSubject?.id || '').toLowerCase() && a.status === 'AKTIF'
                     );
                     const finalContent = activeAss ? { questions: activeAss.questions } : currentStep.content;
                     return (

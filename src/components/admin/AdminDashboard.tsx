@@ -6,7 +6,14 @@ import {
 import { User, UserRole } from '../../types/auth';
 import { Subject, ClassRoom } from '../../types/learning';
 import { createUser, updateUser, deleteUser } from '../../services/authService';
-import { organizeAndCleanAllSubjects, saveSubjects, deduplicateSubjects } from '../../data/learningData';
+import {
+  organizeAndCleanAllSubjects,
+  saveSubjects,
+  deleteSubject,
+  deduplicateSubjects,
+  saveClasses,
+  deleteClass,
+} from '../../data/learningData';
 
 interface AdminDashboardProps {
   currentUser: User;
@@ -166,7 +173,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleConfirmDeleteUser = () => {
     if (deletingUser) {
-      deleteUser(deletingUser.id);
+      deleteUser(deletingUser.id, deletingUser.username);
       toast.success(`Akun ${deletingUser.name} berhasil dihapus.`);
       setDeletingUser(null);
       onRefreshData();
@@ -188,8 +195,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveClass = (e: React.FormEvent) => {
     e.preventDefault();
+    let updated: ClassRoom[];
     if (editingClass) {
-      setLocalClasses(localClasses.map((c) => (c.id === editingClass.id ? { ...c, name: classForm.name, grade: Number(classForm.grade) } : c)));
+      updated = localClasses.map((c) =>
+        c.id === editingClass.id ? { ...c, name: classForm.name, grade: Number(classForm.grade) } : c
+      );
       toast.success(`Kelas ${classForm.name} berhasil diperbarui!`);
     } else {
       const newCls: ClassRoom = {
@@ -203,15 +213,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         avgScore: 0,
         lastActivity: 'Hari ini',
       };
-      setLocalClasses([newCls, ...localClasses]);
+      updated = [newCls, ...localClasses];
       toast.success(`Kelas ${classForm.name} berhasil ditambahkan!`);
     }
+    setLocalClasses(updated);
+    saveClasses(updated);
     setShowClassModal(false);
     setEditingClass(null);
   };
 
   const handleDeleteClass = (id: string) => {
-    setLocalClasses(localClasses.filter((c) => c.id !== id));
+    deleteClass(id);
+    const updated = localClasses.filter((c) => c.id !== id);
+    setLocalClasses(updated);
     toast.success('Kelas berhasil dihapus.');
   };
 
@@ -277,9 +291,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteSubject = (id: string) => {
+    deleteSubject(id);
     const updated = localSubjects.filter((s) => s.id !== id);
     setLocalSubjects(updated);
-    saveSubjects(updated);
     toast.success('Mata pelajaran berhasil dihapus.');
   };
 

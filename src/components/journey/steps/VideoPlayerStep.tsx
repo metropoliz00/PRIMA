@@ -5,7 +5,7 @@ import {
   ChevronRight, ExternalLink, Lock
 } from 'lucide-react';
 import { VideoCheckpoint, InteractiveVideo } from '../../../types/learning';
-import { getStoredVideos } from '../../../data/learningData';
+import { getStoredVideos, parseCheckpoints } from '../../../data/learningData';
 import toast from 'react-hot-toast';
 
 // Global declaration for YouTube IFrame API
@@ -176,11 +176,17 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({
   const hasVideo = !!(rawVideoUrl && rawVideoUrl.trim() !== '');
   const { embedUrl, type: videoType, videoId: ytVideoId } = parseEmbedUrl(rawVideoUrl);
 
-  // Initial Checkpoints resolution
-  const initialCheckpoints: VideoCheckpoint[] =
-    activeVideo && activeVideo.checkpoints && activeVideo.checkpoints.length > 0
-      ? activeVideo.checkpoints
-      : content?.checkpoints || [];
+  // Initial Checkpoints resolution with safe parsing
+  const initialCheckpoints: VideoCheckpoint[] = React.useMemo(() => {
+    if (activeVideo && activeVideo.checkpoints) {
+      const parsed = parseCheckpoints(activeVideo.checkpoints);
+      if (parsed.length > 0) return parsed;
+    }
+    if (content?.checkpoints) {
+      return parseCheckpoints(content.checkpoints);
+    }
+    return [];
+  }, [activeVideo, content]);
 
   const [localCheckpoints, setLocalCheckpoints] = useState<VideoCheckpoint[]>(initialCheckpoints);
 
@@ -214,13 +220,8 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({
 
   // Sync checkpoints on video switch
   useEffect(() => {
-    if (activeVideo && activeVideo.checkpoints && activeVideo.checkpoints.length > 0) {
-      setLocalCheckpoints(activeVideo.checkpoints);
-    } else if (content?.checkpoints && content.checkpoints.length > 0) {
-      setLocalCheckpoints(content.checkpoints);
-    } else {
-      setLocalCheckpoints([]);
-    }
+    const cps = parseCheckpoints(activeVideo?.checkpoints || content?.checkpoints);
+    setLocalCheckpoints(cps);
     setAnsweredCheckpoints({});
     setActiveCheckpoint(null);
     setSelectedOption(null);
@@ -231,7 +232,7 @@ export const VideoPlayerStep: React.FC<VideoPlayerStepProps> = ({
     setIsPlaying(false);
     setHasStartedInitialPlay(false);
     hasAutoFullscreenTriggered.current = false;
-  }, [activeVideo?.id, content]);
+  }, [activeVideo?.id, activeVideo?.checkpoints, content]);
 
   // Request Fullscreen Helper: Enters real OS Fullscreen + in-app Cinema Overlay
   const enterFullscreen = useCallback(() => {

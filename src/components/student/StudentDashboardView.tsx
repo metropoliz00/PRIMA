@@ -121,6 +121,72 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
         ))}
       </div>
 
+      {/* Interactive Videos Section for Students */}
+      {videosList && videosList.length > 0 && (
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-heading text-xl font-bold text-slate-900 flex items-center gap-2">
+                <span>🎬</span>
+                <span>Video Pembelajaran Interaktif (Kuis Otomatis Pause)</span>
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Tonton video penjelasan, jawab kuis checkpoint di tengah pemutaran, dan raih XP!
+              </p>
+            </div>
+            <span className="text-xs font-bold text-sky-600 bg-sky-50 px-3 py-1 rounded-full border border-sky-200">
+              {videosList.length} Video Aktif
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {videosList.map((vid, idx) => {
+              const vidSubStr = String(vid.subjectId || '').toLowerCase();
+              const sub = subjects.find(
+                (s) => String(s.id || '').toLowerCase() === vidSubStr || String(s.name || '').toLowerCase().includes(vidSubStr)
+              );
+              const cps = Array.isArray(vid.checkpoints) ? vid.checkpoints : [];
+              const cpCount = cps.length || Number(vid.checkpointsCount) || 0;
+
+              return (
+                <div
+                  key={vid.id || `vid-${idx}`}
+                  onClick={() => onSelectVideo?.(vid)}
+                  className="glass-card p-4 rounded-2xl border border-slate-200 hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between space-y-3 group hover:border-sky-300"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800">
+                        {sub ? `${sub.icon || '📚'} ${sub.name}` : String(vid.subjectId || 'IPAS').toUpperCase()}
+                      </span>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                        <span>📍</span>
+                        <span>{cpCount} Checkpoint</span>
+                      </span>
+                    </div>
+
+                    <h4 className="font-heading font-bold text-sm text-slate-900 group-hover:text-sky-600 transition-colors line-clamp-2">
+                      {vid.title}
+                    </h4>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                      <Play className="w-3 h-3 fill-sky-600 text-sky-600" />
+                      <span>Jeda Otomatis Kuis</span>
+                    </span>
+                    <span className="text-xs font-bold text-sky-600 group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                      <span>Tonton & Jawab</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Published Materials from Teacher */}
       {publishedMaterials.length > 0 ? (
         <div className="space-y-4 pt-2">
@@ -135,7 +201,8 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {publishedMaterials.map((mat) => {
-              const sub = subjects.find((s) => s.id?.toLowerCase() === mat.subjectId?.toLowerCase());
+              const matSubStr = String(mat.subjectId || '').toLowerCase();
+              const sub = subjects.find((s) => String(s.id || '').toLowerCase() === matSubStr);
               return (
                 <div
                   key={mat.id}
@@ -145,7 +212,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
-                        {sub ? `${sub.icon} ${sub.name}` : mat.subjectId.toUpperCase()}
+                        {sub ? `${sub.icon || '📚'} ${sub.name}` : String(mat.subjectId || 'IPAS').toUpperCase()}
                       </span>
                       <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
                         ✓ Misi Aktif

@@ -23,29 +23,40 @@ import {
   getRemoteSubjects,
   createRemoteSubject,
   updateRemoteSubject,
+  deleteRemoteSubject,
   getRemoteVideos,
   createRemoteVideo,
   updateRemoteVideo,
+  deleteRemoteVideo,
   getRemoteMaterials,
   createRemoteMaterial,
+  deleteRemoteMaterial,
   getRemoteAssessments,
   createRemoteAssessment,
   updateRemoteAssessment,
+  deleteRemoteAssessment,
   getRemoteQuestions,
   createRemoteQuestion,
   updateRemoteQuestion,
+  deleteRemoteQuestion,
   getRemoteCodingChallenges,
   createRemoteCodingChallenge,
+  deleteRemoteCodingChallenge,
   getRemoteActivities,
   createRemoteActivity,
+  updateRemoteActivity,
+  deleteRemoteActivity,
   getRemoteClasses,
   createRemoteClass,
+  deleteRemoteClass,
   getRemoteAnnouncements,
   createRemoteAnnouncement,
+  deleteRemoteAnnouncement,
   getRemoteReflections,
   createRemoteReflection,
   getRemoteAITutorConfigs,
   createRemoteAITutorConfig,
+  deleteRemoteAITutorConfig,
   getRemoteSettings,
   createRemoteSetting,
   updateRemoteSetting,
@@ -53,6 +64,12 @@ import {
   fetchAppData,
   cleanupRemoteDuplicates,
 } from '../services/appscript';
+import {
+  isRecordDeleted,
+  markRecordDeletedClient,
+  unmarkRecordDeletedClient,
+  syncDeletedRecordsWithServer,
+} from '../services/storageService';
 
 export const INITIAL_BADGES: Badge[] = [
   {
@@ -117,7 +134,139 @@ export const DEFAULT_STUDENT_PROGRESS: StudentProgress = {
 };
 
 export const INITIAL_SUBJECTS: Subject[] = [];
-export const INITIAL_VIDEOS: InteractiveVideo[] = [];
+export const INITIAL_VIDEOS: InteractiveVideo[] = [
+  {
+    id: 'vid-ipas-1',
+    title: 'Rantai Makanan & Jaring-Jaring Makanan Ekosistem Sawah',
+    subjectId: 'ipas',
+    videoUrl: 'https://www.youtube.com/watch?v=LqgYLUaigYU',
+    grade: 5,
+    checkpointsCount: 3,
+    checkpoints: [
+      {
+        id: 'cp-ipas-1',
+        timeInSeconds: 35,
+        question: 'Dalam rantai makanan di ekosistem sawah, tanaman padi berperan sebagai apa?',
+        type: 'mc',
+        options: [
+          'Produsen (Penghasil Makanan Sendiri)',
+          'Konsumen Tingkat I (Herbivora)',
+          'Konsumen Tingkat II (Karnivora)',
+          'Dekomposer (Pengurai)'
+        ],
+        correctAnswer: 0,
+        explanation: 'Tanaman padi memiliki klorofil dan memanfaatkan sinar matahari untuk fotosintesis, sehingga bertindak sebagai Produsen utama.'
+      },
+      {
+        id: 'cp-ipas-2',
+        timeInSeconds: 75,
+        question: 'Jika populasi ular sawah diburu hingga habis, apa dampak langsung bagi petani?',
+        type: 'mc',
+        options: [
+          'Tanaman padi tumbuh lebih subur',
+          'Populasi tikus melonjak tajam dan merusak tanaman padi',
+          'Katak sawah bertambah sedikit',
+          'Tidak ada dampak sama sekali pada ekosistem'
+        ],
+        correctAnswer: 1,
+        explanation: 'Ular adalah predator alami tikus. Tanpa ular, tikus berkembang biak sangat cepat dan menjadi hama perusak tanaman padi petani.'
+      },
+      {
+        id: 'cp-ipas-3',
+        timeInSeconds: 120,
+        question: 'Apa fungsi jamur dan bakteri pengurai pada akhir siklus rantai makanan?',
+        type: 'mc',
+        options: [
+          'Memangsa hewan yang masih hidup',
+          'Mengurangi kesuburan tanah sawah',
+          'Menguraikan sisa makhluk hidup menjadi zat hara penyubur tanah',
+          'Menghalangi pertumbuhan tanaman baru'
+        ],
+        correctAnswer: 2,
+        explanation: 'Dekomposer (pengurai) bertugas membusukkan materi organik sisa menjadi unsur hara yang kembali diserap oleh tanaman produsen.'
+      }
+    ],
+    createdAt: '2026-10-07T00:00:00.000Z'
+  },
+  {
+    id: 'vid-1791121258381',
+    title: 'Harmoni dalam Ekosistem Hutan Tropis',
+    subjectId: 'ipas',
+    videoUrl: 'https://youtu.be/GyUbwk9uqzM?si=WsY9RdghEg5fam0Y',
+    grade: 5,
+    checkpointsCount: 2,
+    checkpoints: [
+      {
+        id: 'cp-hutan-1',
+        timeInSeconds: 30,
+        question: 'Mengapa hutan hujan tropis dijuluki sebagai paru-paru dunia?',
+        type: 'mc',
+        options: [
+          'Karena memiliki curah hujan sangat tinggi sepanjang tahun',
+          'Karena pepohonan lebat menghasilkan oksigen melimpah dan menyerap karbon dioksida',
+          'Karena merupakan habitat hewan karnivora terbesar',
+          'Karena tidak pernah terkena sinar matahari'
+        ],
+        correctAnswer: 1,
+        explanation: 'Proses fotosintesis vegetasi pohon di hutan tropis menghasilkan pasokan oksigen global yang sangat masif bagi bumi.'
+      },
+      {
+        id: 'cp-hutan-2',
+        timeInSeconds: 65,
+        question: 'Hubungan saling menguntungkan antara lebah dan bunga tanaman hutan disebut simbiosis apa?',
+        type: 'mc',
+        options: [
+          'Mutualisme (Keduanya saling diuntungkan)',
+          'Komensalisme (Satu untung, satu tidak rugi)',
+          'Parasitisme (Satu untung, satu dirugikan)',
+          'Predasi (Hubungan mangsa dan pemangsa)'
+        ],
+        correctAnswer: 0,
+        explanation: 'Lebah mendapatkan nektar manis dari bunga, sementara bunga terbantu proses penyerbukannya oleh lebah (simbiosis mutualisme).'
+      }
+    ],
+    createdAt: '2026-10-07T00:00:00.000Z'
+  },
+  {
+    id: 'vid-math-kpk',
+    title: 'Konsep Menyenangkan KPK dan FPB dalam Kehidupan Sehari-hari',
+    subjectId: 'matematika',
+    videoUrl: 'https://www.youtube.com/watch?v=k_lP21R_q3M',
+    grade: 5,
+    checkpointsCount: 2,
+    checkpoints: [
+      {
+        id: 'cp-kpk-1',
+        timeInSeconds: 30,
+        question: 'Lampu merah menyala tiap 4 detik dan lampu kuning tiap 6 detik. Kapan keduanya menyala serentak pertama kali?',
+        type: 'mc',
+        options: [
+          'Detik ke-10',
+          'Detik ke-12 (KPK dari 4 dan 6)',
+          'Detik ke-24',
+          'Detik ke-18'
+        ],
+        correctAnswer: 1,
+        explanation: 'Kelipatan 4: 4, 8, 12... dan kelipatan 6: 6, 12... Kelipatan Persekutuan Terkecilnya (KPK) adalah pada detik ke-12.'
+      },
+      {
+        id: 'cp-fpb-2',
+        timeInSeconds: 80,
+        question: 'Ibu membagi 12 kue donat dan 18 kue bolu ke piring sama rata tanpa sisa. Berapa piring terbanyak yang dibutuhkan?',
+        type: 'mc',
+        options: [
+          '6 Piring (FPB dari 12 dan 18)',
+          '4 Piring',
+          '3 Piring',
+          '12 Piring'
+        ],
+        correctAnswer: 0,
+        explanation: 'Faktor persekutuan terbesar (FPB) dari 12 dan 18 adalah 6. Setiap piring berisi 2 donat dan 3 bolu.'
+      }
+    ],
+    createdAt: '2026-10-07T00:00:00.000Z'
+  }
+];
 export const INITIAL_ACTIVITIES: InteractiveActivity[] = [];
 export const INITIAL_QUESTION_BANK: QuestionBankItem[] = [];
 export const INITIAL_ASSESSMENTS: Assessment[] = [];
@@ -229,7 +378,8 @@ export function getStoredSubjects(): Subject[] {
     if (data) {
       const parsed: Subject[] = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        return deduplicateSubjects(parsed);
+        const active = parsed.filter((s) => s && s.id && !isRecordDeleted('subjects', s.id) && (s.status as any) !== 'DELETED');
+        return deduplicateSubjects(active);
       }
     }
   } catch (e) {
@@ -240,9 +390,18 @@ export function getStoredSubjects(): Subject[] {
 
 export function saveSubjects(subjects: Subject[]): void {
   try {
-    const cleaned = deduplicateSubjects(subjects);
+    const cleaned = deduplicateSubjects(subjects).filter((s) => !isRecordDeleted('subjects', s.id));
     localStorage.setItem('prima_subjects', JSON.stringify(cleaned));
+
+    // Persist to Server JSON Database (/api/subjects)
+    fetch('/api/subjects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subjects: cleaned }),
+    }).catch(() => {});
+
     cleaned.forEach((sub) => {
+      unmarkRecordDeletedClient('subjects', sub.id);
       updateRemoteSubject({
         id: sub.id,
         name: sub.name,
@@ -257,6 +416,16 @@ export function saveSubjects(subjects: Subject[]): void {
   } catch (e) {
     console.error('Error saving subjects to localStorage', e);
   }
+}
+
+export function deleteSubject(id: string): void {
+  markRecordDeletedClient('subjects', id);
+  const current = getStoredSubjects();
+  const filtered = current.filter((s) => s.id !== id);
+  localStorage.setItem('prima_subjects', JSON.stringify(filtered));
+
+  fetch(`/api/subjects/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+  deleteRemoteSubject({ id }).catch(() => {});
 }
 
 export async function organizeAndCleanAllSubjects(): Promise<{ subjects: Subject[]; duplicatesRemoved: number }> {
@@ -290,9 +459,12 @@ export async function organizeAndCleanAllSubjects(): Promise<{ subjects: Subject
 
 export async function syncSubjectsWithGAS(): Promise<Subject[]> {
   try {
+    await syncDeletedRecordsWithServer().catch(() => {});
     const remote = await getRemoteSubjects();
     if (remote && Array.isArray(remote)) {
-      const validRemote = remote.filter((s: any) => s && (s.id || s.name));
+      const validRemote = remote.filter(
+        (s: any) => s && (s.id || s.name) && !isRecordDeleted('subjects', s.id) && s.status !== 'DELETED'
+      );
       const dedupedRemote = deduplicateSubjects(validRemote as any);
       localStorage.setItem('prima_subjects', JSON.stringify(dedupedRemote));
       return dedupedRemote;
@@ -304,105 +476,210 @@ export async function syncSubjectsWithGAS(): Promise<Subject[]> {
 }
 
 // ==================== VIDEOS ====================
+export function parseCheckpoints(raw: any): VideoCheckpoint[] {
+  if (!raw) return [];
+  let list = raw;
+  if (typeof raw === 'string') {
+    try {
+      list = JSON.parse(raw);
+    } catch (e) {
+      return [];
+    }
+  }
+  if (!Array.isArray(list)) return [];
+  return list.map((cp, idx) => ({
+    id: cp?.id || `cp-${idx}-${Date.now()}`,
+    timeInSeconds: Math.max(1, Number(cp?.timeInSeconds) || 30),
+    question: String(cp?.question || '').trim(),
+    type: 'mc' as const,
+    options: Array.isArray(cp?.options)
+      ? cp.options.map(String)
+      : (typeof cp?.options === 'string' ? JSON.parse(cp.options || '[]') : ['Pilihan A', 'Pilihan B']),
+    correctAnswer: Math.max(0, Number(cp?.correctAnswer) || 0),
+    explanation: String(cp?.explanation || 'Jawaban Anda telah dicatat.').trim(),
+  })).filter((cp) => cp.question !== '');
+}
+
+export function sanitizeVideosList(videos: any[]): InteractiveVideo[] {
+  if (!Array.isArray(videos)) return [];
+  const seenIds = new Set<string>();
+  const cleanVideos: InteractiveVideo[] = [];
+
+  videos.filter(Boolean).forEach((v, idx) => {
+    const vidId = v.id || `vid-${Date.now()}-${idx}`;
+    if (seenIds.has(vidId)) return;
+    seenIds.add(vidId);
+
+    const cps = parseCheckpoints(v.checkpoints);
+    cleanVideos.push({
+      id: vidId,
+      title: v.title || 'Video Pembelajaran',
+      subjectId: v.subjectId || v.subjectid || 'ipas',
+      videoUrl: v.videoUrl || '',
+      grade: v.grade !== undefined && !isNaN(Number(v.grade)) ? Number(v.grade) : 5,
+      checkpointsCount: cps.length,
+      checkpoints: cps,
+      createdAt: v.createdAt || new Date().toISOString(),
+    });
+  });
+
+  return cleanVideos;
+}
+
 export function getStoredVideos(): InteractiveVideo[] {
   try {
     const data = localStorage.getItem('prima_interactive_videos');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) {
-        return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const active = parsed.filter((v) => v && v.id && !isRecordDeleted('videos', v.id));
+        return sanitizeVideosList(active);
       }
     }
   } catch (e) {
     console.error('Error reading videos from localStorage', e);
   }
-  return [];
+  return INITIAL_VIDEOS.filter((v) => !isRecordDeleted('videos', v.id));
 }
 
 export function saveVideos(videos: InteractiveVideo[]): void {
   try {
-    const seenIds = new Set<string>();
-    const cleanVideos: InteractiveVideo[] = [];
+    const cleanVideos = sanitizeVideosList(videos).filter((v) => !isRecordDeleted('videos', v.id));
+    localStorage.setItem('prima_interactive_videos', JSON.stringify(cleanVideos));
 
-    (videos || []).filter(Boolean).forEach((v) => {
-      const vidId = v.id || `vid-${Date.now()}`;
-      if (seenIds.has(vidId)) return;
-      seenIds.add(vidId);
-
-      const cps = Array.isArray(v.checkpoints) ? v.checkpoints : [];
-      cleanVideos.push({
-        ...v,
-        id: vidId,
-        title: v.title || 'Video Pembelajaran',
-        subjectId: v.subjectId || 'ipas',
-        videoUrl: v.videoUrl || '',
-        grade: v.grade !== undefined ? Number(v.grade) : 5,
-        checkpointsCount: cps.length || Number(v.checkpointsCount) || 0,
-        checkpoints: cps,
-        createdAt: v.createdAt || new Date().toISOString(),
-      });
+    // Persist to Server JSON Database (/api/videos)
+    fetch('/api/videos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ videos: cleanVideos }),
+    }).catch((err) => {
+      console.warn('[Server DB] saveVideos sync warning:', err);
     });
 
-    localStorage.setItem('prima_interactive_videos', JSON.stringify(cleanVideos));
+    // Asynchronously push each video to Google Apps Script Spreadsheet
     cleanVideos.forEach((vid) => {
-      createRemoteVideo({
+      unmarkRecordDeletedClient('videos', vid.id);
+      const payload = {
         id: vid.id,
         title: vid.title,
         subjectId: vid.subjectId,
+        subjectid: vid.subjectId,
         videoUrl: vid.videoUrl,
         grade: vid.grade,
         checkpointsCount: vid.checkpointsCount,
         checkpoints: JSON.stringify(vid.checkpoints || []),
         createdAt: vid.createdAt,
-      }).catch(() => {});
+      };
+
+      // Push to Google Sheets via GAS (updateRemoteVideo updates existing or appends if new)
+      updateRemoteVideo(payload).catch((err) => {
+        console.warn('[GAS Sync] Failed to push video to Google Sheets:', err);
+      });
     });
   } catch (e) {
     console.error('Error saving videos to localStorage', e);
   }
 }
 
+export function deleteVideo(id: string): void {
+  markRecordDeletedClient('videos', id);
+  const current = getStoredVideos();
+  const filtered = current.filter((v) => v.id !== id);
+  localStorage.setItem('prima_interactive_videos', JSON.stringify(filtered));
+
+  fetch(`/api/videos/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+  deleteRemoteVideo({ id }).catch(() => {});
+}
+
 export async function syncVideosWithGAS(): Promise<InteractiveVideo[]> {
+  await syncDeletedRecordsWithServer().catch(() => {});
+  const currentLocal = getStoredVideos();
+  const localMap = new Map<string, InteractiveVideo>();
+  currentLocal.forEach((v) => {
+    if (v && v.id && !isRecordDeleted('videos', v.id)) {
+      localMap.set(v.id, v);
+      if (v.videoUrl) localMap.set(v.videoUrl, v);
+    }
+  });
+
+  // 1. Fetch from server-side database first
+  try {
+    const sRes = await fetch('/api/videos');
+    if (sRes.ok) {
+      const sData = await sRes.json();
+      if (sData.success && Array.isArray(sData.videos) && sData.videos.length > 0) {
+        const serverVideos = sanitizeVideosList(sData.videos);
+        serverVideos.forEach((sv) => {
+          if (sv && sv.id && !isRecordDeleted('videos', sv.id)) {
+            localMap.set(sv.id, sv);
+            if (sv.videoUrl) localMap.set(sv.videoUrl, sv);
+          }
+        });
+      }
+    }
+  } catch (sErr) {
+    console.warn('[Sync] Failed to fetch server videos:', sErr);
+  }
+
+  // 2. Fetch from Google Apps Script Spreadsheet
   try {
     const remote = await getRemoteVideos();
-    if (remote && Array.isArray(remote)) {
-      const validRemote = remote.filter((v: any) => v && (v.id || v.title));
-      const seenIds = new Set<string>();
-      const cleanList: InteractiveVideo[] = [];
+    if (remote && Array.isArray(remote) && remote.length > 0) {
+      const validRemote = remote.filter((v: any) => v && (v.id || v.title || v.videoUrl) && !isRecordDeleted('videos', v.id));
 
       validRemote.forEach((r: any) => {
-        const vidId = r.id || `vid-${Date.now()}-${cleanList.length}`;
-        if (seenIds.has(vidId)) return;
-        seenIds.add(vidId);
+        const vidId = r.id || `vid-${Date.now()}`;
+        if (isRecordDeleted('videos', vidId)) return;
+        const existing = localMap.get(vidId) || (r.videoUrl ? localMap.get(r.videoUrl) : undefined);
 
-        let parsedCheckpoints: VideoCheckpoint[] = [];
-        if (Array.isArray(r.checkpoints)) {
-          parsedCheckpoints = r.checkpoints;
-        } else if (typeof r.checkpoints === 'string') {
-          try {
-            const p = JSON.parse(r.checkpoints);
-            if (Array.isArray(p)) parsedCheckpoints = p;
-          } catch (e) {}
+        let parsedCps = parseCheckpoints(r.checkpoints);
+        // CRITICAL PROTECTION: If remote sheet has NO checkpoints, but local/server has checkpoints, PRESERVE THEM!
+        if (parsedCps.length === 0 && existing && Array.isArray(existing.checkpoints) && existing.checkpoints.length > 0) {
+          parsedCps = existing.checkpoints;
         }
 
-        cleanList.push({
+        const mergedVideo: InteractiveVideo = {
           id: vidId,
-          title: r.title || 'Video Interaktif',
-          subjectId: r.subjectId || 'ipas',
-          videoUrl: r.videoUrl || '',
-          grade: r.grade !== undefined ? Number(r.grade) : 5,
-          checkpointsCount: parsedCheckpoints.length || Number(r.checkpointsCount) || 0,
-          checkpoints: parsedCheckpoints,
-          createdAt: r.createdAt || new Date().toISOString(),
-        });
-      });
+          title: r.title || existing?.title || 'Video Interaktif',
+          subjectId: r.subjectId || r.subjectid || existing?.subjectId || 'ipas',
+          videoUrl: r.videoUrl || existing?.videoUrl || '',
+          grade: r.grade !== undefined && !isNaN(Number(r.grade)) ? Number(r.grade) : (existing?.grade || 5),
+          checkpointsCount: parsedCps.length,
+          checkpoints: parsedCps,
+          createdAt: r.createdAt || existing?.createdAt || new Date().toISOString(),
+        };
 
-      localStorage.setItem('prima_interactive_videos', JSON.stringify(cleanList));
-      return cleanList;
+        localMap.set(vidId, mergedVideo);
+        if (mergedVideo.videoUrl) localMap.set(mergedVideo.videoUrl, mergedVideo);
+      });
     }
   } catch (err) {
-    console.warn('[Sync] Failed to sync videos with Google Apps Script', err);
+    console.warn('[Sync] Failed to sync videos with Google Apps Script:', err);
   }
-  return getStoredVideos();
+
+  // Deduplicate and get clean unique list
+  const seenIds = new Set<string>();
+  const mergedList: InteractiveVideo[] = [];
+  localMap.forEach((v) => {
+    if (!v || !v.id) return;
+    if (isRecordDeleted('videos', v.id)) return;
+    if (seenIds.has(v.id)) return;
+    seenIds.add(v.id);
+    mergedList.push(v);
+  });
+
+  const finalList = mergedList.length > 0 ? mergedList : (INITIAL_VIDEOS.length > 0 ? INITIAL_VIDEOS.filter((v) => !isRecordDeleted('videos', v.id)) : currentLocal);
+
+  try {
+    localStorage.setItem('prima_interactive_videos', JSON.stringify(finalList));
+    fetch('/api/videos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ videos: finalList }),
+    }).catch(() => {});
+  } catch (e) {}
+
+  return finalList;
 }
 
 // ==================== MATERIALS ====================
@@ -411,7 +688,9 @@ export function getStoredMaterials(): Material[] {
     const data = localStorage.getItem('prima_materials');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((m) => m && m.id && !isRecordDeleted('materials', m.id) && m.status !== 'DELETED');
+      }
     }
   } catch (e) {
     console.error('Error reading materials from localStorage', e);
@@ -421,8 +700,18 @@ export function getStoredMaterials(): Material[] {
 
 export function saveMaterials(materials: Material[]): void {
   try {
-    localStorage.setItem('prima_materials', JSON.stringify(materials));
-    materials.forEach((mat) => {
+    const cleanList = materials.filter((m) => m && m.id && !isRecordDeleted('materials', m.id));
+    localStorage.setItem('prima_materials', JSON.stringify(cleanList));
+
+    // Persist to Server JSON Database (/api/materials)
+    fetch('/api/materials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ materials: cleanList }),
+    }).catch(() => {});
+
+    cleanList.forEach((mat) => {
+      unmarkRecordDeletedClient('materials', mat.id);
       const payload = {
         id: mat.id,
         subjectId: mat.subjectId,
@@ -444,26 +733,65 @@ export function saveMaterials(materials: Material[]): void {
   }
 }
 
+export function deleteMaterial(id: string): void {
+  markRecordDeletedClient('materials', id);
+  const current = getStoredMaterials();
+  const filtered = current.filter((m) => m.id !== id);
+  localStorage.setItem('prima_materials', JSON.stringify(filtered));
+
+  fetch(`/api/materials/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+  deleteRemoteMaterial({ id }).catch(() => {});
+}
+
 export async function syncMaterialsWithGAS(): Promise<Material[]> {
   try {
+    await syncDeletedRecordsWithServer().catch(() => {});
+
+    // Try server first
+    const map = new Map<string, Material>();
+    getStoredMaterials().forEach((m) => {
+      if (m && m.id && !isRecordDeleted('materials', m.id)) map.set(m.id, m);
+    });
+
+    try {
+      const sRes = await fetch('/api/materials');
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        if (sData.success && Array.isArray(sData.materials)) {
+          sData.materials.forEach((sm: any) => {
+            if (sm && sm.id && !isRecordDeleted('materials', sm.id) && sm.status !== 'DELETED') {
+              map.set(sm.id, sm);
+            }
+          });
+        }
+      }
+    } catch {}
+
     const remote = await getRemoteMaterials();
     if (remote && Array.isArray(remote)) {
-      const valid = remote.filter((m: any) => m && (m.id || m.topicTitle));
-      const cleanList: Material[] = valid.map((m: any) => ({
-        id: m.id || `mat-${Date.now()}`,
-        subjectId: m.subjectId || 'ipas',
-        grade: Number(m.grade) || 5,
-        topicTitle: m.topicTitle || 'Materi Pembelajaran',
-        learningObjectives: m.learningObjectives || '',
-        description: m.description || '',
-        contentBody: m.contentBody || '',
-        mediaType: m.mediaType || 'DOCUMENT',
-        mediaUrl: m.mediaUrl || '',
-        status: m.status || 'TERBIT',
-        createdAt: m.createdAt || new Date().toISOString(),
-      }));
-      localStorage.setItem('prima_materials', JSON.stringify(cleanList));
-      return cleanList;
+      const valid = remote.filter((m: any) => m && (m.id || m.topicTitle) && !isRecordDeleted('materials', m.id) && m.status !== 'DELETED');
+      valid.forEach((m: any) => {
+        const id = m.id || `mat-${Date.now()}`;
+        if (isRecordDeleted('materials', id)) return;
+        const cleanMat: Material = {
+          id,
+          subjectId: m.subjectId || 'ipas',
+          grade: Number(m.grade) || 5,
+          topicTitle: m.topicTitle || 'Materi Pembelajaran',
+          learningObjectives: m.learningObjectives || '',
+          description: m.description || '',
+          contentBody: m.contentBody || '',
+          mediaType: m.mediaType || 'DOCUMENT',
+          mediaUrl: m.mediaUrl || '',
+          status: m.status || 'TERBIT',
+          createdAt: m.createdAt || new Date().toISOString(),
+        };
+        map.set(id, cleanMat);
+      });
+
+      const finalMaterials = Array.from(map.values()).filter((m) => !isRecordDeleted('materials', m.id));
+      localStorage.setItem('prima_materials', JSON.stringify(finalMaterials));
+      return finalMaterials;
     }
   } catch (err) {
     console.warn('[Sync] Failed to sync materials with Google Apps Script', err);
@@ -477,7 +805,9 @@ export function getStoredQuestionBank(): QuestionBankItem[] {
     const data = localStorage.getItem('prima_question_bank');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((q) => q && q.id && !isRecordDeleted('questions', q.id));
+      }
     }
   } catch (e) {
     console.error('Error reading question bank', e);
@@ -487,8 +817,18 @@ export function getStoredQuestionBank(): QuestionBankItem[] {
 
 export function saveQuestionBank(questions: QuestionBankItem[]): void {
   try {
-    localStorage.setItem('prima_question_bank', JSON.stringify(questions));
-    questions.forEach((q) => {
+    const cleanList = questions.filter((q) => q && q.id && !isRecordDeleted('questions', q.id));
+    localStorage.setItem('prima_question_bank', JSON.stringify(cleanList));
+
+    // Persist to Server JSON Database (/api/questions)
+    fetch('/api/questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questions: cleanList }),
+    }).catch(() => {});
+
+    cleanList.forEach((q) => {
+      unmarkRecordDeletedClient('questions', q.id);
       const payload = {
         id: q.id,
         subjectId: q.subjectId,
@@ -512,12 +852,45 @@ export function saveQuestionBank(questions: QuestionBankItem[]): void {
   }
 }
 
+export function deleteQuestion(id: string): void {
+  markRecordDeletedClient('questions', id);
+  const current = getStoredQuestionBank();
+  const filtered = current.filter((q) => q.id !== id);
+  localStorage.setItem('prima_question_bank', JSON.stringify(filtered));
+
+  fetch(`/api/questions/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+  deleteRemoteQuestion({ id }).catch(() => {});
+}
+
 export async function syncQuestionsWithGAS(): Promise<QuestionBankItem[]> {
   try {
+    await syncDeletedRecordsWithServer().catch(() => {});
+
+    const map = new Map<string, QuestionBankItem>();
+    getStoredQuestionBank().forEach((q) => {
+      if (q && q.id && !isRecordDeleted('questions', q.id)) map.set(q.id, q);
+    });
+
+    try {
+      const sRes = await fetch('/api/questions');
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        if (sData.success && Array.isArray(sData.questions)) {
+          sData.questions.forEach((sq: any) => {
+            if (sq && sq.id && !isRecordDeleted('questions', sq.id)) {
+              map.set(sq.id, sq);
+            }
+          });
+        }
+      }
+    } catch {}
+
     const remote = await getRemoteQuestions();
     if (remote && Array.isArray(remote)) {
-      const valid = remote.filter((q: any) => q && (q.id || q.questionText));
-      const cleanList: QuestionBankItem[] = valid.map((q: any) => {
+      const valid = remote.filter((q: any) => q && (q.id || q.questionText) && !isRecordDeleted('questions', q.id));
+      valid.forEach((q: any) => {
+        const id = q.id || `qb-${Date.now()}`;
+        if (isRecordDeleted('questions', id)) return;
         let opts = q.options;
         if (typeof opts === 'string') {
           try { opts = JSON.parse(opts); } catch (e) { opts = []; }
@@ -531,8 +904,8 @@ export async function syncQuestionsWithGAS(): Promise<QuestionBankItem[]> {
           try { stmts = JSON.parse(stmts); } catch (e) { stmts = []; }
         }
 
-        return {
-          id: q.id || `qb-${Date.now()}`,
+        map.set(id, {
+          id,
           subjectId: q.subjectId || 'ipas',
           grade: Number(q.grade) || 5,
           type: q.type || 'PG',
@@ -544,10 +917,12 @@ export async function syncQuestionsWithGAS(): Promise<QuestionBankItem[]> {
           correctAnswers: Array.isArray(correctAnswers) ? correctAnswers : [],
           statements: Array.isArray(stmts) ? stmts : [],
           explanation: q.explanation || '',
-        };
+        });
       });
-      localStorage.setItem('prima_question_bank', JSON.stringify(cleanList));
-      return cleanList;
+
+      const finalQuestions = Array.from(map.values()).filter((q) => !isRecordDeleted('questions', q.id));
+      localStorage.setItem('prima_question_bank', JSON.stringify(finalQuestions));
+      return finalQuestions;
     }
   } catch (err) {
     console.warn('[Sync] Failed to sync questions with Google Apps Script', err);
@@ -561,7 +936,9 @@ export function getStoredAssessments(): Assessment[] {
     const data = localStorage.getItem('prima_assessments');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((a) => a && a.id && !isRecordDeleted('assessments', a.id) && a.status !== 'DELETED');
+      }
     }
   } catch (e) {
     console.error('Error reading assessments', e);
@@ -571,8 +948,18 @@ export function getStoredAssessments(): Assessment[] {
 
 export function saveAssessments(assessments: Assessment[]): void {
   try {
-    localStorage.setItem('prima_assessments', JSON.stringify(assessments));
-    assessments.forEach((ass) => {
+    const cleanList = assessments.filter((a) => a && a.id && !isRecordDeleted('assessments', a.id));
+    localStorage.setItem('prima_assessments', JSON.stringify(cleanList));
+
+    // Persist to Server JSON Database (/api/assessments)
+    fetch('/api/assessments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assessments: cleanList }),
+    }).catch(() => {});
+
+    cleanList.forEach((ass) => {
+      unmarkRecordDeletedClient('assessments', ass.id);
       const payload = {
         id: ass.id,
         title: ass.title,
@@ -598,18 +985,51 @@ export function saveAssessments(assessments: Assessment[]): void {
   }
 }
 
+export function deleteAssessment(id: string): void {
+  markRecordDeletedClient('assessments', id);
+  const current = getStoredAssessments();
+  const filtered = current.filter((a) => a.id !== id);
+  localStorage.setItem('prima_assessments', JSON.stringify(filtered));
+
+  fetch(`/api/assessments/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+  deleteRemoteAssessment({ id }).catch(() => {});
+}
+
 export async function syncAssessmentsWithGAS(): Promise<Assessment[]> {
   try {
+    await syncDeletedRecordsWithServer().catch(() => {});
+
+    const map = new Map<string, Assessment>();
+    getStoredAssessments().forEach((a) => {
+      if (a && a.id && !isRecordDeleted('assessments', a.id)) map.set(a.id, a);
+    });
+
+    try {
+      const sRes = await fetch('/api/assessments');
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        if (sData.success && Array.isArray(sData.assessments)) {
+          sData.assessments.forEach((sa: any) => {
+            if (sa && sa.id && !isRecordDeleted('assessments', sa.id) && sa.status !== 'DELETED') {
+              map.set(sa.id, sa);
+            }
+          });
+        }
+      }
+    } catch {}
+
     const remote = await getRemoteAssessments();
     if (remote && Array.isArray(remote)) {
-      const valid = remote.filter((a: any) => a && (a.id || a.title));
-      const cleanList: Assessment[] = valid.map((a: any) => {
+      const valid = remote.filter((a: any) => a && (a.id || a.title) && !isRecordDeleted('assessments', a.id) && a.status !== 'DELETED');
+      valid.forEach((a: any) => {
+        const id = a.id || `ass-${Date.now()}`;
+        if (isRecordDeleted('assessments', id)) return;
         let qs = a.questions;
         if (typeof qs === 'string') {
           try { qs = JSON.parse(qs); } catch (e) { qs = []; }
         }
-        return {
-          id: a.id || `ass-${Date.now()}`,
+        map.set(id, {
+          id,
           title: a.title || 'Asesmen Formatif',
           subjectId: a.subjectId || 'ipas',
           grade: Number(a.grade) || 5,
@@ -623,10 +1043,12 @@ export async function syncAssessmentsWithGAS(): Promise<Assessment[]> {
           showExplanation: a.showExplanation !== false,
           status: a.status || 'AKTIF',
           questions: Array.isArray(qs) ? qs : [],
-        };
+        });
       });
-      localStorage.setItem('prima_assessments', JSON.stringify(cleanList));
-      return cleanList;
+
+      const finalAssessments = Array.from(map.values()).filter((a) => !isRecordDeleted('assessments', a.id));
+      localStorage.setItem('prima_assessments', JSON.stringify(finalAssessments));
+      return finalAssessments;
     }
   } catch (err) {
     console.warn('[Sync] Failed to sync assessments with Google Apps Script', err);
@@ -640,7 +1062,9 @@ export function getStoredCodingChallenges(): CodingChallengeItem[] {
     const data = localStorage.getItem('prima_coding_challenges');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((c) => c && c.id && !isRecordDeleted('coding', c.id));
+      }
     }
   } catch (e) {
     console.error('Error reading coding challenges from localStorage', e);
@@ -650,8 +1074,18 @@ export function getStoredCodingChallenges(): CodingChallengeItem[] {
 
 export function saveCodingChallenges(challenges: CodingChallengeItem[]): void {
   try {
-    localStorage.setItem('prima_coding_challenges', JSON.stringify(challenges));
-    challenges.forEach((ch) => {
+    const cleanList = challenges.filter((c) => c && c.id && !isRecordDeleted('coding', c.id));
+    localStorage.setItem('prima_coding_challenges', JSON.stringify(cleanList));
+
+    // Persist to Server JSON Database (/api/coding)
+    fetch('/api/coding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coding: cleanList }),
+    }).catch(() => {});
+
+    cleanList.forEach((ch) => {
+      unmarkRecordDeletedClient('coding', ch.id);
       const payload = {
         id: ch.id,
         title: ch.title,
@@ -675,12 +1109,45 @@ export function saveCodingChallenges(challenges: CodingChallengeItem[]): void {
   }
 }
 
+export function deleteCodingChallenge(id: string): void {
+  markRecordDeletedClient('coding', id);
+  const current = getStoredCodingChallenges();
+  const filtered = current.filter((c) => c.id !== id);
+  localStorage.setItem('prima_coding_challenges', JSON.stringify(filtered));
+
+  fetch(`/api/coding/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+  deleteRemoteCodingChallenge({ id }).catch(() => {});
+}
+
 export async function syncCodingChallengesWithGAS(): Promise<CodingChallengeItem[]> {
   try {
+    await syncDeletedRecordsWithServer().catch(() => {});
+
+    const map = new Map<string, CodingChallengeItem>();
+    getStoredCodingChallenges().forEach((c) => {
+      if (c && c.id && !isRecordDeleted('coding', c.id)) map.set(c.id, c);
+    });
+
+    try {
+      const sRes = await fetch('/api/coding');
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        if (sData.success && Array.isArray(sData.coding)) {
+          sData.coding.forEach((sc: any) => {
+            if (sc && sc.id && !isRecordDeleted('coding', sc.id)) {
+              map.set(sc.id, sc);
+            }
+          });
+        }
+      }
+    } catch {}
+
     const remote = await getRemoteCodingChallenges();
     if (remote && Array.isArray(remote)) {
-      const valid = remote.filter((c: any) => c && (c.id || c.title));
-      const cleanList: CodingChallengeItem[] = valid.map((c: any) => {
+      const valid = remote.filter((c: any) => c && (c.id || c.title) && !isRecordDeleted('coding', c.id));
+      valid.forEach((c: any) => {
+        const id = c.id || `cod-${Date.now()}`;
+        if (isRecordDeleted('coding', id)) return;
         let startPos = c.startPos;
         if (typeof startPos === 'string') {
           try { startPos = JSON.parse(startPos); } catch (e) { startPos = { x: 0, y: 0 }; }
@@ -702,8 +1169,8 @@ export async function syncCodingChallengesWithGAS(): Promise<CodingChallengeItem
           try { expectedSequence = JSON.parse(expectedSequence); } catch (e) { expectedSequence = []; }
         }
 
-        return {
-          id: c.id || `cod-${Date.now()}`,
+        map.set(id, {
+          id,
           title: c.title || 'Tantangan Coding',
           subjectId: c.subjectId || 'ipas',
           allowedBlocksCount: Number(c.allowedBlocksCount) || 5,
@@ -715,10 +1182,12 @@ export async function syncCodingChallengesWithGAS(): Promise<CodingChallengeItem
           availableBlocks: Array.isArray(availableBlocks) ? availableBlocks : [],
           expectedSequence: Array.isArray(expectedSequence) ? expectedSequence : [],
           targetGoal: c.targetGoal || '',
-        };
+        });
       });
-      localStorage.setItem('prima_coding_challenges', JSON.stringify(cleanList));
-      return cleanList;
+
+      const finalChallenges = Array.from(map.values()).filter((c) => !isRecordDeleted('coding', c.id));
+      localStorage.setItem('prima_coding_challenges', JSON.stringify(finalChallenges));
+      return finalChallenges;
     }
   } catch (err) {
     console.warn('[Sync] Failed to sync coding challenges with GAS', err);
@@ -732,7 +1201,9 @@ export function getStoredActivities(): InteractiveActivity[] {
     const data = localStorage.getItem('prima_interactive_activities');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((a) => a && a.id && !isRecordDeleted('activities', a.id));
+      }
     }
   } catch (e) {
     console.error('Error reading activities', e);
@@ -742,8 +1213,18 @@ export function getStoredActivities(): InteractiveActivity[] {
 
 export function saveActivities(activities: InteractiveActivity[]): void {
   try {
-    localStorage.setItem('prima_interactive_activities', JSON.stringify(activities));
-    activities.forEach((act) => {
+    const cleanList = activities.filter((a) => a && a.id && !isRecordDeleted('activities', a.id));
+    localStorage.setItem('prima_interactive_activities', JSON.stringify(cleanList));
+
+    // Persist to Server JSON Database (/api/activities)
+    fetch('/api/activities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activities: cleanList }),
+    }).catch(() => {});
+
+    cleanList.forEach((act) => {
+      unmarkRecordDeletedClient('activities', act.id);
       const payload = {
         id: act.id,
         title: act.title,
@@ -764,18 +1245,51 @@ export function saveActivities(activities: InteractiveActivity[]): void {
   }
 }
 
+export function deleteActivity(id: string): void {
+  markRecordDeletedClient('activities', id);
+  const current = getStoredActivities();
+  const filtered = current.filter((a) => a.id !== id);
+  localStorage.setItem('prima_interactive_activities', JSON.stringify(filtered));
+
+  fetch(`/api/activities/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+  deleteRemoteActivity({ id }).catch(() => {});
+}
+
 export async function syncActivitiesWithGAS(): Promise<InteractiveActivity[]> {
   try {
+    await syncDeletedRecordsWithServer().catch(() => {});
+
+    const map = new Map<string, InteractiveActivity>();
+    getStoredActivities().forEach((a) => {
+      if (a && a.id && !isRecordDeleted('activities', a.id)) map.set(a.id, a);
+    });
+
+    try {
+      const sRes = await fetch('/api/activities');
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        if (sData.success && Array.isArray(sData.activities)) {
+          sData.activities.forEach((sa: any) => {
+            if (sa && sa.id && !isRecordDeleted('activities', sa.id)) {
+              map.set(sa.id, sa);
+            }
+          });
+        }
+      }
+    } catch {}
+
     const remote = await getRemoteActivities();
     if (remote && Array.isArray(remote)) {
-      const valid = remote.filter((a: any) => a && (a.id || a.title));
-      const cleanList: InteractiveActivity[] = valid.map((a: any) => {
+      const valid = remote.filter((a: any) => a && (a.id || a.title) && !isRecordDeleted('activities', a.id));
+      valid.forEach((a: any) => {
+        const id = a.id || `act-${Date.now()}`;
+        if (isRecordDeleted('activities', id)) return;
         let config = a.config;
         if (typeof config === 'string') {
           try { config = JSON.parse(config); } catch (e) { config = {}; }
         }
-        return {
-          id: a.id || `act-${Date.now()}`,
+        map.set(id, {
+          id,
           title: a.title || 'Aktivitas Interaktif',
           subjectId: a.subjectId || 'ipas',
           type: a.type || 'SIMULATION',
@@ -783,10 +1297,12 @@ export async function syncActivitiesWithGAS(): Promise<InteractiveActivity[]> {
           points: Number(a.points) || 100,
           description: a.description || '',
           config: config || {},
-        };
+        });
       });
-      localStorage.setItem('prima_interactive_activities', JSON.stringify(cleanList));
-      return cleanList;
+
+      const finalActivities = Array.from(map.values()).filter((a) => !isRecordDeleted('activities', a.id));
+      localStorage.setItem('prima_interactive_activities', JSON.stringify(finalActivities));
+      return finalActivities;
     }
   } catch (err) {
     console.warn('[Sync] Failed to sync activities with GAS', err);
@@ -800,7 +1316,9 @@ export function getStoredClasses(): ClassRoom[] {
     const data = localStorage.getItem('prima_classes');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((c) => c && c.id && !isRecordDeleted('classes', c.id));
+      }
     }
   } catch (e) {}
   return [];
@@ -808,25 +1326,68 @@ export function getStoredClasses(): ClassRoom[] {
 
 export function saveClasses(classes: ClassRoom[]): void {
   try {
-    localStorage.setItem('prima_classes', JSON.stringify(classes));
-    classes.forEach((cls) => {
+    const cleanList = classes.filter((c) => c && c.id && !isRecordDeleted('classes', c.id));
+    localStorage.setItem('prima_classes', JSON.stringify(cleanList));
+
+    // Persist to Server JSON Database (/api/classes)
+    fetch('/api/classes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classes: cleanList }),
+    }).catch(() => {});
+
+    cleanList.forEach((cls) => {
+      unmarkRecordDeletedClient('classes', cls.id);
       createRemoteClass(cls).catch(() => {});
     });
   } catch (e) {}
 }
 
+export function deleteClass(id: string): void {
+  markRecordDeletedClient('classes', id);
+  const current = getStoredClasses();
+  const filtered = current.filter((c) => c.id !== id);
+  localStorage.setItem('prima_classes', JSON.stringify(filtered));
+
+  fetch(`/api/classes/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+  deleteRemoteClass({ id }).catch(() => {});
+}
+
 export async function syncClassesWithGAS(): Promise<ClassRoom[]> {
   try {
+    await syncDeletedRecordsWithServer().catch(() => {});
+
+    const map = new Map<string, ClassRoom>();
+    getStoredClasses().forEach((c) => {
+      if (c && c.id && !isRecordDeleted('classes', c.id)) map.set(c.id, c);
+    });
+
+    try {
+      const sRes = await fetch('/api/classes');
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        if (sData.success && Array.isArray(sData.classes)) {
+          sData.classes.forEach((sc: any) => {
+            if (sc && sc.id && !isRecordDeleted('classes', sc.id)) {
+              map.set(sc.id, sc);
+            }
+          });
+        }
+      }
+    } catch {}
+
     const remote = await getRemoteClasses();
     if (remote && Array.isArray(remote)) {
-      const valid = remote.filter((c: any) => c && (c.id || c.name));
-      const cleanList: ClassRoom[] = valid.map((c: any) => {
+      const valid = remote.filter((c: any) => c && (c.id || c.name) && !isRecordDeleted('classes', c.id));
+      valid.forEach((c: any) => {
+        const id = c.id || `cls-${Date.now()}`;
+        if (isRecordDeleted('classes', id)) return;
         let studentIds = c.studentIds;
         if (typeof studentIds === 'string') {
           try { studentIds = JSON.parse(studentIds); } catch (e) { studentIds = []; }
         }
-        return {
-          id: c.id || `cls-${Date.now()}`,
+        map.set(id, {
+          id,
           name: c.name || 'Kelas',
           grade: Number(c.grade) || 5,
           academicYear: c.academicYear || '2026/2027',
@@ -835,10 +1396,12 @@ export async function syncClassesWithGAS(): Promise<ClassRoom[]> {
           avgProgress: Number(c.avgProgress) || 0,
           avgScore: Number(c.avgScore) || 0,
           lastActivity: c.lastActivity || '',
-        };
+        });
       });
-      localStorage.setItem('prima_classes', JSON.stringify(cleanList));
-      return cleanList;
+
+      const finalClasses = Array.from(map.values()).filter((c) => !isRecordDeleted('classes', c.id));
+      localStorage.setItem('prima_classes', JSON.stringify(finalClasses));
+      return finalClasses;
     }
   } catch (e) {}
   return getStoredClasses();
@@ -850,7 +1413,9 @@ export function getStoredAnnouncements(): Announcement[] {
     const data = localStorage.getItem('prima_announcements');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((a) => a && a.id && !isRecordDeleted('announcements', a.id));
+      }
     }
   } catch (e) {}
   return [];
@@ -858,29 +1423,76 @@ export function getStoredAnnouncements(): Announcement[] {
 
 export function saveAnnouncements(announcements: Announcement[]): void {
   try {
-    localStorage.setItem('prima_announcements', JSON.stringify(announcements));
-    announcements.forEach((anc) => {
+    const cleanList = announcements.filter((a) => a && a.id && !isRecordDeleted('announcements', a.id));
+    localStorage.setItem('prima_announcements', JSON.stringify(cleanList));
+
+    // Persist to Server JSON Database (/api/announcements)
+    fetch('/api/announcements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ announcements: cleanList }),
+    }).catch(() => {});
+
+    cleanList.forEach((anc) => {
+      unmarkRecordDeletedClient('announcements', anc.id);
       createRemoteAnnouncement(anc).catch(() => {});
     });
   } catch (e) {}
 }
 
+export function deleteAnnouncement(id: string): void {
+  markRecordDeletedClient('announcements', id);
+  const current = getStoredAnnouncements();
+  const filtered = current.filter((a) => a.id !== id);
+  localStorage.setItem('prima_announcements', JSON.stringify(filtered));
+
+  fetch(`/api/announcements/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+  deleteRemoteAnnouncement({ id }).catch(() => {});
+}
+
 export async function syncAnnouncementsWithGAS(): Promise<Announcement[]> {
   try {
+    await syncDeletedRecordsWithServer().catch(() => {});
+
+    const map = new Map<string, Announcement>();
+    getStoredAnnouncements().forEach((a) => {
+      if (a && a.id && !isRecordDeleted('announcements', a.id)) map.set(a.id, a);
+    });
+
+    try {
+      const sRes = await fetch('/api/announcements');
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        if (sData.success && Array.isArray(sData.announcements)) {
+          sData.announcements.forEach((sa: any) => {
+            if (sa && sa.id && !isRecordDeleted('announcements', sa.id)) {
+              map.set(sa.id, sa);
+            }
+          });
+        }
+      }
+    } catch {}
+
     const remote = await getRemoteAnnouncements();
     if (remote && Array.isArray(remote)) {
-      const valid = remote.filter((a: any) => a && (a.id || a.title));
-      const cleanList: Announcement[] = valid.map((a: any) => ({
-        id: a.id || `anc-${Date.now()}`,
-        title: a.title || 'Pengumuman',
-        content: a.content || '',
-        targetClass: a.targetClass || 'SEMUA',
-        createdAt: a.createdAt || new Date().toISOString(),
-        authorName: a.authorName || 'Pengajar',
-        status: a.status || 'TERBIT',
-      }));
-      localStorage.setItem('prima_announcements', JSON.stringify(cleanList));
-      return cleanList;
+      const valid = remote.filter((a: any) => a && (a.id || a.title) && !isRecordDeleted('announcements', a.id));
+      valid.forEach((a: any) => {
+        const id = a.id || `anc-${Date.now()}`;
+        if (isRecordDeleted('announcements', id)) return;
+        map.set(id, {
+          id,
+          title: a.title || 'Pengumuman',
+          content: a.content || '',
+          targetClass: a.targetClass || 'SEMUA',
+          createdAt: a.createdAt || new Date().toISOString(),
+          authorName: a.authorName || 'Pengajar',
+          status: a.status || 'TERBIT',
+        });
+      });
+
+      const finalAnnouncements = Array.from(map.values()).filter((a) => !isRecordDeleted('announcements', a.id));
+      localStorage.setItem('prima_announcements', JSON.stringify(finalAnnouncements));
+      return finalAnnouncements;
     }
   } catch (e) {}
   return getStoredAnnouncements();
@@ -934,7 +1546,9 @@ export function getStoredAiConfigs(): AITutorConfig[] {
     const data = localStorage.getItem('prima_ai_configs');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((c) => c && c.id && !isRecordDeleted('ai_configs', c.id));
+      }
     }
   } catch (e) {}
   return [];
@@ -942,25 +1556,68 @@ export function getStoredAiConfigs(): AITutorConfig[] {
 
 export function saveAiConfigs(configs: AITutorConfig[]): void {
   try {
-    localStorage.setItem('prima_ai_configs', JSON.stringify(configs));
-    configs.forEach((cfg) => {
+    const cleanList = configs.filter((c) => c && c.id && !isRecordDeleted('ai_configs', c.id));
+    localStorage.setItem('prima_ai_configs', JSON.stringify(cleanList));
+
+    // Persist to Server JSON Database (/api/ai-configs)
+    fetch('/api/ai-configs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ configs: cleanList }),
+    }).catch(() => {});
+
+    cleanList.forEach((cfg) => {
+      unmarkRecordDeletedClient('ai_configs', cfg.id);
       createRemoteAITutorConfig(cfg).catch(() => {});
     });
   } catch (e) {}
 }
 
+export function deleteAiConfig(id: string): void {
+  markRecordDeletedClient('ai_configs', id);
+  const current = getStoredAiConfigs();
+  const filtered = current.filter((c) => c.id !== id);
+  localStorage.setItem('prima_ai_configs', JSON.stringify(filtered));
+
+  fetch(`/api/ai-configs/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+  deleteRemoteAITutorConfig({ id }).catch(() => {});
+}
+
 export async function syncAiConfigsWithGAS(): Promise<AITutorConfig[]> {
   try {
+    await syncDeletedRecordsWithServer().catch(() => {});
+
+    const map = new Map<string, AITutorConfig>();
+    getStoredAiConfigs().forEach((c) => {
+      if (c && c.id && !isRecordDeleted('ai_configs', c.id)) map.set(c.id, c);
+    });
+
+    try {
+      const sRes = await fetch('/api/ai-configs');
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        if (sData.success && Array.isArray(sData.configs)) {
+          sData.configs.forEach((sc: any) => {
+            if (sc && sc.id && !isRecordDeleted('ai_configs', sc.id)) {
+              map.set(sc.id, sc);
+            }
+          });
+        }
+      }
+    } catch {}
+
     const remote = await getRemoteAITutorConfigs();
     if (remote && Array.isArray(remote)) {
-      const valid = remote.filter((c: any) => c && (c.id || c.tutorName));
-      const cleanList: AITutorConfig[] = valid.map((c: any) => {
+      const valid = remote.filter((c: any) => c && (c.id || c.tutorName) && !isRecordDeleted('ai_configs', c.id));
+      valid.forEach((c: any) => {
+        const id = c.id || `aic-${Date.now()}`;
+        if (isRecordDeleted('ai_configs', id)) return;
         let starterPrompts = c.starterPrompts;
         if (typeof starterPrompts === 'string') {
           try { starterPrompts = JSON.parse(starterPrompts); } catch (e) { starterPrompts = []; }
         }
-        return {
-          id: c.id || `aic-${Date.now()}`,
+        map.set(id, {
+          id,
           subjectId: c.subjectId || 'ipas',
           topicTitle: c.topicTitle || 'Materi',
           tutorName: c.tutorName || 'PRIMA AI Tutor',
@@ -969,10 +1626,12 @@ export async function syncAiConfigsWithGAS(): Promise<AITutorConfig[]> {
           rulesAndScaffolding: c.rulesAndScaffolding || '',
           starterPrompts: Array.isArray(starterPrompts) ? starterPrompts : [],
           maxTokensLimit: Number(c.maxTokensLimit) || 1000,
-        };
+        });
       });
-      localStorage.setItem('prima_ai_configs', JSON.stringify(cleanList));
-      return cleanList;
+
+      const finalConfigs = Array.from(map.values()).filter((c) => !isRecordDeleted('ai_configs', c.id));
+      localStorage.setItem('prima_ai_configs', JSON.stringify(finalConfigs));
+      return finalConfigs;
     }
   } catch (e) {}
   return getStoredAiConfigs();
